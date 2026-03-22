@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { connectDB } from "@/lib/mongoose";
+import Invoice from "@/models/Invoice";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    await connectDB();
+    const { id } = await params;
+    const invoice = await Invoice.findById(id).lean();
+    if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    return NextResponse.json({ success: true, data: invoice });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: "Failed to fetch invoice" }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    await connectDB();
+    const { id } = await params;
+    const body = await req.json();
+    const invoice = await Invoice.findById(id);
+    if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+
+    Object.assign(invoice, body);
+    await invoice.save();
+    return NextResponse.json({ success: true, data: invoice });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    await connectDB();
+    const { id } = await params;
+    await Invoice.findByIdAndDelete(id);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
+  }
+}

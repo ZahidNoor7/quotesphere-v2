@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { connectDB } from "@/lib/mongoose";
+import Quotation from "@/models/Quotation";
+import Invoice from "@/models/Invoice";
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+
+    await connectDB();
+    const { id } = await params;
+    const { selectedItemIds, issue_date, due_date, payment_mode, currency, project_id, remarks } = await req.json();
+
+    const quotation = await Quotation.findById(id);
+    if (!quotation) return NextResponse.json({ success: false, error: "Quotation not found" }, { status: 404 });
+    if (quotation.status === "invoiced") return NextResponse.json({ success: false, error: "Already converted" }, { status: 400 });
+
+    // Filter items if partial conversion
+    const items = selectedItemIds?.length
+      ? quotation.items.filter((item: any) => selectedItemIds.includes(item.id))
+      : quotation.items;
+
+    const sub_total = items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
+    const taxAmt = quotation.tax_type === "percentage" ? (sub_total * quotation.tax) / 100 : quotation.tax;
+    const total_amount = sub_total + taxAmt + (quotation.delivery_charges || 0) - (quotation.discount || 0);
+
+    const invoice = new Invoice({
+      issue_date: issue_date ? new Date(issue_date) : new Date(),
+      due_date: due_date ? new Date(due_date) : undefined,
+      status: "issued",
+      payment_mode: payment_mode || "cash",
+      items,
+      sub_total,
+      tax: quotation.tax,
+      tax_type: quotation.tax_type,
+      discount: quotation.discount || 0,
+      delivery_charges: quotation.delivery_charges || 0,
+      total_amount,
+      advance: 0,
+      balance: total_amount,
+      outstanding: total_amount,
+      total_paid: 0,
+      currency: currency || quotation.currency,
+      remarks: remarks || `Converted from ${quotation.quotation_no}`,
+      customer_id: quotation.customer_id,
+      customer_name: quotation.customer_name,
+      customer_phone: quotation.customer_phone,
+      customer_address: quotation.customer_address,
+      project_id: project_id || quotation.project_id,
+      converted_from: quotation._id,
+    });
+
+    await invoice.save();
+
+    // Mark quotation as invoiced
+    quotation.status = "invoiced";
+    quotation.converted_to = invoice._id as any;
+    await quotation.save();
+
+    return NextResponse.json({ success: true, data: { invoice, quotation } });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message || "Conversion failed" }, { status: 500 });
+  }
+}
