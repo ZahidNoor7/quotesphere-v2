@@ -41,12 +41,14 @@ export async function POST(req: NextRequest) {
 
     const newDesign = { id: crypto.randomUUID().slice(0, 10), name, type, isDefault: false, config };
 
-    // If this should be default, unset all other defaults for this type first
+    // If this should be default, clear existing defaults first.
+    // "documentDesigns.0" guard prevents the "path must exist" error when
+    // the array is missing or empty (new user, first custom design).
     if (isDefault) {
-      await Settings.findOneAndUpdate(
-        { user_id: userId },
+      await Settings.updateOne(
+        { user_id: userId, "documentDesigns.0": { $exists: true } },
         { $set: { "documentDesigns.$[elem].isDefault": false } },
-        { arrayFilters: [{ "elem.type": { $in: [type, "all"] } }], upsert: true }
+        { arrayFilters: [{ "elem.type": { $in: [type, "all"] } }] }
       );
       newDesign.isDefault = true;
     }

@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+@config "../tailwind.config.ts";
 
 /* ══════════════════════════════════════════════
    QUOTESPHERE DESIGN TOKENS
@@ -303,9 +304,66 @@
     box-shadow: 0 1px 6px var(--accent-glow);
   }
 
+  /* ── Table row hover (replaces onMouseEnter/Leave JS manipulation) ── */
+  .table-row-hover td { transition: background 0.1s; }
+  .table-row-hover:hover td { background: rgba(255,255,255,0.03) !important; }
+
+  /* ── Icon action pill buttons ── */
+  .icon-action { transition: background 0.15s, color 0.15s, border-color 0.15s; }
+  .icon-action:hover { background: var(--glass-hover) !important; color: var(--t1) !important; }
+  .icon-action-danger:hover {
+    background: rgba(248,113,113,0.15) !important;
+    color: #f87171 !important;
+    border-color: rgba(248,113,113,0.3) !important;
+  }
+
+  /* ── Skeleton shimmer ── */
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.10) 40%, rgba(255,255,255,0.05) 80%);
+    background-size: 300% 100%;
+    animation: qs-shimmer 1.8s ease-in-out infinite;
+  }
+  @keyframes qs-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: -100% 50%; }
+  }
+
   /* ── Animations ── */
   .animate-fade-in { animation: qs-fade 0.25s ease-out; }
   .animate-slide-up { animation: qs-slide 0.3s ease-out; }
   @keyframes qs-fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes qs-slide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+}
+
+:root {
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }

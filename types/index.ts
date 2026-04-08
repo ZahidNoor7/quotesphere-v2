@@ -2,7 +2,7 @@ export type Currency = "PKR" | "USD" | "EUR" | "GBP" | "AED" | "SAR";
 export type PaymentMethod = "cash" | "bank_transfer" | "card" | "online" | "cheque";
 export type PaymentStatus = "pending" | "partial" | "complete";
 export type InvoiceStatus = "draft" | "issued" | "cancelled";
-export type QuotationStatus = "pending" | "approved" | "rejected" | "cancelled" | "invoiced" | "expired";
+export type QuotationStatus = "draft" | "pending" | "approved" | "rejected" | "cancelled" | "invoiced" | "expired";
 export type ExpenseStatus = "draft" | "recorded" | "verified" | "cancelled";
 export type ProjectStatus = "pending" | "in_progress" | "on_hold" | "cancelled" | "complete";
 export type UserRole = "admin" | "manager" | "staff" | "viewer";
@@ -199,6 +199,24 @@ export interface DocumentDesignConfig {
   showTax?: boolean; showDiscount?: boolean; showTerms?: boolean;
   footerText?: string; watermark?: string;
   marginTop?: number; marginRight?: number; marginBottom?: number; marginLeft?: number;
+  // Header
+  headerEnabled?: boolean;
+  headerVisibility?: "all" | "first" | "last" | "first-last";
+  headerTextColor?: string;
+  logoUrl?: string;
+  // Footer
+  footerEnabled?: boolean;
+  showPageNumber?: boolean;
+  footerBg?: string;
+  footerTextColor?: string;
+  // Page
+  pageSize?: "A4" | "A5" | "Letter" | "Legal";
+  pageOrientation?: "portrait" | "landscape";
+  // Content
+  termsPosition?: "start" | "end" | "every" | "first-last" | "start-every" | "end-every";
+  termsFormat?: "paragraph" | "bullet" | "numbered";
+  termsText?: string;
+  contentGap?: number;
 }
 
 export interface DocumentDesign {

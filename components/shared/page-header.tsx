@@ -1,8 +1,11 @@
 import { cn } from "@/lib/utils";
+// Use CSS variables from lib/ds so PageHeader / StatCard respond to all 9 themes.
+// Previously used hardcoded rgba() which was always dark-mode regardless of theme.
+import { TOPBAR_STYLE } from "@/lib/ds";
 
-const T1 = "#eef0ff";
-const T2 = "rgba(210,216,255,0.72)";
-const T3 = "rgba(160,170,255,0.42)";
+const T1 = "var(--t1)";
+const T2 = "var(--t2)";
+const T3 = "var(--t3)";
 
 export function PageContent({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -22,16 +25,7 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-      gap: 12, padding: "12px 20px",
-      backdropFilter: "blur(24px) saturate(160%)",
-      WebkitBackdropFilter: "blur(24px) saturate(160%)",
-      background: "rgba(10,15,30,0.5)",
-      borderBottom: "0.5px solid rgba(255,255,255,0.08)",
-      flexWrap: "wrap",
-      flexShrink: 0,
-    }}>
+    <div style={{ ...TOPBAR_STYLE, alignItems: "flex-start", justifyContent: "space-between" }}>
       <div>
         <div style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>{title}</div>
         {description && <div style={{ fontSize: 12, color: T3, marginTop: 2 }}>{description}</div>}

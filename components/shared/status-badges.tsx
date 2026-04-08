@@ -23,6 +23,7 @@ export function PaymentStatusBadge({ status }: { status: string }) {
 
 export function QuotationStatusBadge({ status }: { status: string }) {
   const map: Record<string, { variant: any; label: string }> = {
+    draft:    { variant: "muted",   label: "Draft" },
     pending:  { variant: "warning", label: "Pending" },
     approved: { variant: "success", label: "Approved" },
     rejected: { variant: "destructive", label: "Rejected" },

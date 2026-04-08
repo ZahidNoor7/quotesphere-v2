@@ -26,7 +26,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, style: styleProp, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -40,6 +40,7 @@ export const DialogContent = React.forwardRef<
         borderRadius: 16, padding: "20px 24px",
         boxShadow: "0 20px 80px rgba(0,0,0,0.5)",
         display: "flex", flexDirection: "column",
+        ...styleProp,
       }}
       className={cn("data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95", className)}
       {...props}
@@ -119,7 +120,7 @@ export function AlertDialogAction({ className, children, onClick, ...props }: Re
   return (
     <button onClick={onClick}
       style={{
-        padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "none",
+        padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer",
         background: "rgba(248,113,113,0.15)", color: "#f87171", border: "0.5px solid rgba(248,113,113,0.3)",
         transition: "all 0.15s",
       } as any}

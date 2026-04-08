@@ -4,16 +4,21 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
+import { FileText, Download, MessageCircle, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { DatePickerInput } from "@/components/ui/date-picker";
 import { PaymentStatusBadge, InvoiceStatusBadge } from "@/components/shared/status-badges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, FIELD_INPUT, CARD, ICON_PILL } from "@/lib/ds";
+import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import type { Invoice, PaymentMethod, PaymentEntry } from "@/types";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
@@ -30,14 +35,138 @@ export default function InvoiceDetailPage() {
   const { data: invoice, mutate, isLoading } = useSWR<Invoice>(`/api/invoices/${id}`, fetcher);
   const { settings } = useSettings();
   const [showPayment, setShowPayment] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState<PaymentEntry | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const isMobile = useIsMobile();
+  const userDesigns = settings?.documentDesigns ?? [];
+  const invoiceDesignId = invoice?.designId ?? settings?.lastUsed?.invoiceDesignId;
+  const invoiceDesign = invoiceDesignId
+    ? getDesignById(invoiceDesignId, userDesigns)
+    : getDefaultDesign("invoice", userDesigns);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0,10), amount: "", method: "cash" as PaymentMethod, reference: "", note: "" });
 
   if (isLoading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300 }}>
-      <div style={{ width: 28, height: 28, border: "2px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <style>{`
+        @keyframes shimmer { from { background-position: -600px 0 } to { background-position: 600px 0 } }
+        .sk { border-radius: 5px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; }
+      `}</style>
+      {/* Topbar skeleton */}
+      <div style={{ ...TOPBAR_STYLE }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+          <div className="sk" style={{ width: 76, height: 26, borderRadius: 100 }} />
+          <div className="sk" style={{ width: 110, height: 18 }} />
+          <div className="sk" style={{ width: 56, height: 20, borderRadius: 100 }} />
+          <div className="sk" style={{ width: 64, height: 20, borderRadius: 100 }} />
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <div className="sk" style={{ width: 64, height: 30, borderRadius: 7 }} />
+          <div className="sk" style={{ width: 56, height: 30, borderRadius: 7 }} />
+          <div className="sk" style={{ width: 130, height: 30, borderRadius: 7 }} />
+        </div>
+      </div>
+      {/* Body skeleton */}
+      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px" }}>
+        {/* Left */}
+        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Collection progress card */}
+          <div style={{ ...CARD, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div className="sk" style={{ width: 120, height: 12 }} />
+              <div className="sk" style={{ width: 32, height: 12 }} />
+            </div>
+            <div className="sk" style={{ width: "100%", height: 4, borderRadius: 4, marginBottom: 16 }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", textAlign: "center", gap: 8 }}>
+              {[90, 80, 100].map((w, i) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div className="sk" style={{ width: 70, height: 10 }} />
+                  <div className="sk" style={{ width: w, height: 20 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Line items card */}
+          <div style={CARD}>
+            <div style={{ padding: "12px 16px 10px" }}>
+              <div className="sk" style={{ width: 72, height: 14 }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "7px 12px", background: "rgba(255,255,255,0.025)" }}>
+              {[140, 40, 50, 50].map((w, i) => <div key={i} className="sk" style={{ width: w, height: 10, justifySelf: i === 0 ? "start" : "end" }} />)}
+            </div>
+            {[70, 50, 85, 60].map((w, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", alignItems: "center" }}>
+                <div className="sk" style={{ width: w + "%", height: 12 }} />
+                <div className="sk" style={{ width: 28, height: 12, justifySelf: "end" }} />
+                <div className="sk" style={{ width: 52, height: 12, justifySelf: "end" }} />
+                <div className="sk" style={{ width: 60, height: 12, justifySelf: "end" }} />
+              </div>
+            ))}
+            <div style={{ padding: "10px 16px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[60, 44].map((w, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div className="sk" style={{ width: 50, height: 11 }} />
+                  <div className="sk" style={{ width: w, height: 11 }} />
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: `0.5px solid ${GLASS_BORDER}`, paddingTop: 8, marginTop: 2 }}>
+                <div className="sk" style={{ width: 36, height: 14 }} />
+                <div className="sk" style={{ width: 80, height: 14 }} />
+              </div>
+            </div>
+          </div>
+          {/* Payment ledger card */}
+          <div style={CARD}>
+            <div style={{ padding: "12px 16px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="sk" style={{ width: 110, height: 14 }} />
+              <div className="sk" style={{ width: 68, height: 20, borderRadius: 100 }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "7px 12px", background: "rgba(255,255,255,0.025)" }}>
+              {[50, 70, 50, 50, 0].map((w, i) => w ? <div key={i} className="sk" style={{ width: w, height: 10 }} /> : <span key={i} />)}
+            </div>
+            {[1, 2].map(i => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", alignItems: "center" }}>
+                <div className="sk" style={{ width: 60, height: 11 }} />
+                <div className="sk" style={{ width: "60%", height: 11 }} />
+                <div className="sk" style={{ width: 56, height: 18, borderRadius: 100 }} />
+                <div className="sk" style={{ width: 64, height: 12, justifySelf: "end" }} />
+                <div className="sk" style={{ width: 32, height: 22, borderRadius: 6 }} />
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Right panel */}
+        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", display: isMobile ? "none" : "flex", flexDirection: "column", gap: 12 }}>
+          {/* Client card */}
+          <div style={{ ...CARD, padding: "14px 15px" }}>
+            <div className="sk" style={{ width: 44, height: 10, marginBottom: 12 }} />
+            <div className="sk" style={{ width: "80%", height: 14, marginBottom: 8 }} />
+            <div className="sk" style={{ width: "55%", height: 11, marginBottom: 6 }} />
+            <div className="sk" style={{ width: "70%", height: 10, marginBottom: 12 }} />
+            <div className="sk" style={{ width: 100, height: 12 }} />
+          </div>
+          {/* Details card */}
+          <div style={{ ...CARD, padding: "14px 15px" }}>
+            <div className="sk" style={{ width: 50, height: 10, marginBottom: 12 }} />
+            {[70, 70, 80, 30].map((w, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: 9 }}>
+                <div className="sk" style={{ width: 65, height: 11 }} />
+                <div className="sk" style={{ width: w, height: 11 }} />
+              </div>
+            ))}
+          </div>
+          {/* Actions card */}
+          <div style={{ ...CARD, padding: "14px 15px" }}>
+            <div className="sk" style={{ width: 52, height: 10, marginBottom: 12 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              <div className="sk" style={{ width: "100%", height: 34, borderRadius: 8 }} />
+              <div className="sk" style={{ width: "100%", height: 34, borderRadius: 8 }} />
+              <div className="sk" style={{ width: "100%", height: 34, borderRadius: 8 }} />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
   if (!invoice) return <div style={{ padding: 24, color: T3 }}>Invoice not found.</div>;
@@ -71,8 +200,8 @@ export default function InvoiceDetailPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Topbar */}
-      <div style={TOPBAR_STYLE}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+      <div style={{ ...TOPBAR_STYLE, flexWrap: "wrap" as const }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" as const }}>
           <Link href="/invoices" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, cursor: "pointer", textDecoration: "none" }}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M8 2L4 6l4 4"/></svg>
             Invoices
@@ -80,18 +209,31 @@ export default function InvoiceDetailPage() {
           <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{invoice.invoice_no}</div>
           <InvoiceStatusBadge status={invoice.status} />
           <PaymentStatusBadge status={invoice.payment_status} />
+          {invoice.converted_from && (
+            <Link
+              href={`/quotations/${invoice.converted_from}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 100, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", textDecoration: "none", flexShrink: 0 }}
+            >
+              <span style={{ fontSize: 10.5, color: "var(--t3)", fontWeight: 400 }}>Quotation</span>
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#818cf8" strokeWidth="1.8"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+              <span style={{ fontSize: 10.5, color: "#818cf8", fontWeight: 500 }}>Invoiced</span>
+            </Link>
+          )}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
+          <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(true)} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <FileText size={13} /> PDF
+          </Button>
           <Button asChild variant="outline" size="sm"><Link href={`/invoices/${id}/edit`}>Edit</Link></Button>
           {invoice.payment_status !== "complete" && (
-            <Button size="sm" onClick={() => setShowPayment(true)}>+ Record payment</Button>
+            <Button size="sm" onClick={() => setShowPayment(true)}>{isMobile ? "+ Record" : "+ Record payment"}</Button>
           )}
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 300px", gap: 0 }}>
+      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px", gap: 0 }}>
         {/* Left: main content */}
-        <div style={{ overflowY: "auto", padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
 
           {/* Collection progress */}
           <div style={{ ...CARD, padding: "16px 18px" }}>
@@ -119,7 +261,7 @@ export default function InvoiceDetailPage() {
           {/* Line items */}
           <div style={CARD}>
             <div style={{ padding: "12px 16px 8px", fontSize: 12, fontWeight: 500, color: T1 }}>Line items</div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 360 }}>
               <thead>
                 <tr style={{ background: "rgba(255,255,255,0.03)" }}>
                   {["Description", "Qty", "Rate", "Total"].map(h => (
@@ -137,7 +279,7 @@ export default function InvoiceDetailPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
             <div style={{ padding: "10px 16px 12px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: T2 }}><span>Subtotal</span><span>{formatCurrency(invoice.sub_total, invoice.currency)}</span></div>
               {invoice.tax > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: T2 }}><span>Tax</span><span>{formatCurrency(invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax, invoice.currency)}</span></div>}
@@ -166,7 +308,7 @@ export default function InvoiceDetailPage() {
               </div>
             ) : (
               <>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
                   <thead>
                     <tr style={{ background: "rgba(255,255,255,0.03)" }}>
                       {["Date", "Description / Ref", "Method", "Amount", ""].map(h => (
@@ -217,7 +359,7 @@ export default function InvoiceDetailPage() {
                       </td>
                     </tr>
                   </tfoot>
-                </table>
+                </table></div>
               </>
             )}
           </div>
@@ -231,7 +373,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Right: info panel */}
-        <div style={{ borderLeft: `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, borderTop: isMobile ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Client */}
           <div style={{ ...CARD, padding: "14px 15px" }}>
             <div style={{ fontSize: 11, fontWeight: 500, color: T3, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Client</div>
@@ -273,6 +415,9 @@ export default function InvoiceDetailPage() {
                   + Record payment
                 </button>
               )}
+              <button onClick={() => setShowPdfPreview(true)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", height: 34, borderRadius: 8, fontSize: 12, color: T2, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, cursor: "pointer" }}>
+                <FileText size={12} /> Preview PDF
+              </button>
               <Link href={`/invoices/${id}/edit`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", height: 34, borderRadius: 8, fontSize: 12, color: T2, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, textDecoration: "none" }}>
                 Edit invoice
               </Link>
@@ -293,8 +438,8 @@ export default function InvoiceDetailPage() {
             <div>
               <label style={lbl}>Amount received *</label>
               <div style={{ position: "relative" }}>
-                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: T3, fontWeight: 500 }}>{invoice.currency}</span>
-                <input type="number" step="0.01" min="0.01" max={invoice.outstanding} value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} style={{ ...FIELD_INPUT, paddingLeft: 44, fontSize: 16, fontWeight: 600 }} placeholder="0.00" />
+                <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 12, color: T3, fontWeight: 500, zIndex: 1 }}>{invoice.currency}</span>
+                <Input type="number" step="0.01" min="0.01" max={invoice.outstanding} value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} className="pl-11 text-base font-semibold h-10" placeholder="0.00" />
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 {[[String(invoice.outstanding / 2), `Half (${formatCurrency(invoice.outstanding / 2, invoice.currency)})`], [String(invoice.outstanding), `Full (${formatCurrency(invoice.outstanding, invoice.currency)})`]].map(([val, lbl]) => (
@@ -303,16 +448,30 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div><label style={lbl}>Date *</label><input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} style={FIELD_INPUT} /></div>
+              <div>
+                <label style={lbl}>Date *</label>
+                <DatePickerInput value={form.date} onChange={d => setForm(p => ({ ...p, date: d }))} />
+              </div>
               <div>
                 <label style={lbl}>Method *</label>
-                <select value={form.method} onChange={e => setForm(p => ({ ...p, method: e.target.value as PaymentMethod }))} style={{ ...FIELD_INPUT, cursor: "pointer" }}>
-                  {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
+                <Select value={form.method} onValueChange={v => setForm(p => ({ ...p, method: v as PaymentMethod }))}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <div><label style={lbl}>Reference / transaction number</label><input value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))} placeholder="Bank ref, cheque #..." style={FIELD_INPUT} /></div>
-            <div><label style={lbl}>Note</label><input value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="e.g. Final payment for office renovation" style={FIELD_INPUT} /></div>
+            <div>
+              <label style={lbl}>Reference / transaction number</label>
+              <Input value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))} placeholder="Bank ref, cheque #..." className="h-8 text-xs" />
+            </div>
+            <div>
+              <label style={lbl}>Note</label>
+              <Input value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} placeholder="e.g. Final payment for office renovation" className="h-8 text-xs" />
+            </div>
 
             {/* Live preview */}
             <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(99,102,241,0.07)", border: "0.5px solid rgba(99,102,241,0.2)", display: "flex", flexDirection: "column", gap: 5 }}>
@@ -340,6 +499,93 @@ export default function InvoiceDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Invoice PDF Preview Modal */}
+      <Dialog open={showPdfPreview} onOpenChange={setShowPdfPreview}>
+        <DialogContent style={{ maxWidth: 700, padding: 0, overflow: "hidden" }}>
+          <DialogHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
+            <DialogTitle>Invoice Preview</DialogTitle>
+            <DialogDescription>{invoice.invoice_no} · {invoice.customer_name}</DialogDescription>
+          </DialogHeader>
+          <div style={{ padding: "16px 18px", overflowY: "auto", maxHeight: "62vh" }}>
+            <div id="invoice-print-area">
+              <DocumentRenderer
+                design={invoiceDesign}
+                width={580}
+                data={{
+                  type: "invoice",
+                  docNo: invoice.invoice_no,
+                  issueDate: invoice.issue_date,
+                  dueDate: invoice.due_date,
+                  customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
+                  items: invoice.items,
+                  subTotal: invoice.sub_total,
+                  taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
+                  taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
+                  discount: invoice.discount,
+                  delivery: invoice.delivery_charges,
+                  total: invoice.total_amount,
+                  advance: invoice.advance,
+                  outstanding: invoice.outstanding,
+                  currency: invoice.currency,
+                  remarks: invoice.remarks,
+                  companyName: settings?.company_name ?? "Your Company",
+                  companyEmail: settings?.company_email,
+                  companyPhone: settings?.company_phone,
+                  companyAddress: settings?.company_address,
+                  termsText: settings?.terms_and_conditions,
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ display: "flex", alignItems: "center", gap: 5, color: "#25D366", borderColor: "rgba(37,211,102,0.3)", background: "rgba(37,211,102,0.06)" }}
+                onClick={() => {
+                  const phone = invoice.customer_phone?.replace(/\D/g, "") ?? "";
+                  const msg = encodeURIComponent(`Hello ${invoice.customer_name},\n\nYour invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)} is ready.\n\nPlease let us know if you have any questions.`);
+                  window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
+                }}
+              >
+                <MessageCircle size={13} /> WhatsApp
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ display: "flex", alignItems: "center", gap: 5 }}
+                onClick={() => {
+                  const subject = encodeURIComponent(`Invoice ${invoice.invoice_no}`);
+                  const body = encodeURIComponent(`Hello ${invoice.customer_name},\n\nPlease find your invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)}.\n\nThank you for your business!`);
+                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                }}
+              >
+                <Mail size={13} /> Email
+              </Button>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(false)}>Close</Button>
+              <Button
+                size="sm"
+                style={{ display: "flex", alignItems: "center", gap: 5 }}
+                onClick={() => {
+                  const printWin = window.open("", "_blank", "width=820,height=1060");
+                  if (!printWin) return;
+                  const el = document.getElementById("invoice-print-area");
+                  printWin.document.write(`<html><head><title>${invoice.invoice_no}</title><style>@page{margin:0;size:A4}@media print{body{margin:0}}body{margin:0}</style></head><body>${el?.innerHTML ?? ""}</body></html>`);
+                  printWin.document.close();
+                  printWin.focus();
+                  setTimeout(() => { printWin.print(); printWin.close(); }, 400);
+                }}
+              >
+                <Download size={13} /> Download PDF
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Receipt Preview Modal */}
       {receiptPayment && invoice && (
         <Dialog open={!!receiptPayment} onOpenChange={() => setReceiptPayment(null)}>
@@ -373,7 +619,6 @@ export default function InvoiceDetailPage() {
         </Dialog>
       )}
 
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

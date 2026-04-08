@@ -1,4 +1,5 @@
 "use client";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { resolveConfig } from "@/lib/document-designs";
 import type { DocumentDesign } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -9,7 +10,7 @@ export interface DocumentData {
   issueDate?: string;
   dueDate?: string;
   customer?: { name?: string; phone?: string; address?: string; company?: string };
-  items?: Array<{ name: string; quantity: number; price: number }>;
+  items?: Array<{ name: string; quantity: number; price: number; images?: string[] }>;
   subTotal?: number;
   taxAmt?: number;
   taxLabel?: string;
@@ -39,8 +40,12 @@ export interface DocumentData {
 interface Props {
   design: DocumentDesign;
   data: DocumentData;
-  /** Width of the rendered document in px. Default: 595 (A4). */
+  /** Display width in px. Default: 595 (A4 natural). */
   width?: number;
+  /** Natural page height in pt for page-break calculation. Default: 842 (A4). */
+  pageHeight?: number;
+  /** Show visual page-break dividers in the preview. Default: false. */
+  showPageBreaks?: boolean;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -49,62 +54,255 @@ const TYPE_LABELS: Record<string, string> = {
   receipt: "RECEIPT",
 };
 
-export function DocumentRenderer({ design, data, width = 595 }: Props) {
+export function DocumentRenderer({ design, data, width = 595, pageHeight = 842, showPageBreaks = false }: Props) {
+  const [naturalH, setNaturalH] = useState(data.type === "receipt" ? 420 : 1100);
+
+  // Callback ref fires whenever the measured element mounts, unmounts, or is
+  // swapped (e.g. when showPageBreaks toggles and the ref switches between the
+  // multi-page window and the single-scroll wrapper). Using useState+useCallback
+  // instead of useRef lets us put measureEl in effect dependency arrays so the
+  // effects re-run automatically when the element changes.
+  const [measureEl, setMeasureEl] = useState<HTMLDivElement | null>(null);
+  const measureRef = useCallback((el: HTMLDivElement | null) => setMeasureEl(el), []);
+
+  // Synchronous initial measurement so numPages is correct before first paint.
+  // Runs whenever the measured element is swapped — no [] stale-element bug.
+  useLayoutEffect(() => {
+    if (measureEl) setNaturalH(measureEl.offsetHeight);
+  }, [measureEl]);
+
+  // Track all subsequent height changes (items added, config changes, etc.).
+  // ResizeObserver fires asynchronously — cannot cause infinite update loop.
+  // Re-attaches when the measured element is swapped.
+  useEffect(() => {
+    if (!measureEl) return;
+    const ro = new ResizeObserver(() => setNaturalH(measureEl.offsetHeight));
+    ro.observe(measureEl);
+    return () => ro.disconnect();
+  }, [measureEl]);
+
   const cfg = resolveConfig(design);
   const preset = cfg.preset ?? "modern-gradient";
   const currency = data.currency ?? "PKR";
   const fmt = (n?: number) => formatCurrency(n ?? 0, currency);
   const fmtDate = (d?: string) => d ? formatDate(new Date(d)) : "—";
-
   const typeLabel = TYPE_LABELS[data.type] ?? "DOCUMENT";
   const docNo = data.docNo ?? "—";
   const companyName = data.companyName ?? "Your Company";
-
   const scale = width / 595;
-  const naturalHeight = data.type === "receipt" ? 420 : 800;
+  const templateProps: TemplateProps = { cfg, data, typeLabel, docNo, companyName, fmt, fmtDate };
 
+  // Returns template JSX for a given page. Call with different pageIndex for each page window.
+  const renderTemplate = (pageIndex = 0, totalPages = 1) => (
+    <>
+      {preset === "classic-corporate" && <ClassicDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {preset === "modern-gradient" && <ModernGradientDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {preset === "minimal-clean" && <MinimalDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {preset === "executive-dark" && <ExecutiveDarkDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {preset === "bold-accent" && <BoldAccentDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {preset === "retro-serif" && <RetroSerifDoc {...templateProps} pageIndex={pageIndex} totalPages={totalPages} />}
+      {cfg.watermark && (
+        <div style={{
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%,-50%) rotate(-35deg)",
+          fontSize: 72, fontWeight: 800, opacity: 0.06,
+          color: "#000", pointerEvents: "none", whiteSpace: "nowrap",
+          zIndex: 10, userSelect: "none",
+        }}>{cfg.watermark}</div>
+      )}
+    </>
+  );
+
+  const scaledPageH = Math.round(pageHeight * scale);
+  const numPages = showPageBreaks ? Math.max(1, Math.ceil(naturalH / pageHeight)) : 1;
+
+  // ── Multi-page view ──────────────────────────────────────────────────────────
+  //
+  // HOW IT WORKS:
+  // We create N "viewport" windows, each with overflow:hidden and height = one
+  // page. Each window holds a full copy of the document, shifted upward so that
+  // the correct vertical slice is visible through the clipping window.
+  //
+  // Window 0: document shifted 0px            → shows document rows 0 … pageH
+  // Window 1: document shifted -(1×pageH)px   → shows document rows pageH … 2×pageH
+  // Window 2: document shifted -(2×pageH)px   → shows document rows 2×pageH … 3×pageH
+  //
+  // WHAT WAS BROKEN:
+  // Previously each window called renderTemplate(i, numPages), passing the
+  // actual page index to the template. Templates use pageIndex to conditionally
+  // render sections:
+  //   - Bill-to / meta grid  → only on pageIndex === 0
+  //   - Header visibility    → may hide on pageIndex > 0
+  //   - Terms at start       → only on pageIndex === 0
+  //
+  // This meant each window rendered a DIFFERENT DOM tree with a DIFFERENT total
+  // height. Window 1's render was ~60–100 px shorter than window 0's (missing
+  // the bill-to block). Shifting window 1's content by -(1×pageH) therefore
+  // put the clip far beyond the end of its shorter content → blank / clipped page.
+  //
+  // THE FIX:
+  // All windows now call renderTemplate(0, numPages) so every window contains
+  // an identical DOM tree with an identical total height. The offset shift then
+  // correctly exposes the right vertical slice of the same document in each
+  // window. The existing per-page badge overlay (bottom-right corner) already
+  // shows the correct "i+1 / numPages" number for the viewer.
+  if (showPageBreaks) {
+    return (
+      <div>
+        {Array.from({ length: numPages }).map((_, i) => (
+          <div key={i}>
+            {i > 0 && (
+              <div style={{
+                height: 20, display: "flex", alignItems: "center",
+                padding: "0 10px", gap: 10, background: "rgba(10,14,28,0.92)",
+              }}>
+                <div style={{ flex: 1, height: "0.5px", background: "rgba(99,102,241,0.4)" }} />
+                <span style={{ fontSize: 8, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+                  PAGE {i + 1} / {numPages}
+                </span>
+                <div style={{ flex: 1, height: "0.5px", background: "rgba(99,102,241,0.4)" }} />
+              </div>
+            )}
+            {/* White paper background — blank area below content shows as white */}
+            <div style={{ width, height: scaledPageH, overflow: "hidden", position: "relative", background: "#fff" }}>
+              {/*
+                Shift the full document upward so the correct slice is in view.
+                All instances render page 0 content so heights are identical —
+                this is what makes the offset arithmetic correct.
+              */}
+              <div style={{ position: "absolute", top: -(i * scaledPageH), left: 0 }}>
+                <div
+                  ref={i === 0 ? measureRef : undefined}
+                  style={{
+                    width: 595, transformOrigin: "top left",
+                    transform: `scale(${scale})`,
+                    fontFamily: cfg.fontFamily, position: "relative",
+                  }}
+                >
+                  {/*
+                    FIX: always render as pageIndex=0 (not `i`) so every window
+                    has an identical DOM layout. Content flows correctly across
+                    page boundaries without gaps, duplicates, or clipping.
+                    The badge overlay below shows the real page number.
+                  */}
+                  {renderTemplate(0, numPages)}
+                </div>
+              </div>
+              {/* Page number badge — shows the correct page for this viewport */}
+              <div style={{
+                position: "absolute", bottom: 6, right: 8,
+                fontSize: 8, color: "rgba(0,0,0,0.22)", userSelect: "none", pointerEvents: "none",
+              }}>
+                {i + 1} / {numPages}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── Single-scroll view (default) ─────────────────────────────────────────────
   return (
-    <div style={{ width, height: naturalHeight * scale, overflow: "hidden", position: "relative" }}>
-      <div style={{
+    <div style={{ width, height: naturalH * scale, overflow: "hidden", position: "relative" }}>
+      <div ref={measureRef} style={{
         width: 595,
         transformOrigin: "top left",
         transform: `scale(${scale})`,
         fontFamily: cfg.fontFamily,
+        position: "relative",
       }}>
-        {preset === "classic-corporate" && (
-          <ClassicDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {preset === "modern-gradient" && (
-          <ModernGradientDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {preset === "minimal-clean" && (
-          <MinimalDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {preset === "executive-dark" && (
-          <ExecutiveDarkDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {preset === "bold-accent" && (
-          <BoldAccentDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {preset === "retro-serif" && (
-          <RetroSerifDoc cfg={cfg} data={data} typeLabel={typeLabel} docNo={docNo} companyName={companyName} fmt={fmt} fmtDate={fmtDate} />
-        )}
-        {/* Watermark */}
-        {cfg.watermark && (
-          <div style={{
-            position: "absolute", top: "50%", left: "50%",
-            transform: "translate(-50%,-50%) rotate(-35deg)",
-            fontSize: 72, fontWeight: 800, opacity: 0.06,
-            color: "#000", pointerEvents: "none", whiteSpace: "nowrap",
-            zIndex: 10, userSelect: "none",
-          }}>{cfg.watermark}</div>
-        )}
+        {renderTemplate(0, 1)}
       </div>
     </div>
   );
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function hexToRgba(hex: string, alpha: number): string {
+  if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function FormattedTerms({ text, color, fontStyle, format }: {
+  text: string;
+  color: string;
+  fontStyle?: string;
+  format: "paragraph" | "bullet" | "numbered";
+}) {
+  const base: React.CSSProperties = { fontSize: 7.5, color, lineHeight: 1.5, fontStyle };
+  if (format === "paragraph") return <div style={base}>{text}</div>;
+  const lines = text.split("\n").filter(l => l.trim());
+  if (format === "bullet") {
+    return (
+      <ul style={{ ...base, paddingLeft: 14, margin: 0, listStyleType: "disc", listStylePosition: "outside" }}>
+        {lines.map((l, i) => <li key={i} style={{ marginBottom: 2 }}>{l.trim()}</li>)}
+      </ul>
+    );
+  }
+  return (
+    <ol style={{ ...base, paddingLeft: 16, margin: 0, listStyleType: "decimal", listStylePosition: "outside" }}>
+      {lines.map((l, i) => <li key={i} style={{ marginBottom: 2 }}>{l.trim()}</li>)}
+    </ol>
+  );
+}
+
+function DocFooter({ cfg, data, borderStyle, defaultTextColor, fontStyle, margin, pageIndex = 0, totalPages = 1 }: {
+  cfg: ReturnType<typeof resolveConfig>;
+  data: DocumentData;
+  borderStyle: string;
+  defaultTextColor: string;
+  fontStyle?: string;
+  margin?: string;
+  pageIndex?: number;
+  totalPages?: number;
+}) {
+  if (cfg.footerEnabled === false) return null;
+  const tc = cfg.footerTextColor || defaultTextColor;
+  const fmt = (cfg.termsFormat ?? "paragraph") as "paragraph" | "bullet" | "numbered";
+  const pos = cfg.termsPosition ?? "end";
+
+  // Determine whether terms should appear in the footer for this page
+  const showTermsHere = cfg.showTerms && (() => {
+    if (pos === "start") return false;                                              // only before items
+    if (pos === "end") return pageIndex === totalPages - 1;                        // last page only
+    if (pos === "every") return true;                                              // every page
+    if (pos === "first-last") return pageIndex === 0 || pageIndex === totalPages - 1;
+    if (pos === "start-every") return true;                                        // at start + every page footer
+    if (pos === "end-every") return true;                                          // every page footer
+    return false;
+  })();
+
+  const resolvedTermsText = cfg.termsText || data.termsText;
+  const hasTerms = showTermsHere && !!resolvedTermsText;
+  return (
+    <div style={{
+      borderTop: borderStyle, marginTop: 12, paddingTop: 8, paddingBottom: 8,
+      background: cfg.footerBg || undefined,
+      ...(margin ? { margin } : {}),
+    }}>
+      {hasTerms && (
+        <div style={{ marginBottom: 6 }}>
+          <FormattedTerms text={resolvedTermsText!} color={tc} fontStyle={fontStyle} format={fmt} />
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: cfg.showPageNumber ? "space-between" : "center", alignItems: "center" }}>
+        <div style={{ fontSize: 7.5, color: tc, textAlign: cfg.showPageNumber ? "left" : "center", flex: 1, fontStyle }}>
+          {cfg.footerText || "Thank you for your business."}
+        </div>
+        {cfg.showPageNumber && (
+          <div style={{ fontSize: 7.5, color: tc, flexShrink: 0, fontStyle }}>
+            Page {pageIndex + 1}{totalPages > 1 ? ` of ${totalPages}` : ""}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ItemsTable({ items, cfg, fmt }: {
   items: DocumentData["items"];
@@ -114,6 +312,7 @@ function ItemsTable({ items, cfg, fmt }: {
   const accentColor = cfg.accentColor ?? "#6366f1";
   const tableStyle = cfg.tableStyle ?? "striped";
   const displayItems = (items ?? []).filter(i => i.name);
+  const hasImages = displayItems.some(i => i.images?.length);
 
   const thStyle: React.CSSProperties = {
     padding: "6px 10px",
@@ -131,6 +330,8 @@ function ItemsTable({ items, cfg, fmt }: {
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
       <thead>
         <tr>
+          <th style={{ ...thStyle, width: 20, padding: "6px 4px", textAlign: "center" as const }}>#</th>
+          {hasImages && <th style={{ ...thStyle, width: 38, padding: "6px 6px" }} />}
           <th style={{ ...thStyle, textAlign: "left" }}>Description</th>
           <th style={{ ...thStyle, textAlign: "right", width: 40 }}>Qty</th>
           <th style={{ ...thStyle, textAlign: "right", width: 80 }}>Rate</th>
@@ -140,7 +341,7 @@ function ItemsTable({ items, cfg, fmt }: {
       <tbody>
         {displayItems.length === 0 ? (
           <tr>
-            <td colSpan={4} style={{ padding: "12px 10px", textAlign: "center", color: "#999", fontSize: 8.5 }}>
+            <td colSpan={hasImages ? 6 : 5} style={{ padding: "12px 10px", textAlign: "center", color: "#999", fontSize: 8.5 }}>
               Add line items to see them here
             </td>
           </tr>
@@ -150,6 +351,12 @@ function ItemsTable({ items, cfg, fmt }: {
           const cellBorder = tableStyle === "bordered" ? `0.5px solid ${accentColor}30` : tableStyle === "striped" ? "0.5px solid rgba(0,0,0,0.05)" : "none";
           return (
             <tr key={idx} style={{ background: rowBg }}>
+              <td style={{ padding: "6px 4px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#888", textAlign: "center", fontSize: 8 }}>{idx + 1}</td>
+              {hasImages && (
+                <td style={{ padding: "4px 6px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", verticalAlign: "middle" }}>
+                  {item.images?.[0] && <img src={item.images[0]} style={{ width: 30, height: 30, objectFit: "cover", borderRadius: 3, display: "block" }} />}
+                </td>
+              )}
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#222", fontSize: 9 }}>{item.name}</td>
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#555", textAlign: "right", fontSize: 9 }}>{item.quantity}</td>
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#555", textAlign: "right", fontSize: 9 }}>{item.price.toLocaleString()}</td>
@@ -231,31 +438,84 @@ function ReceiptBody({ data, cfg, fmt, fmtDate }: {
   );
 }
 
+// ─── Remarks / notes block ────────────────────────────────────────────────────
+function RemarksBlock({ remarks, accentColor, textColor = "#555" }: { remarks?: string; accentColor: string; textColor?: string }) {
+  if (!remarks) return null;
+  return (
+    <div style={{ margin: "8px 0 0", padding: "7px 10px", background: `${accentColor}0A`, borderLeft: `2px solid ${accentColor}40`, borderRadius: "0 4px 4px 0" }}>
+      <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase" as const, color: accentColor, letterSpacing: "0.08em", marginBottom: 3 }}>Notes</div>
+      <div style={{ fontSize: 8, color: textColor, lineHeight: 1.5, whiteSpace: "pre-wrap" as const }}>{remarks}</div>
+    </div>
+  );
+}
+
+// ─── Attachments section (appended after totals for items with images) ────────
+function AttachmentsSection({ items, cfg, textColor = "#555" }: {
+  items: DocumentData["items"];
+  cfg: ReturnType<typeof resolveConfig>;
+  textColor?: string;
+}) {
+  const itemsWithImages = (items ?? []).filter(i => i.name && i.images && i.images.length > 0);
+  if (itemsWithImages.length === 0) return null;
+  const accent = cfg.accentColor ?? "#6366f1";
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: accent, marginBottom: 8, paddingBottom: 5, borderBottom: `1px solid ${accent}30` }}>Attachments</div>
+      {itemsWithImages.map((item, idx) => (
+        <div key={idx} style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 8, fontWeight: 600, color: textColor, marginBottom: 4 }}>{item.name}</div>
+          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
+            {item.images!.map((img, i) => (
+              <img key={i} src={img} style={{ width: 80, height: 80, objectFit: "cover" as const, borderRadius: 4, border: `0.5px solid ${accent}30` }} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Template: Classic Corporate ─────────────────────────────────────────────
-function ClassicDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function ClassicDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#c8a96e";
   const isReceipt = data.type === "receipt";
+  const mainTextColor = cfg.headerTextColor || "#fff";
+  const subTextColor = cfg.headerTextColor ? hexToRgba(cfg.headerTextColor, 0.7) : "rgba(255,255,255,0.7)";
+  const gap = cfg.contentGap ?? 12;
+  const logoSrc = cfg.logoUrl || data.companyLogo;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
+
   return (
     <div style={{ background: "#fff", color: "#111", fontFamily: cfg.fontFamily, width: 595, minHeight: 800 }}>
       {/* Header */}
-      <div style={{ background: cfg.headerBg, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", letterSpacing: "0.03em" }}>{companyName}</div>
-          {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.7)", marginTop: 3 }}>{data.companyAddress}</div>}
-          {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.7)" }}>{data.companyPhone}</div>}
-          {data.companyEmail && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.7)" }}>{data.companyEmail}</div>}
+      {showHeader && (
+        <div style={{ background: cfg.headerBg, padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 36, width: "auto", marginBottom: 4, display: "block", objectFit: "contain" }} alt="Logo" />}
+            <div style={{ fontSize: 16, fontWeight: 700, color: mainTextColor, letterSpacing: "0.03em" }}>{companyName}</div>
+            {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: subTextColor, marginTop: 3 }}>{data.companyAddress}</div>}
+            {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyPhone}</div>}
+            {data.companyEmail && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyEmail}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{typeLabel}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: mainTextColor }}>{docNo}</div>
+            <div style={{ fontSize: 8, color: subTextColor, marginTop: 4 }}>Issued: {fmtDate(data.issueDate)}</div>
+            {data.dueDate && <div style={{ fontSize: 8, color: subTextColor }}>Due: {fmtDate(data.dueDate)}</div>}
+          </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 9, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{typeLabel}</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{docNo}</div>
-          <div style={{ fontSize: 8, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>Issued: {fmtDate(data.issueDate)}</div>
-          {data.dueDate && <div style={{ fontSize: 8, color: "rgba(255,255,255,0.6)" }}>Due: {fmtDate(data.dueDate)}</div>}
-        </div>
-      </div>
-      {/* Divider */}
+      )}
+      {/* Accent divider */}
       <div style={{ height: 3, background: accent }} />
-      {/* Bill to / Details */}
-      {!isReceipt && (
+      {/* Bill to — only first page */}
+      {!isReceipt && pageIndex === 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid #e5e7eb`, margin: "0 24px" }}>
           <div style={{ padding: "12px 0 12px 0", borderRight: "0.5px solid #e5e7eb", paddingRight: 12 }}>
             <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", marginBottom: 4 }}>Bill To</div>
@@ -272,49 +532,68 @@ function ClassicDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: 
           </div>
         </div>
       )}
+      {/* Terms at start — first page only */}
+      {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+        <div style={{ margin: `${gap}px 24px 0` }}>
+          <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#777" format={(cfg.termsFormat ?? "paragraph") as any} />
+        </div>
+      )}
       {/* Items / Receipt body */}
-      <div style={{ margin: "0 24px" }}>
+      <div style={{ margin: "0 24px", marginTop: gap }}>
         {isReceipt
           ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
           : <>
             <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
-            <TotalsBlock data={data} cfg={cfg} fmt={fmt} />
+            <div style={{ marginTop: gap }}><TotalsBlock data={data} cfg={cfg} fmt={fmt} /></div>
+            <div style={{ marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} /></div>
+            <div style={{ marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} /></div>
           </>
         }
       </div>
-      {/* Footer */}
-      <div style={{ margin: "12px 24px 0", borderTop: `1px solid ${accent}40`, paddingTop: 8 }}>
-        {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#777", lineHeight: 1.5 }}>{data.termsText}</div>}
-        {cfg.footerText && <div style={{ fontSize: 7.5, color: "#888", marginTop: 4, textAlign: "center" }}>{cfg.footerText}</div>}
-        {!cfg.footerText && <div style={{ fontSize: 7.5, color: "#888", textAlign: "center", marginTop: 4 }}>Thank you for your business.</div>}
-      </div>
+      <DocFooter cfg={cfg} data={data} borderStyle={`1px solid ${accent}40`} defaultTextColor="#888" margin={`${gap}px 24px 0`} pageIndex={pageIndex} totalPages={totalPages} />
     </div>
   );
 }
 
 // ─── Template: Modern Gradient ───────────────────────────────────────────────
-function ModernGradientDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function ModernGradientDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#6366f1";
   const isReceipt = data.type === "receipt";
+  const mainTextColor = cfg.headerTextColor || "#fff";
+  const subTextColor = cfg.headerTextColor ? hexToRgba(cfg.headerTextColor, 0.75) : "rgba(255,255,255,0.75)";
+  const gap = cfg.contentGap ?? 12;
+  const logoSrc = cfg.logoUrl || data.companyLogo;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
+
   return (
     <div style={{ background: "#fff", color: "#1f2937", fontFamily: cfg.fontFamily, width: 595, minHeight: 800 }}>
       {/* Gradient header */}
-      <div style={{ background: cfg.headerBg, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", color: "#fff" }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{companyName}</div>
-          {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, opacity: 0.8, marginTop: 2 }}>{data.companyAddress}</div>}
-          {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, opacity: 0.75 }}>{data.companyPhone}</div>}
-          {data.companyEmail && <div style={{ fontSize: 8, opacity: 0.75 }}>{data.companyEmail}</div>}
+      {showHeader && (
+        <div style={{ background: cfg.headerBg, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", color: "#fff" }}>
+          <div>
+            {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 36, width: "auto", marginBottom: 4, display: "block", objectFit: "contain" }} alt="Logo" />}
+            <div style={{ fontSize: 15, fontWeight: 700, color: mainTextColor }}>{companyName}</div>
+            {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: subTextColor, marginTop: 2 }}>{data.companyAddress}</div>}
+            {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyPhone}</div>}
+            {data.companyEmail && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyEmail}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: subTextColor, marginBottom: 2 }}>{typeLabel}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: mainTextColor }}>{docNo}</div>
+            <div style={{ fontSize: 8, color: subTextColor, marginTop: 4 }}>Issued: {fmtDate(data.issueDate)}</div>
+            {data.dueDate && <div style={{ fontSize: 8, color: subTextColor }}>Due: {fmtDate(data.dueDate)}</div>}
+          </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", opacity: 0.75, marginBottom: 2 }}>{typeLabel}</div>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>{docNo}</div>
-          <div style={{ fontSize: 8, opacity: 0.65, marginTop: 4 }}>Issued: {fmtDate(data.issueDate)}</div>
-          {data.dueDate && <div style={{ fontSize: 8, opacity: 0.65 }}>Due: {fmtDate(data.dueDate)}</div>}
-        </div>
-      </div>
-      {/* Meta */}
-      {!isReceipt && (
+      )}
+      {/* Meta — first page only */}
+      {!isReceipt && pageIndex === 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: "0.5px solid #f0f0f0" }}>
           <div style={{ padding: "10px 16px", borderRight: "0.5px solid #f0f0f0" }}>
             <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#999", marginBottom: 3 }}>Bill To</div>
@@ -331,49 +610,67 @@ function ModernGradientDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtD
           </div>
         </div>
       )}
-      <div style={{ padding: "0 0" }}>
+      {/* Terms at start — first page only */}
+      {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+        <div style={{ padding: `${gap}px 16px 0` }}>
+          <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#777" format={(cfg.termsFormat ?? "paragraph") as any} />
+        </div>
+      )}
+      <div style={{ paddingTop: gap }}>
         {isReceipt
           ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
           : <>
             <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
-            <TotalsBlock data={data} cfg={cfg} fmt={fmt} />
+            <div style={{ marginTop: gap }}><TotalsBlock data={data} cfg={cfg} fmt={fmt} /></div>
+            <div style={{ padding: "0 16px", marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} /></div>
+            <div style={{ padding: "0 16px", marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} /></div>
           </>
         }
       </div>
-      <div style={{ borderTop: `1.5px solid ${accent}`, margin: "12px 16px 0", paddingTop: 8 }}>
-        {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#777", lineHeight: 1.5 }}>{data.termsText}</div>}
-        {cfg.footerText
-          ? <div style={{ fontSize: 7.5, color: "#888", textAlign: "center" }}>{cfg.footerText}</div>
-          : <div style={{ fontSize: 7.5, color: "#888", textAlign: "center" }}>Thank you for your business.</div>}
-      </div>
+      <DocFooter cfg={cfg} data={data} borderStyle={`1.5px solid ${accent}`} defaultTextColor="#888" margin={`${gap}px 16px 0`} pageIndex={pageIndex} totalPages={totalPages} />
     </div>
   );
 }
 
 // ─── Template: Minimal Clean ─────────────────────────────────────────────────
-function MinimalDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function MinimalDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#374151";
   const isReceipt = data.type === "receipt";
+  const mainTextColor = cfg.headerTextColor || "#111";
+  const gap = cfg.contentGap ?? 12;
+  const logoSrc = cfg.logoUrl || data.companyLogo;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
+
   return (
     <div style={{ background: "#fff", color: "#111", fontFamily: cfg.fontFamily, width: 595, minHeight: 800, padding: "28px 32px" }}>
       {/* Minimal header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#111", letterSpacing: "-0.01em" }}>{companyName}</div>
-          {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#888", marginTop: 3 }}>{data.companyAddress}</div>}
-          {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#888" }}>{data.companyPhone}</div>}
-          {data.companyEmail && <div style={{ fontSize: 8, color: "#888" }}>{data.companyEmail}</div>}
+      {showHeader && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: gap }}>
+          <div>
+            {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 32, width: "auto", marginBottom: 4, display: "block", objectFit: "contain" }} alt="Logo" />}
+            <div style={{ fontSize: 14, fontWeight: 700, color: mainTextColor, letterSpacing: "-0.01em" }}>{companyName}</div>
+            {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#888", marginTop: 3 }}>{data.companyAddress}</div>}
+            {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#888" }}>{data.companyPhone}</div>}
+            {data.companyEmail && <div style={{ fontSize: 8, color: "#888" }}>{data.companyEmail}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: mainTextColor, letterSpacing: "-0.02em" }}>{typeLabel}</div>
+            <div style={{ fontSize: 10, color: "#666", fontWeight: 500 }}>#{docNo}</div>
+          </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#111", letterSpacing: "-0.02em" }}>{typeLabel}</div>
-          <div style={{ fontSize: 10, color: "#666", fontWeight: 500 }}>#{docNo}</div>
-        </div>
-      </div>
+      )}
       {/* Hairline divider */}
-      <div style={{ height: 0.5, background: "#d1d5db", marginBottom: 20 }} />
-      {/* Meta */}
-      {!isReceipt && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+      <div style={{ height: 0.5, background: "#d1d5db", marginBottom: gap }} />
+      {/* Meta — first page only */}
+      {!isReceipt && pageIndex === 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: gap }}>
           <div>
             <div style={{ fontSize: 7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", color: "#9ca3af", marginBottom: 5 }}>Bill To</div>
             <div style={{ fontSize: 10, fontWeight: 600, color: "#111" }}>{data.customer?.name ?? "—"}</div>
@@ -389,39 +686,57 @@ function MinimalDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: 
           </div>
         </div>
       )}
+      {/* Terms at start — first page only */}
+      {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+        <div style={{ marginBottom: gap }}>
+          <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#9ca3af" format={(cfg.termsFormat ?? "paragraph") as any} />
+        </div>
+      )}
       <div>
         {isReceipt
           ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
           : <>
             <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
-            <TotalsBlock data={data} cfg={cfg} fmt={fmt} />
+            <div style={{ marginTop: gap }}><TotalsBlock data={data} cfg={cfg} fmt={fmt} /></div>
+            <div style={{ marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} textColor="#444" /></div>
+            <div style={{ marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} /></div>
           </>
         }
       </div>
-      <div style={{ height: 0.5, background: "#d1d5db", margin: "16px 0 8px" }} />
-      {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#9ca3af", lineHeight: 1.6 }}>{data.termsText}</div>}
-      {cfg.footerText
-        ? <div style={{ fontSize: 7.5, color: "#9ca3af", textAlign: "center" }}>{cfg.footerText}</div>
-        : <div style={{ fontSize: 7.5, color: "#9ca3af", textAlign: "center" }}>Thank you.</div>}
+      <DocFooter cfg={cfg} data={data} borderStyle="0.5px solid #d1d5db" defaultTextColor="#9ca3af" pageIndex={pageIndex} totalPages={totalPages} />
     </div>
   );
 }
 
 // ─── Template: Executive Dark ────────────────────────────────────────────────
-function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#94a3b8";
   const isReceipt = data.type === "receipt";
+  const gap = cfg.contentGap ?? 12;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
 
   function DarkItemsTable() {
     const displayItems = (data.items ?? []).filter(i => i.name);
+    const hasImages = displayItems.some(i => i.images?.length);
+    const headers = hasImages ? ["#", "", "Description", "Qty", "Rate", "Total"] : ["#", "Description", "Qty", "Rate", "Total"];
     return (
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
         <thead>
           <tr>
-            {["Description", "Qty", "Rate", "Total"].map((h, i) => (
-              <th key={h} style={{
-                padding: "7px 10px", fontSize: 7.5, fontWeight: 600, textTransform: "uppercase",
-                letterSpacing: "0.08em", color: accent, textAlign: i === 0 ? "left" : "right",
+            {headers.map((h, i) => (
+              <th key={i} style={{
+                padding: h === "" ? "7px 6px" : h === "#" ? "7px 4px" : "7px 10px",
+                width: h === "" ? 38 : h === "#" ? 20 : undefined,
+                fontSize: 7.5, fontWeight: 600, textTransform: "uppercase",
+                letterSpacing: "0.08em", color: accent,
+                textAlign: h === "#" ? "center" : (h === "" || h === "Description") ? "left" : "right",
                 borderBottom: `1px solid rgba(148,163,184,0.2)`,
               }}>{h}</th>
             ))}
@@ -429,9 +744,15 @@ function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDa
         </thead>
         <tbody>
           {displayItems.length === 0 ? (
-            <tr><td colSpan={4} style={{ padding: 12, textAlign: "center", color: "#64748b", fontSize: 8 }}>No items</td></tr>
+            <tr><td colSpan={headers.length} style={{ padding: 12, textAlign: "center", color: "#64748b", fontSize: 8 }}>No items</td></tr>
           ) : displayItems.map((item, idx) => (
             <tr key={idx} style={{ background: idx % 2 === 1 ? "rgba(255,255,255,0.03)" : "transparent" }}>
+              <td style={{ padding: "6px 4px", borderBottom: "0.5px solid rgba(255,255,255,0.06)", color: "#475569", textAlign: "center", fontSize: 8 }}>{idx + 1}</td>
+              {hasImages && (
+                <td style={{ padding: "4px 6px", borderBottom: "0.5px solid rgba(255,255,255,0.06)", verticalAlign: "middle" }}>
+                  {item.images?.[0] && <img src={item.images[0]} style={{ width: 30, height: 30, objectFit: "cover", borderRadius: 3, display: "block" }} />}
+                </td>
+              )}
               <td style={{ padding: "6px 10px", color: "#e2e8f0", fontSize: 9, borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>{item.name}</td>
               <td style={{ padding: "6px 10px", color: "#94a3b8", textAlign: "right", fontSize: 9, borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>{item.quantity}</td>
               <td style={{ padding: "6px 10px", color: "#94a3b8", textAlign: "right", fontSize: 9, borderBottom: "0.5px solid rgba(255,255,255,0.06)" }}>{item.price.toLocaleString()}</td>
@@ -446,22 +767,30 @@ function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDa
   return (
     <div style={{ background: "#1e293b", color: "#e2e8f0", fontFamily: cfg.fontFamily, width: 595, minHeight: 800 }}>
       {/* Dark header */}
-      <div style={{ background: cfg.headerBg, padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `1px solid rgba(148,163,184,0.15)` }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>{companyName}</div>
-          {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#64748b", marginTop: 3 }}>{data.companyAddress}</div>}
-          {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#64748b" }}>{data.companyPhone}</div>}
-          {data.companyEmail && <div style={{ fontSize: 8, color: "#64748b" }}>{data.companyEmail}</div>}
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 8, color: accent, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 3 }}>{typeLabel}</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#f8fafc" }}>{docNo}</div>
-          <div style={{ fontSize: 8, color: "#64748b", marginTop: 3 }}>{fmtDate(data.issueDate)}</div>
-          {data.dueDate && <div style={{ fontSize: 8, color: "#64748b" }}>Due {fmtDate(data.dueDate)}</div>}
-        </div>
-      </div>
-      {/* Meta */}
-      {!isReceipt && (
+      {showHeader && (() => {
+        const mainTc = cfg.headerTextColor || "#f8fafc";
+        const subTc = cfg.headerTextColor ? hexToRgba(cfg.headerTextColor, 0.6) : "#64748b";
+        const logoSrc = cfg.logoUrl || data.companyLogo;
+        return (
+          <div style={{ background: cfg.headerBg, padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `1px solid rgba(148,163,184,0.15)` }}>
+            <div>
+              {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 36, width: "auto", marginBottom: 4, display: "block", objectFit: "contain" }} alt="Logo" />}
+              <div style={{ fontSize: 14, fontWeight: 700, color: mainTc }}>{companyName}</div>
+              {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: subTc, marginTop: 3 }}>{data.companyAddress}</div>}
+              {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: subTc }}>{data.companyPhone}</div>}
+              {data.companyEmail && <div style={{ fontSize: 8, color: subTc }}>{data.companyEmail}</div>}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 8, color: accent, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 3 }}>{typeLabel}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: mainTc }}>{docNo}</div>
+              <div style={{ fontSize: 8, color: subTc, marginTop: 3 }}>{fmtDate(data.issueDate)}</div>
+              {data.dueDate && <div style={{ fontSize: 8, color: subTc }}>Due {fmtDate(data.dueDate)}</div>}
+            </div>
+          </div>
+        );
+      })()}
+      {/* Meta — first page only */}
+      {!isReceipt && pageIndex === 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: "0.5px solid rgba(255,255,255,0.07)", margin: "0 22px" }}>
           <div style={{ padding: "10px 0", borderRight: "0.5px solid rgba(255,255,255,0.07)", paddingRight: 16 }}>
             <div style={{ fontSize: 7, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569", marginBottom: 4 }}>Bill To</div>
@@ -476,13 +805,19 @@ function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDa
           </div>
         </div>
       )}
-      <div style={{ padding: "0 22px" }}>
+      {/* Terms at start — first page only */}
+      {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+        <div style={{ margin: `${gap}px 22px 0` }}>
+          <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#475569" format={(cfg.termsFormat ?? "paragraph") as any} />
+        </div>
+      )}
+      <div style={{ padding: "0 22px", paddingTop: gap }}>
         {isReceipt
           ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
           : <>
             <DarkItemsTable />
             {/* Dark totals */}
-            <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 10 }}>
+            <div style={{ marginTop: gap, display: "flex", justifyContent: "flex-end" }}>
               <div style={{ minWidth: 160 }}>
                 {cfg.showTax && data.taxAmt !== undefined && data.taxAmt > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 8.5, color: "#64748b", marginBottom: 3 }}><span>{data.taxLabel ?? "Tax"}</span><span>{fmt(data.taxAmt)}</span></div>
@@ -498,47 +833,59 @@ function ExecutiveDarkDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDa
                 )}
               </div>
             </div>
+            <div style={{ marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} textColor="#94a3b8" /></div>
+            <div style={{ marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} textColor="#94a3b8" /></div>
           </>
         }
       </div>
-      <div style={{ margin: "12px 22px 0", borderTop: `0.5px solid rgba(255,255,255,0.08)`, paddingTop: 8 }}>
-        {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#475569", lineHeight: 1.5 }}>{data.termsText}</div>}
-        {cfg.footerText
-          ? <div style={{ fontSize: 7.5, color: "#475569", textAlign: "center" }}>{cfg.footerText}</div>
-          : <div style={{ fontSize: 7.5, color: "#475569", textAlign: "center" }}>Thank you for your business.</div>}
-      </div>
+      <DocFooter cfg={cfg} data={data} borderStyle="0.5px solid rgba(255,255,255,0.08)" defaultTextColor="#475569" margin={`${gap}px 22px 0`} pageIndex={pageIndex} totalPages={totalPages} />
     </div>
   );
 }
 
 // ─── Template: Bold Accent ───────────────────────────────────────────────────
-function BoldAccentDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function BoldAccentDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#f97316";
   const isReceipt = data.type === "receipt";
+  const mainTextColor = cfg.headerTextColor || "#111";
+  const gap = cfg.contentGap ?? 12;
+  const logoSrc = cfg.logoUrl || data.companyLogo;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
+
   return (
     <div style={{ background: "#fff", color: "#111", fontFamily: cfg.fontFamily, width: 595, minHeight: 800, display: "flex" }}>
       {/* Left accent bar */}
       <div style={{ width: 5, background: accent, flexShrink: 0 }} />
       <div style={{ flex: 1 }}>
-        {/* Header area (no colored block, just text) */}
-        <div style={{ padding: "20px 22px 12px", borderBottom: `2px solid ${accent}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#111", letterSpacing: "-0.01em" }}>{companyName}</div>
-              {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#888", marginTop: 2 }}>{data.companyAddress}</div>}
-              {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#888" }}>{data.companyPhone}</div>}
-              {data.companyEmail && <div style={{ fontSize: 8, color: "#888" }}>{data.companyEmail}</div>}
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 9, fontWeight: 800, color: accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>{typeLabel}</div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: "#111", letterSpacing: "-0.02em" }}>{docNo}</div>
-              <div style={{ fontSize: 8, color: "#888" }}>{fmtDate(data.issueDate)}</div>
-              {data.dueDate && <div style={{ fontSize: 8, color: "#888" }}>Due {fmtDate(data.dueDate)}</div>}
+        {/* Header area */}
+        {showHeader && (
+          <div style={{ padding: "20px 22px 12px", borderBottom: `2px solid ${accent}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 32, width: "auto", marginBottom: 4, display: "block", objectFit: "contain" }} alt="Logo" />}
+                <div style={{ fontSize: 16, fontWeight: 800, color: mainTextColor, letterSpacing: "-0.01em" }}>{companyName}</div>
+                {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#888", marginTop: 2 }}>{data.companyAddress}</div>}
+                {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#888" }}>{data.companyPhone}</div>}
+                {data.companyEmail && <div style={{ fontSize: 8, color: "#888" }}>{data.companyEmail}</div>}
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, color: accent, textTransform: "uppercase", letterSpacing: "0.1em" }}>{typeLabel}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: mainTextColor, letterSpacing: "-0.02em" }}>{docNo}</div>
+                <div style={{ fontSize: 8, color: "#888" }}>{fmtDate(data.issueDate)}</div>
+                {data.dueDate && <div style={{ fontSize: 8, color: "#888" }}>Due {fmtDate(data.dueDate)}</div>}
+              </div>
             </div>
           </div>
-        </div>
-        {/* Meta */}
-        {!isReceipt && (
+        )}
+        {/* Meta — first page only */}
+        {!isReceipt && pageIndex === 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", padding: "10px 22px", borderBottom: `1px solid ${accent}20` }}>
             <div>
               <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", color: accent, letterSpacing: "0.1em", marginBottom: 4 }}>Bill To</div>
@@ -555,53 +902,72 @@ function BoldAccentDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate 
             </div>
           </div>
         )}
-        <div style={{ padding: "0 22px" }}>
+        {/* Terms at start — first page only */}
+        {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+          <div style={{ padding: `${gap}px 22px 0` }}>
+            <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#777" format={(cfg.termsFormat ?? "paragraph") as any} />
+          </div>
+        )}
+        <div style={{ padding: "0 22px", paddingTop: gap }}>
           {isReceipt
             ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
             : <>
-              <div style={{ marginTop: 6 }}>
-                <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
-              </div>
-              <TotalsBlock data={data} cfg={cfg} fmt={fmt} />
+              <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
+              <div style={{ marginTop: gap }}><TotalsBlock data={data} cfg={cfg} fmt={fmt} /></div>
+              <div style={{ marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} /></div>
+              <div style={{ marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} /></div>
             </>
           }
         </div>
-        <div style={{ margin: "12px 22px 0", borderTop: `2px solid ${accent}`, paddingTop: 8 }}>
-          {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#777", lineHeight: 1.5 }}>{data.termsText}</div>}
-          {cfg.footerText
-            ? <div style={{ fontSize: 7.5, color: "#888", textAlign: "center" }}>{cfg.footerText}</div>
-            : <div style={{ fontSize: 7.5, color: "#888", textAlign: "center" }}>Thank you for your business.</div>}
-        </div>
+        <DocFooter cfg={cfg} data={data} borderStyle={`2px solid ${accent}`} defaultTextColor="#888" margin={`${gap}px 22px 0`} pageIndex={pageIndex} totalPages={totalPages} />
       </div>
     </div>
   );
 }
 
 // ─── Template: Retro Serif ───────────────────────────────────────────────────
-function RetroSerifDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate }: TemplateProps) {
+function RetroSerifDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate, pageIndex = 0, totalPages = 1 }: TemplateProps) {
   const accent = cfg.accentColor ?? "#8b4513";
   const isReceipt = data.type === "receipt";
+  const mainTextColor = cfg.headerTextColor || accent;
+  const subTextColor = cfg.headerTextColor ? hexToRgba(cfg.headerTextColor, 0.8) : "#7c5533";
+  const gap = cfg.contentGap ?? 12;
+  const logoSrc = cfg.logoUrl || data.companyLogo;
+
+  const vis = cfg.headerVisibility ?? "all";
+  const showHeader = cfg.headerEnabled !== false && (
+    vis === "all" ||
+    (vis === "first" && pageIndex === 0) ||
+    (vis === "last" && pageIndex === totalPages - 1) ||
+    (vis === "first-last" && (pageIndex === 0 || pageIndex === totalPages - 1))
+  );
+
   return (
     <div style={{ background: "#faf7f0", color: "#2d1b00", fontFamily: cfg.fontFamily, width: 595, minHeight: 800, padding: 16 }}>
       {/* Decorative border frame */}
       <div style={{ border: `2px solid ${accent}`, borderRadius: 2, padding: "18px 22px", minHeight: 760 }}>
         <div style={{ border: `0.5px solid ${accent}60`, borderRadius: 1, padding: "14px 18px", minHeight: 724 }}>
           {/* Header */}
-          <div style={{ textAlign: "center", borderBottom: `1px solid ${accent}40`, paddingBottom: 12, marginBottom: 12 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: accent, letterSpacing: "0.04em" }}>{companyName}</div>
-            {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: "#7c5533", marginTop: 2 }}>{data.companyAddress}</div>}
-            {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: "#7c5533" }}>{data.companyPhone}</div>}
-            {data.companyEmail && <div style={{ fontSize: 8, color: "#7c5533" }}>{data.companyEmail}</div>}
-          </div>
-          {/* Document type & number */}
-          <div style={{ textAlign: "center", marginBottom: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: accent, borderTop: `0.5px solid ${accent}40`, borderBottom: `0.5px solid ${accent}40`, padding: "4px 0", display: "inline-block", minWidth: 140 }}>{typeLabel}</div>
-            <div style={{ fontSize: 10, color: "#7c5533", marginTop: 4, fontStyle: "italic" }}>No. {docNo}</div>
-            <div style={{ fontSize: 8, color: "#7c5533" }}>Issued: {fmtDate(data.issueDate)}{data.dueDate ? ` · Due: ${fmtDate(data.dueDate)}` : ""}</div>
-          </div>
-          {/* Meta */}
-          {!isReceipt && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14, borderBottom: `0.5px solid ${accent}30`, paddingBottom: 12 }}>
+          {showHeader && (
+            <div style={{ textAlign: "center", borderBottom: `1px solid ${accent}40`, paddingBottom: 12, marginBottom: gap }}>
+              {cfg.showLogo && logoSrc && <img src={logoSrc} style={{ height: 32, width: "auto", marginBottom: 4, display: "inline-block", objectFit: "contain" }} alt="Logo" />}
+              <div style={{ fontSize: 18, fontWeight: 700, color: mainTextColor, letterSpacing: "0.04em" }}>{companyName}</div>
+              {cfg.showAddress && data.companyAddress && <div style={{ fontSize: 8, color: subTextColor, marginTop: 2 }}>{data.companyAddress}</div>}
+              {cfg.showPhone && data.companyPhone && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyPhone}</div>}
+              {data.companyEmail && <div style={{ fontSize: 8, color: subTextColor }}>{data.companyEmail}</div>}
+            </div>
+          )}
+          {/* Document type & number — first page only */}
+          {pageIndex === 0 && (
+            <div style={{ textAlign: "center", marginBottom: gap }}>
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: accent, borderTop: `0.5px solid ${accent}40`, borderBottom: `0.5px solid ${accent}40`, padding: "4px 0", display: "inline-block", minWidth: 140 }}>{typeLabel}</div>
+              <div style={{ fontSize: 10, color: "#7c5533", marginTop: 4, fontStyle: "italic" }}>No. {docNo}</div>
+              <div style={{ fontSize: 8, color: "#7c5533" }}>Issued: {fmtDate(data.issueDate)}{data.dueDate ? ` · Due: ${fmtDate(data.dueDate)}` : ""}</div>
+            </div>
+          )}
+          {/* Meta — first page only */}
+          {!isReceipt && pageIndex === 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: gap, borderBottom: `0.5px solid ${accent}30`, paddingBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: accent, marginBottom: 4 }}>To</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: "#2d1b00" }}>{data.customer?.name ?? "—"}</div>
@@ -617,19 +983,22 @@ function RetroSerifDoc({ cfg, data, typeLabel, docNo, companyName, fmt, fmtDate 
               </div>
             </div>
           )}
+          {/* Terms at start — first page only */}
+          {!isReceipt && pageIndex === 0 && cfg.showTerms && (cfg.termsText || data.termsText) && ["start","start-every"].includes(cfg.termsPosition ?? "") && (
+            <div style={{ marginBottom: gap }}>
+              <FormattedTerms text={cfg.termsText || data.termsText || ""} color="#7c5533" fontStyle="italic" format={(cfg.termsFormat ?? "paragraph") as any} />
+            </div>
+          )}
           {isReceipt
             ? <ReceiptBody data={data} cfg={cfg} fmt={fmt} fmtDate={fmtDate} />
             : <>
               <ItemsTable items={data.items} cfg={cfg} fmt={fmt} />
-              <TotalsBlock data={data} cfg={cfg} fmt={fmt} />
+              <div style={{ marginTop: gap }}><TotalsBlock data={data} cfg={cfg} fmt={fmt} /></div>
+              <div style={{ marginTop: gap }}><RemarksBlock remarks={data.remarks} accentColor={accent} textColor="#7c5533" /></div>
+              <div style={{ marginTop: gap }}><AttachmentsSection items={data.items} cfg={cfg} textColor="#7c5533" /></div>
             </>
           }
-          <div style={{ borderTop: `0.5px solid ${accent}40`, marginTop: 14, paddingTop: 8 }}>
-            {cfg.showTerms && data.termsText && <div style={{ fontSize: 7.5, color: "#7c5533", lineHeight: 1.6, fontStyle: "italic" }}>{data.termsText}</div>}
-            {cfg.footerText
-              ? <div style={{ fontSize: 8, color: accent, textAlign: "center", fontStyle: "italic" }}>{cfg.footerText}</div>
-              : <div style={{ fontSize: 8, color: accent, textAlign: "center", fontStyle: "italic" }}>With gratitude for your business.</div>}
-          </div>
+          <DocFooter cfg={cfg} data={data} borderStyle={`0.5px solid ${accent}40`} defaultTextColor={accent} fontStyle="italic" pageIndex={pageIndex} totalPages={totalPages} />
         </div>
       </div>
     </div>
@@ -645,4 +1014,6 @@ interface TemplateProps {
   companyName: string;
   fmt: (n?: number) => string;
   fmtDate: (d?: string) => string;
+  pageIndex?: number;
+  totalPages?: number;
 }

@@ -13,14 +13,14 @@ const T3 = "rgba(160,170,255,0.42)";
 export default function LoginPage() {
   const router = useRouter();
   const { status } = useSession();
-  useEffect(() => {
-    if (status === "authenticated") router.replace("/dashboard");
-  }, [status, router]);
-  if (status === "loading" || status === "authenticated") return null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/dashboard");
+  }, [status, router]);
+  if (status === "loading" || status === "authenticated") return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

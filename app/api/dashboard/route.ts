@@ -6,18 +6,41 @@ import Quotation from "@/models/Quotation";
 import Customer from "@/models/Customer";
 import Expense from "@/models/Expense";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
     await connectDB();
 
+    const { searchParams } = new URL(req.url);
+    const fromParam = searchParams.get("from"); // YYYY-MM-DD
+    const toParam = searchParams.get("to");     // YYYY-MM-DD
+
     const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    // Determine effective date range for chart generation
+    const effectiveFrom = fromParam
+      ? new Date(fromParam)
+      : new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const effectiveTo = toParam
+      ? (() => { const d = new Date(toParam); d.setHours(23, 59, 59, 999); return d; })()
+      : now;
+
+    // Build invoice query with optional date filter
+    const invoiceQuery: Record<string, any> = { status: { $ne: "cancelled" } };
+    if (fromParam || toParam) {
+      invoiceQuery.issue_date = {};
+      if (fromParam) invoiceQuery.issue_date.$gte = new Date(fromParam);
+      if (toParam) {
+        const toDate = new Date(toParam);
+        toDate.setHours(23, 59, 59, 999);
+        invoiceQuery.issue_date.$lte = toDate;
+      }
+    }
 
     const [invoices, quotations, customers, expenses] = await Promise.all([
-      Invoice.find({ status: { $ne: "cancelled" } }).sort({ createdAt: -1 }).limit(100).lean(),
+      Invoice.find(invoiceQuery).sort({ issue_date: -1 }).limit(500).lean(),
       Quotation.find().countDocuments(),
       Customer.find({ status: true }).countDocuments(),
       Expense.find({ status: { $ne: "cancelled" } }).lean(),
@@ -32,25 +55,32 @@ export async function GET() {
       return i.due_date && new Date(i.due_date) < now && i.payment_status !== "complete";
     }).length;
 
-    // Revenue by month (last 6 months)
-    const monthlyMap: Record<string, { revenue: number; received: number }> = {};
-    for (let m = 5; m >= 0; m--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
-      const key = d.toLocaleString("default", { month: "short" });
-      monthlyMap[key] = { revenue: 0, received: 0 };
+    // Revenue by month — dynamically generated for the effective range
+    const spanYears = effectiveTo.getFullYear() !== effectiveFrom.getFullYear();
+    const monthlyMap = new Map<string, { label: string; revenue: number; received: number }>();
+    let d = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+    while (d <= effectiveTo) {
+      const mapKey = `${d.getFullYear()}-${d.getMonth()}`;
+      const label = spanYears
+        ? d.toLocaleString("default", { month: "short", year: "2-digit" })
+        : d.toLocaleString("default", { month: "short" });
+      monthlyMap.set(mapKey, { label, revenue: 0, received: 0 });
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     }
     (invoices as any[]).forEach((inv) => {
-      const d = new Date(inv.issue_date);
-      const mDiff = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
-      if (mDiff >= 0 && mDiff <= 5) {
-        const key = d.toLocaleString("default", { month: "short" });
-        if (monthlyMap[key]) {
-          monthlyMap[key].revenue += inv.total_amount;
-          monthlyMap[key].received += inv.total_paid || 0;
-        }
+      const invDate = new Date(inv.issue_date);
+      const mapKey = `${invDate.getFullYear()}-${invDate.getMonth()}`;
+      const entry = monthlyMap.get(mapKey);
+      if (entry) {
+        entry.revenue += inv.total_amount;
+        entry.received += inv.total_paid || 0;
       }
     });
-    const revenueByMonth = Object.entries(monthlyMap).map(([month, v]) => ({ month, ...v }));
+    const revenueByMonth = Array.from(monthlyMap.values()).map(({ label, revenue, received }) => ({
+      month: label,
+      revenue,
+      received,
+    }));
 
     // Top clients
     const clientMap: Record<string, { name: string; total: number; paid: number }> = {};
@@ -64,10 +94,16 @@ export async function GET() {
 
     // Payment breakdown
     const breakdown = { pending: 0, partial: 0, complete: 0 };
-    (invoices as any[]).forEach((i) => { breakdown[i.payment_status as keyof typeof breakdown] = (breakdown[i.payment_status as keyof typeof breakdown] || 0) + 1; });
+    (invoices as any[]).forEach((i) => {
+      breakdown[i.payment_status as keyof typeof breakdown] =
+        (breakdown[i.payment_status as keyof typeof breakdown] || 0) + 1;
+    });
     const paymentStatusBreakdown = Object.entries(breakdown).map(([status, count]) => ({
-      status, count,
-      amount: (invoices as any[]).filter((i) => i.payment_status === status).reduce((s, i) => s + i.total_amount, 0),
+      status,
+      count,
+      amount: (invoices as any[])
+        .filter((i) => i.payment_status === status)
+        .reduce((s, i) => s + i.total_amount, 0),
     }));
 
     return NextResponse.json({

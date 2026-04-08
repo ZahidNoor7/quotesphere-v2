@@ -12,7 +12,7 @@ export interface IQuotation extends Document {
   quotation_no: string;
   issue_date: Date;
   valid_until?: Date;
-  status: "pending" | "approved" | "rejected" | "cancelled" | "invoiced" | "expired";
+  status: "draft" | "pending" | "approved" | "rejected" | "cancelled" | "invoiced" | "expired";
   items: IQuotationItem[];
   sub_total: number;
   tax: number;
@@ -54,7 +54,7 @@ const quotationSchema = new Schema<IQuotation>(
     valid_until: Date,
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "cancelled", "invoiced", "expired"],
+      enum: ["draft", "pending", "approved", "rejected", "cancelled", "invoiced", "expired"],
       default: "pending",
     },
     items: [itemSchema],

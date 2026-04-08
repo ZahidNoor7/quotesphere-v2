@@ -4,11 +4,21 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
 
+/** Helper: clears isDefault on user designs matching a doc type.
+ *  Guards with "documentDesigns.0" existence check so MongoDB never
+ *  throws "path must exist" when the array is missing or empty.
+ */
+async function clearDefaultsForType(userId: string, docType: string) {
+  await Settings.updateOne(
+    { user_id: userId, "documentDesigns.0": { $exists: true } },
+    { $set: { "documentDesigns.$[elem].isDefault": false } },
+    { arrayFilters: [{ "elem.type": { $in: [docType, "all"] } }] }
+  );
+}
+
 /** PUT /api/settings/document-designs/[id]
  *  Updates a user design by id.
  *  Body: { name?, type?, config?, isDefault? }
- *  - If isDefault=true, unsets all other isDefault for the same type first.
- *  - Built-in design IDs are not editable; returns 403.
  */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,16 +35,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const { name, type, config, isDefault } = body;
 
-    // If setting as default, unset existing defaults for this type
+    // If setting as default, unset existing defaults for this type first
     if (isDefault === true) {
       const docType = type ?? (await Settings.findOne({ user_id: userId, "documentDesigns.id": id }).lean() as any)
         ?.documentDesigns?.find((d: any) => d.id === id)?.type ?? "all";
-
-      await Settings.findOneAndUpdate(
-        { user_id: userId },
-        { $set: { "documentDesigns.$[elem].isDefault": false } },
-        { arrayFilters: [{ "elem.type": { $in: [docType, "all"] } }] }
-      );
+      await clearDefaultsForType(userId, docType);
     }
 
     const $set: Record<string, any> = {};
@@ -91,7 +96,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 /** PATCH /api/settings/document-designs/[id]
  *  Sets a design (built-in or user) as the default for a given document type.
  *  Body: { type: "invoice" | "quotation" | "receipt" }
- *  For built-in designs, this stores an override preference in the user's settings.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -102,46 +106,38 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     await connectDB();
     const body = await req.json();
-    const { type } = body; // "invoice" | "quotation" | "receipt"
+    const { type } = body;
     if (!type) return NextResponse.json({ success: false, error: "type is required" }, { status: 400 });
+
+    const lastUsedKey = type === "invoice" ? "lastUsed.invoiceDesignId"
+      : type === "quotation" ? "lastUsed.quotationDesignId"
+      : "lastUsed.receiptDesignId";
 
     const isBuiltIn = BUILT_IN_DESIGNS.some(d => d.id === id);
 
     if (isBuiltIn) {
-      // For built-ins, store the selection in lastUsed
-      const lastUsedKey = type === "invoice" ? "lastUsed.invoiceDesignId"
-        : type === "quotation" ? "lastUsed.quotationDesignId"
-        : "lastUsed.receiptDesignId";
-
-      // Unset all user-design defaults for this type
+      // Step 1: Upsert settings doc + record lastUsed. No arrayFilters here.
       await Settings.findOneAndUpdate(
         { user_id: userId },
-        {
-          $set: {
-            [lastUsedKey]: id,
-            "documentDesigns.$[elem].isDefault": false,
-          }
-        },
-        { arrayFilters: [{ "elem.type": { $in: [type, "all"] } }], upsert: true }
+        { $set: { [lastUsedKey]: id } },
+        { upsert: true }
       );
+      // Step 2: Clear isDefault on user designs. Guarded — no-op if array missing.
+      await clearDefaultsForType(userId, type);
     } else {
-      // Unset all defaults for this type across user designs
-      await Settings.findOneAndUpdate(
-        { user_id: userId },
-        { $set: { "documentDesigns.$[elem].isDefault": false } },
-        { arrayFilters: [{ "elem.type": { $in: [type, "all"] } }] }
+      // Clear all defaults for this type, then set the chosen design as default.
+      await clearDefaultsForType(userId, type);
+
+      await Settings.updateOne(
+        { user_id: userId, "documentDesigns.0": { $exists: true } },
+        { $set: { "documentDesigns.$[elem].isDefault": true } },
+        { arrayFilters: [{ "elem.id": id }] }
       );
-      // Set this design as default
-      await Settings.findOneAndUpdate(
+
+      await Settings.updateOne(
         { user_id: userId },
-        { $set: { "documentDesigns.$[elem2].isDefault": true } },
-        { arrayFilters: [{ "elem2.id": id }] }
+        { $set: { [lastUsedKey]: id } }
       );
-      // Also update lastUsed to this design
-      const lastUsedKey = type === "invoice" ? "lastUsed.invoiceDesignId"
-        : type === "quotation" ? "lastUsed.quotationDesignId"
-        : "lastUsed.receiptDesignId";
-      await Settings.findOneAndUpdate({ user_id: userId }, { $set: { [lastUsedKey]: id } });
     }
 
     return NextResponse.json({ success: true, message: `Design set as default for ${type}` });

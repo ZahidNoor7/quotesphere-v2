@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SWRProvider } from "@/components/layout/swr-provider";
+import { DeviceProvider } from "@/components/layout/device-provider";
 import { auth } from "@/auth";
 import { getTheme } from "@/lib/themes";
 import "./globals.css";
@@ -23,8 +24,17 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+function detectMobileUA(ua: string): boolean {
+  return /mobile|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+}
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let initialThemeId = "dark";
+
+  // Detect device type from User-Agent for flicker-free SSR layout
+  const headersList = await headers();
+  const ua = headersList.get("user-agent") ?? "";
+  const initialMobile = detectMobileUA(ua);
 
   // 1. Cookie is the fastest source — set client-side by applyTheme() on every change.
   //    This guarantees correct SSR on refresh without any async DB call.
@@ -68,6 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SessionProvider>
           <SWRProvider>
+            <DeviceProvider initialMobile={initialMobile}>
             <ThemeProvider initialTheme={initialThemeId}>
               <Toaster
                 theme={isDark ? "dark" : "light"}
@@ -84,6 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               />
               {children}
             </ThemeProvider>
+            </DeviceProvider>
           </SWRProvider>
         </SessionProvider>
       </body>

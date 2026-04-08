@@ -46,11 +46,30 @@ export interface ISettings extends Document {
 
 const documentDesignConfigSchema = new Schema(
   {
+    // Base
     preset: String, headerBg: String, accentColor: String, fontFamily: String,
     showLogo: Boolean, showAddress: Boolean, showPhone: Boolean, tableStyle: String,
     showTax: Boolean, showDiscount: Boolean, showTerms: Boolean,
     footerText: String, watermark: String,
     marginTop: Number, marginRight: Number, marginBottom: Number, marginLeft: Number,
+    // Header
+    headerEnabled: Boolean,
+    headerVisibility: String,
+    headerTextColor: String,
+    logoUrl: String,
+    // Footer
+    footerEnabled: Boolean,
+    showPageNumber: Boolean,
+    footerBg: String,
+    footerTextColor: String,
+    // Page
+    pageSize: String,
+    pageOrientation: String,
+    // Content / Terms
+    termsPosition: String,
+    termsFormat: String,
+    termsText: String,
+    contentGap: Number,
   },
   { _id: false }
 );

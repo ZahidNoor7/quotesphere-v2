@@ -39,10 +39,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Main scroll area */}
         <main
-          className="flex-1 overflow-y-auto scrollbar-hide"
+          className="flex-1 overflow-hidden scrollbar-hide"
           style={{ scrollbarWidth: "none" }}
         >
-          <div className="animate-fade-in">{children}</div>
+          <div className="animate-fade-in h-full">{children}</div>
         </main>
       </div>
     </div>

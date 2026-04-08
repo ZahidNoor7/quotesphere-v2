@@ -217,7 +217,23 @@ export function getDesignById(
 export function resolveConfig(design: DocumentDesign): Required<DocumentDesignConfig> & { preset: string } {
   const preset = (design.config.preset ?? "modern-gradient") as PresetId;
   const base = PRESET_CONFIGS[preset] ?? PRESET_CONFIGS["modern-gradient"];
-  return { ...base, ...design.config } as Required<DocumentDesignConfig> & { preset: string };
+  const newFieldDefaults: Partial<DocumentDesignConfig> = {
+    headerEnabled: true,
+    headerVisibility: "all",
+    headerTextColor: "",
+    logoUrl: "",
+    footerEnabled: true,
+    showPageNumber: false,
+    footerBg: "",
+    footerTextColor: "",
+    pageSize: "A4",
+    pageOrientation: "portrait",
+    termsPosition: "end",
+    termsFormat: "paragraph",
+    termsText: "",
+    contentGap: 12,
+  };
+  return { ...newFieldDefaults, ...base, ...design.config } as Required<DocumentDesignConfig> & { preset: string };
 }
 
 // ─── Labels for UI ───────────────────────────────────────────────────────────

@@ -69,7 +69,7 @@ export const SelectValue = SelectPrimitive.Value;
 export const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, style, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
     style={{
@@ -78,8 +78,9 @@ export const SelectTrigger = React.forwardRef<
       alignItems: "center",
       justifyContent: "space-between",
       cursor: "pointer",
-      height: 34,
+      height: 32,
       padding: "0 10px",
+      ...style,
     }}
     className={cn("[&>span]:line-clamp-1", className)}
     {...props}
@@ -111,7 +112,7 @@ export const SelectContent = React.forwardRef<
       className={cn("animate-in fade-in-0 zoom-in-95", position === "popper" && "data-[side=bottom]:translate-y-1", className)}
       {...props}
     >
-      <SelectPrimitive.Viewport style={{ padding: 4 }}>{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport style={{ padding: 4, minWidth: "var(--radix-select-trigger-width)" }}>{children}</SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ));

@@ -15,11 +15,24 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const customer_id = searchParams.get("customer_id") || "";
+    const from = searchParams.get("from") || "";
+    const to = searchParams.get("to") || "";
 
     const query: any = {};
     if (search) query.$text = { $search: search };
     if (status) query.status = status;
     if (customer_id) query.customer_id = customer_id;
+    if (from || to) {
+      query.issue_date = {};
+      if (from) query.issue_date.$gte = new Date(from);
+      if (to) query.issue_date.$lte = new Date(to);
+    }
+
+    // Auto-expire pending quotations whose valid_until date has passed
+    await Quotation.updateMany(
+      { status: "pending", valid_until: { $lt: new Date() } },
+      { $set: { status: "expired" } }
+    );
 
     const total = await Quotation.countDocuments(query);
     const data = await Quotation.find(query)

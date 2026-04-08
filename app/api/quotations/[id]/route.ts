@@ -10,6 +10,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { id } = await params;
+    // Auto-expire if valid_until has passed and status is still pending
+    await Quotation.updateOne(
+      { _id: id, status: "pending", valid_until: { $lt: new Date() } },
+      { $set: { status: "expired" } }
+    );
     const data = await Quotation.findById(id).lean();
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true, data });
