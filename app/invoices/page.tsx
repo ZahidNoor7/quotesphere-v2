@@ -29,9 +29,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PaymentStatusBadge, InvoiceStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER } from "@/lib/ds";
+import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
 import { SpinnerCenter } from "@/components/loaders";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
@@ -73,9 +74,9 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortableCol; sortCol: Sortab
 
 export default function InvoicesPage() {
   const [searchInput, setSearchInput] = useState(""); // immediate: controls the <input>
-  const [search,      setSearch]      = useState(""); // debounced: drives the API query
+  const [search, setSearch] = useState(""); // debounced: drives the API query
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [status,    setStatus]    = useState("");
+  const [status, setStatus] = useState("");
   const [payStatus, setPayStatus] = useState("");
   const [period, setPeriod] = useState<Period>("month");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -566,7 +567,7 @@ export default function InvoicesPage() {
                   <div style={{ paddingLeft: 26 }}>
                     <Link href={`/quotations/${inv.converted_from}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 100, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", textDecoration: "none" }}>
                       <span style={{ fontSize: 10, color: "var(--t3)" }}>Quotation</span>
-                      <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#818cf8" strokeWidth="1.8"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+                      <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#818cf8" strokeWidth="1.8"><path d="M2 6h8M7 3l3 3-3 3" /></svg>
                       <span style={{ fontSize: 10, color: "#818cf8", fontWeight: 500 }}>Invoiced</span>
                     </Link>
                   </div>
@@ -655,7 +656,7 @@ export default function InvoicesPage() {
                         {inv.converted_from ? (
                           <Link href={`/quotations/${inv.converted_from}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 100, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", textDecoration: "none" }}>
                             <span style={{ fontSize: 10, color: "var(--t3)" }}>Quotation</span>
-                            <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#818cf8" strokeWidth="1.8"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+                            <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#818cf8" strokeWidth="1.8"><path d="M2 6h8M7 3l3 3-3 3" /></svg>
                             <span style={{ fontSize: 10, color: "#818cf8", fontWeight: 500 }}>Invoiced</span>
                           </Link>
                         ) : (
@@ -751,9 +752,11 @@ export default function InvoicesPage() {
   );
 }
 
-// ─── Invoice PDF Preview Dialog ───────────────────────────────────────────────
+// ─── Invoice PDF Preview Sheet ────────────────────────────────────────────────
 function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: string; settings: any; onClose: () => void }) {
   const { data: invoice, isLoading } = useSWR<Invoice>(`/api/invoices/${invoiceId}`, (url: string) => fetch(url).then(r => r.json()).then(d => d.data));
+  const isMobile = useIsMobile();
+  const [downloading, setDownloading] = useState(false);
 
   const userDesigns = settings?.documentDesigns ?? [];
   const invoiceDesignId = invoice?.designId ?? settings?.lastUsed?.invoiceDesignId;
@@ -762,15 +765,18 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
     : getDefaultDesign("invoice", userDesigns);
 
   return (
-    <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent style={{ maxWidth: 700, padding: 0, overflow: "hidden" }}>
-        <DialogHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
-          <DialogTitle>Invoice Preview</DialogTitle>
-          <DialogDescription>{invoice ? `${invoice.invoice_no} · ${invoice.customer_name}` : "Loading..."}</DialogDescription>
-        </DialogHeader>
-        <div style={{ padding: "16px 18px", overflowY: "auto", maxHeight: "62vh" }}>
+    <Sheet open onOpenChange={open => { if (!open) onClose(); }}>
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={isMobile ? "flex flex-col p-0 gap-0 h-[85vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[600px] sm:max-w-[600px]"}
+      >
+        <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>
+          <SheetTitle>Invoice Preview</SheetTitle>
+          <SheetDescription>{invoice ? `${invoice.invoice_no} · ${invoice.customer_name}` : "Loading..."}</SheetDescription>
+        </SheetHeader>
+        <div style={{ flex: 1, padding: "16px 18px", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
           {isLoading || !invoice ? (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 200 }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 200, width: "100%" }}>
               <div style={{ width: 24, height: 24, border: "2px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
               <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             </div>
@@ -778,7 +784,7 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
             <div id={`invoice-print-area-${invoiceId}`}>
               <DocumentRenderer
                 design={invoiceDesign}
-                width={580}
+                width={isMobile ? 320 : 580}
                 data={{
                   type: "invoice",
                   docNo: invoice.invoice_no,
@@ -806,7 +812,7 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
             </div>
           )}
         </div>
-        <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ display: "flex", gap: 6 }}>
             <Button
               variant="outline"
@@ -838,27 +844,47 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
             </Button>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
             <Button
               size="sm"
-              disabled={!invoice}
+              disabled={!invoice || downloading}
+              loading={downloading}
               style={{ display: "flex", alignItems: "center", gap: 5 }}
-              onClick={() => {
+              onClick={async () => {
                 if (!invoice) return;
-                const printWin = window.open("", "_blank", "width=820,height=1060");
-                if (!printWin) return;
-                const el = document.getElementById(`invoice-print-area-${invoiceId}`);
-                printWin.document.write(`<html><head><title>${invoice.invoice_no}</title><style>@page{margin:0;size:A4}@media print{body{margin:0}}body{margin:0}</style></head><body>${el?.innerHTML ?? ""}</body></html>`);
-                printWin.document.close();
-                printWin.focus();
-                setTimeout(() => { printWin.print(); printWin.close(); }, 400);
+                setDownloading(true);
+                try {
+                  const data: DocData = {
+                    type: "invoice",
+                    docNo: invoice.invoice_no,
+                    issueDate: invoice.issue_date,
+                    dueDate: invoice.due_date,
+                    customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
+                    items: invoice.items,
+                    subTotal: invoice.sub_total,
+                    taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
+                    taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
+                    discount: invoice.discount,
+                    delivery: invoice.delivery_charges,
+                    total: invoice.total_amount,
+                    advance: invoice.advance,
+                    outstanding: invoice.outstanding,
+                    currency: invoice.currency,
+                    remarks: invoice.remarks,
+                    companyName: settings?.company_name ?? "Your Company",
+                    companyEmail: settings?.company_email,
+                    companyPhone: settings?.company_phone,
+                    companyAddress: settings?.company_address,
+                    termsText: settings?.terms_and_conditions,
+                  };
+                  await downloadAsPdf(invoiceDesign, data, `Invoice-${invoice.invoice_no}.pdf`);
+                } finally { setDownloading(false); }
               }}
             >
               <Download size={13} /> Download PDF
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

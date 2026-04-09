@@ -11,7 +11,10 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { PaymentStatusBadge, InvoiceStatusBadge } from "@/components/shared/status-badges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
+
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { printAsPdf } from "@/lib/pdf-export";
+import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import type { Invoice, PaymentMethod, PaymentEntry } from "@/types";
@@ -40,6 +43,7 @@ export default function InvoiceDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const isMobile = useIsMobile();
+  const [downloading, setDownloading] = useState(false);
   const userDesigns = settings?.documentDesigns ?? [];
   const invoiceDesignId = invoice?.designId ?? settings?.lastUsed?.invoiceDesignId;
   const invoiceDesign = invoiceDesignId
@@ -499,18 +503,21 @@ export default function InvoiceDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Invoice PDF Preview Modal */}
-      <Dialog open={showPdfPreview} onOpenChange={setShowPdfPreview}>
-        <DialogContent style={{ maxWidth: 700, padding: 0, overflow: "hidden" }}>
-          <DialogHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
-            <DialogTitle>Invoice Preview</DialogTitle>
-            <DialogDescription>{invoice.invoice_no} · {invoice.customer_name}</DialogDescription>
-          </DialogHeader>
-          <div style={{ padding: "16px 18px", overflowY: "auto", maxHeight: "62vh" }}>
+      {/* Invoice PDF Preview Sheet */}
+      <Sheet open={showPdfPreview} onOpenChange={setShowPdfPreview}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={isMobile ? "flex flex-col p-0 gap-0 h-[85vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[600px] sm:max-w-[600px]"}
+        >
+          <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>
+            <SheetTitle>Invoice Preview</SheetTitle>
+            <SheetDescription>{invoice.invoice_no} · {invoice.customer_name}</SheetDescription>
+          </SheetHeader>
+          <div style={{ flex: 1, padding: "16px 18px", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div id="invoice-print-area">
               <DocumentRenderer
                 design={invoiceDesign}
-                width={580}
+                width={isMobile ? 320 : 580}
                 data={{
                   type: "invoice",
                   docNo: invoice.invoice_no,
@@ -537,7 +544,7 @@ export default function InvoiceDetailPage() {
               />
             </div>
           </div>
-          <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", gap: 6 }}>
               <Button
                 variant="outline"
@@ -565,26 +572,47 @@ export default function InvoiceDetailPage() {
               </Button>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(false)}>Close</Button>
               <Button
                 size="sm"
+                disabled={downloading}
+                loading={downloading}
                 style={{ display: "flex", alignItems: "center", gap: 5 }}
-                onClick={() => {
-                  const printWin = window.open("", "_blank", "width=820,height=1060");
-                  if (!printWin) return;
-                  const el = document.getElementById("invoice-print-area");
-                  printWin.document.write(`<html><head><title>${invoice.invoice_no}</title><style>@page{margin:0;size:A4}@media print{body{margin:0}}body{margin:0}</style></head><body>${el?.innerHTML ?? ""}</body></html>`);
-                  printWin.document.close();
-                  printWin.focus();
-                  setTimeout(() => { printWin.print(); printWin.close(); }, 400);
+                onClick={async () => {
+                  setDownloading(true);
+                  try {
+                    const data: DocData = {
+                      type: "invoice",
+                      docNo: invoice.invoice_no,
+                      issueDate: invoice.issue_date,
+                      dueDate: invoice.due_date,
+                      customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
+                      items: invoice.items,
+                      subTotal: invoice.sub_total,
+                      taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
+                      taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
+                      discount: invoice.discount,
+                      delivery: invoice.delivery_charges,
+                      total: invoice.total_amount,
+                      advance: invoice.advance,
+                      outstanding: invoice.outstanding,
+                      currency: invoice.currency,
+                      remarks: invoice.remarks,
+                      companyName: settings?.company_name ?? "Your Company",
+                      companyEmail: settings?.company_email,
+                      companyPhone: settings?.company_phone,
+                      companyAddress: settings?.company_address,
+                      termsText: settings?.terms_and_conditions,
+                    };
+                    await downloadAsPdf(invoiceDesign, data, `Invoice-${invoice.invoice_no}.pdf`);
+                  } finally { setDownloading(false); }
                 }}
               >
                 <Download size={13} /> Download PDF
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Receipt Preview Modal */}
       {receiptPayment && invoice && (
@@ -603,15 +631,7 @@ export default function InvoiceDetailPage() {
             </div>
             <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <Button variant="outline" onClick={() => setReceiptPayment(null)}>Close</Button>
-              <Button onClick={() => {
-                const printWin = window.open("", "_blank", "width=700,height=900");
-                if (!printWin) return;
-                const receiptEl = document.getElementById("receipt-print-area");
-                printWin.document.write(`<html><head><title>Receipt</title><style>@media print{body{margin:0}}</style></head><body>${receiptEl?.innerHTML ?? ""}</body></html>`);
-                printWin.document.close();
-                printWin.focus();
-                setTimeout(() => { printWin.print(); printWin.close(); }, 300);
-              }}>
+              <Button onClick={() => printAsPdf("receipt-print-area", `Receipt-${invoice.invoice_no}`)}>
                 Print / Save PDF
               </Button>
             </div>

@@ -12,8 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { QuotationStatusBadge } from "@/components/shared/status-badges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { generatePdfFromElement, downloadFile } from "@/lib/pdf-export";
+import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
@@ -370,18 +372,21 @@ export default function QuotationDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Quotation PDF Preview Modal */}
-      <Dialog open={showPdfPreview} onOpenChange={setShowPdfPreview}>
-        <DialogContent style={{ maxWidth: 700, padding: 0, overflow: "hidden" }}>
-          <DialogHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
-            <DialogTitle>Quotation Preview</DialogTitle>
-            <DialogDescription>{quotation.quotation_no} · {quotation.customer_name}</DialogDescription>
-          </DialogHeader>
-          <div style={{ padding: "16px 18px", overflowY: "auto", maxHeight: "62vh" }}>
+      {/* Quotation PDF Preview Sheet */}
+      <Sheet open={showPdfPreview} onOpenChange={setShowPdfPreview}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={isMobile ? "flex flex-col p-0 gap-0 h-[85vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[600px] sm:max-w-[600px]"}
+        >
+          <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>
+            <SheetTitle>Quotation Preview</SheetTitle>
+            <SheetDescription>{quotation.quotation_no} · {quotation.customer_name}</SheetDescription>
+          </SheetHeader>
+          <div style={{ flex: 1, padding: "16px 18px", overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div id="quotation-print-area">
               <DocumentRenderer
                 design={quotationDesign}
-                width={580}
+                width={isMobile ? 320 : 580}
                 data={{
                   type: "quotation",
                   docNo: quotation.quotation_no,
@@ -406,7 +411,7 @@ export default function QuotationDetailPage() {
               />
             </div>
           </div>
-          <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: "12px 18px", borderTop: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div style={{ display: "flex", gap: 6 }}>
               <Button
                 variant="outline"
@@ -453,16 +458,36 @@ export default function QuotationDetailPage() {
               </Button>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <Button variant="outline" size="sm" onClick={() => setShowPdfPreview(false)}>Close</Button>
               <Button
                 size="sm"
+                disabled={sharing === "download"}
                 loading={sharing === "download"}
                 style={{ display: "flex", alignItems: "center", gap: 5 }}
                 onClick={async () => {
                   setSharing("download");
                   try {
-                    const file = await generatePdfFromElement("quotation-print-area", `Quotation-${quotation.quotation_no}.pdf`);
-                    if (file) downloadFile(file);
+                    const data: DocData = {
+                      type: "quotation",
+                      docNo: quotation.quotation_no,
+                      issueDate: quotation.issue_date,
+                      dueDate: quotation.valid_until,
+                      customer: { name: quotation.customer_name, phone: quotation.customer_phone, address: quotation.customer_address },
+                      items: quotation.items,
+                      subTotal: quotation.sub_total,
+                      taxAmt: quotation.tax_type === "percentage" ? quotation.sub_total * quotation.tax / 100 : quotation.tax,
+                      taxLabel: quotation.tax_type === "percentage" ? `Tax (${quotation.tax}%)` : "Tax",
+                      discount: quotation.discount,
+                      delivery: quotation.delivery_charges,
+                      total: quotation.total_amount,
+                      currency: quotation.currency,
+                      remarks: quotation.remarks,
+                      companyName: settings?.company_name ?? "Your Company",
+                      companyEmail: settings?.company_email,
+                      companyPhone: settings?.company_phone,
+                      companyAddress: settings?.company_address,
+                      termsText: settings?.terms_and_conditions,
+                    };
+                    await downloadAsPdf(quotationDesign, data, `Quotation-${quotation.quotation_no}.pdf`);
                   } finally { setSharing(null); }
                 }}
               >
@@ -470,8 +495,8 @@ export default function QuotationDetailPage() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
     </div>
   );

@@ -59,7 +59,12 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       className="flex flex-col h-full flex-shrink-0 z-30 relative"
     >
       {/* Logo */}
-      <div style={{ padding: "18px 16px 14px", display: "flex", alignItems: "center", gap: 11 }}>
+      <div style={{
+        padding: collapsed ? "16px 0 12px" : "18px 16px 14px",
+        display: "flex", alignItems: "center",
+        justifyContent: collapsed ? "center" : "flex-start",
+        gap: collapsed ? 6 : 11,
+      }}>
         <div style={{
           width: 34, height: 34, borderRadius: 10,
           background: "var(--accent)",
@@ -68,7 +73,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           boxShadow: "0 0 0 1px rgba(255,255,255,0.15) inset, 0 4px 12px var(--accent-glow)",
         }}>Q</div>
         {!collapsed && (
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div style={{ fontSize: 15, fontWeight: 600, color: "var(--t1)", letterSpacing: "-0.01em" }}>QuoteSphere</div>
             <div style={{ fontSize: 10, color: "var(--t3)" }}>Pro</div>
           </div>
@@ -91,7 +96,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }} className="scrollbar-hide">
+      <nav style={{ flex: 1, padding: collapsed ? "8px 6px" : "8px 10px", overflowY: "auto" }} className="scrollbar-hide">
         {NAV.map(({ section, items }) => (
           <div key={section}>
             {!collapsed && (
@@ -107,8 +112,11 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                   href={href}
                   title={collapsed ? label : undefined}
                   style={{
-                    display: "flex", alignItems: "center", gap: 9,
-                    padding: "8px 10px", borderRadius: 10,
+                    display: "flex", alignItems: "center",
+                    gap: collapsed ? 0 : 9,
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    padding: collapsed ? "8px 0" : "8px 10px",
+                    borderRadius: 10,
                     cursor: "pointer", fontSize: 12.5, marginBottom: 1,
                     transition: "all 0.15s", textDecoration: "none",
                     ...(active ? {
@@ -123,7 +131,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                   onMouseEnter={e => !active && Object.assign((e.target as HTMLElement).style, { background: "var(--glass-hover)", color: "var(--t1)" })}
                   onMouseLeave={e => !active && Object.assign((e.target as HTMLElement).style, { background: "transparent", color: "var(--t2)" })}
                 >
-                  <span style={{ width: 15, height: 15, flexShrink: 0, opacity: active ? 1 : 0.7 }}>
+                  <span style={{ width: 17, height: 17, flexShrink: 0, opacity: active ? 1 : 0.7, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {ICONS[icon]}
                   </span>
                   {!collapsed && <span className="truncate">{label}</span>}

@@ -72,6 +72,7 @@ export interface Invoice {
   delivery_status: "pending" | "shipped" | "delivered";
   tracking_no?: string;
   designId?: string;
+  rateSnapshot?: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
@@ -106,6 +107,7 @@ export interface Quotation {
   converted_to?: string;
   approved_at?: string;
   designId?: string;
+  rateSnapshot?: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
@@ -141,6 +143,7 @@ export interface Expense {
   customer_name: string;
   customer_phone: string;
   project_id?: string;
+  rateSnapshot?: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
@@ -227,6 +230,13 @@ export interface DocumentDesign {
   config: DocumentDesignConfig;
 }
 
+export interface CurrencyRates {
+  base: string;
+  rates: Record<string, number>;
+  thresholds: Record<string, number>;
+  lastUpdated: string | null;
+}
+
 export interface Settings {
   _id: string;
   user_id?: string;
@@ -247,6 +257,7 @@ export interface Settings {
   appearance: AppearanceSettings;
   documentDesigns: DocumentDesign[];
   lastUsed: LastUsedSettings;
+  currencyRates?: CurrencyRates;
 }
 
 export interface DashboardStats {

@@ -42,7 +42,23 @@ export interface ISettings extends Document {
     quotationDesignId?: string;
     receiptDesignId?: string;
   };
+  currencyRates?: {
+    base: string;
+    rates: Record<string, number>;
+    thresholds: Record<string, number>;
+    lastUpdated: Date | null;
+  };
 }
+
+const currencyRatesSchema = new Schema(
+  {
+    base: { type: String, default: "PKR" },
+    rates: { type: Schema.Types.Mixed, default: {} },
+    thresholds: { type: Schema.Types.Mixed, default: {} },
+    lastUpdated: { type: Date, default: null },
+  },
+  { _id: false }
+);
 
 const documentDesignConfigSchema = new Schema(
   {
@@ -112,6 +128,10 @@ const settingsSchema = new Schema<ISettings>(
       invoiceDesignId: String,
       quotationDesignId: String,
       receiptDesignId: String,
+    },
+    currencyRates: {
+      type: currencyRatesSchema,
+      default: () => ({ base: "PKR", rates: {}, thresholds: {}, lastUpdated: null }),
     },
   },
   { timestamps: true, versionKey: false }

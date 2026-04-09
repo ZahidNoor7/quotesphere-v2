@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
@@ -14,9 +14,11 @@ import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
 import type { Customer, Service } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
+import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { BUILT_IN_DESIGNS, getAllDesigns, getDesignById, getDefaultDesign } from "@/lib/document-designs";
+import { TriangleAlert } from "lucide-react";
 
 // Portrait [w, h] in pt; landscape swaps them
 const PAGE_DIMS: Record<string, [number, number]> = {
@@ -57,11 +59,12 @@ interface MobileItemCardProps {
   disableRemove: boolean;
   onUpdate: (id: number, key: "name" | "quantity" | "price", val: string) => void;
   onRemove: (id: number) => void;
+  onDuplicate: (id: number) => void;
   onImageDialog: (id: number) => void;
   onImageUpload: (id: number) => void;
 }
 
-const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, onUpdate, onRemove, onImageDialog, onImageUpload }: MobileItemCardProps) {
+const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, onUpdate, onRemove, onDuplicate, onImageDialog, onImageUpload }: MobileItemCardProps) {
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(String(item.quantity));
   const [price, setPrice] = useState(String(item.price));
@@ -95,6 +98,10 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="3" width="14" height="10" rx="1.5" /><circle cx="5.5" cy="8" r="1.8" /><path d="M9 5.5l2.5 3.5-3 4.5" strokeLinejoin="round" /></svg>
           </button>
         )}
+        <button onClick={() => onDuplicate(item.id)} title="Duplicate item"
+          style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", cursor: "pointer", color: "#818cf8", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="5" y="5" width="8" height="8" rx="1.5" /><path d="M3 11V3h8" /></svg>
+        </button>
         <button onClick={() => onRemove(item.id)} disabled={disableRemove}
           style={{ width: 26, height: 26, borderRadius: 7, background: disableRemove ? "none" : "rgba(248,113,113,0.1)", border: disableRemove ? "none" : "0.5px solid rgba(248,113,113,0.25)", cursor: disableRemove ? "default" : "pointer", color: disableRemove ? "rgba(255,255,255,0.15)" : "#f87171", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
           <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3l10 10M13 3L3 13" /></svg>
@@ -144,6 +151,11 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { settings, updateLastUsed } = useSettings();
+  const { getSnapshot } = useCurrencyRates(settings?.default_currency ?? "PKR");
+  // Capture original item prices for edit-mode price-change detection
+  const originalPricesRef = useRef<Record<number, number>>(
+    Object.fromEntries((initialData?.items ?? []).map((it: any) => [it.id ?? it._id, it.price]))
+  );
   const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>("/api/customers?limit=200", fetcher);
   const { data: services = [] } = useSWR<Service[]>("/api/services", fetcher);
   const [showPreview, setShowPreview] = useState(true);
@@ -157,7 +169,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const designPickerRef = useRef<HTMLDivElement>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [splitPct, setSplitPct] = useState(50);
+  const [splitPct, setSplitPct] = useState(65);
   const isDragging = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -266,6 +278,15 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const total = subTotal + taxAmt + parseFloat(delivery || "0") - parseFloat(discount || "0");
   const outstanding = Math.max(0, total - parseFloat(advance || "0"));
 
+  // Price-change warning: show if editing and any item price differs from the saved value
+  const hasPriceChanged = useMemo(() => {
+    if (!initialData?._id) return false;
+    return items.some((item) => {
+      const orig = originalPricesRef.current[item.id];
+      return orig !== undefined && item.price !== orig;
+    });
+  }, [items, initialData]);
+
   // Resolve the active design
   const userDesigns = settings?.documentDesigns ?? [];
   const docType = type === "invoice" ? "invoice" as const : "quotation" as const;
@@ -339,6 +360,16 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
 
   function addItem() { setItems(p => [...p, { id: Date.now(), name: "", quantity: 1, price: 0 }]); }
   const removeItem = useCallback((id: number) => { setItems(p => p.length > 1 ? p.filter(i => i.id !== id) : p); }, []);
+  const duplicateItem = useCallback((id: number) => {
+    setItems(p => {
+      const idx = p.findIndex(i => i.id === id);
+      if (idx === -1) return p;
+      const copy = { ...p[idx], id: Date.now() };
+      const next = [...p];
+      next.splice(idx + 1, 0, copy);
+      return next;
+    });
+  }, []);
   const updateItem = useCallback((id: number, key: "name" | "quantity" | "price", val: string | number) => {
     setItems(p => p.map(i => i.id === id ? { ...i, [key]: key === "name" ? val : (parseFloat(val as string) || 0) } : i));
   }, []);
@@ -400,6 +431,10 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       customer_phone: customer?.phone_no ?? "", customer_address: customer?.address ?? "",
       designId: activeDesign?.id ?? "",
     };
+    // Snapshot current exchange rates on new documents only
+    if (!initialData?._id) {
+      payload.rateSnapshot = getSnapshot();
+    }
     if (type === "invoice") {
       payload.payment_mode = paymentMode; payload.advance = parseFloat(advance || "0");
       payload.outstanding = outstanding; payload.total_paid = parseFloat(advance || "0");
@@ -621,7 +656,8 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                         onChange={e => { setClientSearch(e.target.value); setShowClientDrop(true); }}
                         onFocus={() => setShowClientDrop(true)}
                         placeholder="Search clients..."
-                        className="h-8 text-xs pl-7"
+                        className="h-8 text-xs"
+                        style={{ paddingLeft: 28 }}
                       />
                     </div>
                   )}
@@ -733,6 +769,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     disableRemove={items.length === 1}
                     onUpdate={updateItem}
                     onRemove={removeItem}
+                    onDuplicate={duplicateItem}
                     onImageDialog={setImageDialogItemId}
                     onImageUpload={triggerImageUpload}
                   />
@@ -741,7 +778,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             ) : (
               /* ── Desktop: table header + rows ── */
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 24px", gap: 4, padding: "5px 10px", fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "rgba(255,255,255,0.025)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "5px 10px", fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "rgba(255,255,255,0.025)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
                   <span /><span>Description</span>
                   <span style={{ textAlign: "center" }}>Qty</span>
                   <span style={{ textAlign: "right" }}>Price</span>
@@ -756,7 +793,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     onDrop={() => { reorderItems(dragIdx!, idx); setDragIdx(null); setDragOverIdx(null); }}
                     onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     style={{
-                      display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 24px", gap: 4, padding: "6px 10px",
+                      display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "6px 10px",
                       borderBottom: `0.5px solid rgba(255,255,255,0.04)`, alignItems: "center",
                       background: dragOverIdx === idx && dragIdx !== idx ? "rgba(99,102,241,0.12)" : dragIdx === idx ? "rgba(99,102,241,0.06)" : "transparent",
                       opacity: dragIdx === idx ? 0.55 : 1, transition: "background 0.1s",
@@ -792,10 +829,18 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     <Input draggable={false} type="number" min="0" value={item.quantity} onChange={e => updateItem(item.id, "quantity", e.target.value)} className="h-8 text-xs text-center" />
                     <Input draggable={false} type="number" min="0" value={item.price} onChange={e => updateItem(item.id, "price", e.target.value)} className="h-8 text-xs text-right" />
                     <span style={{ fontSize: 12, fontWeight: 500, color: T1, textAlign: "right" }}>{formatCurrency(item.quantity * item.price, currency)}</span>
-                    <button onClick={() => removeItem(item.id)} disabled={items.length === 1} title="Remove"
-                      style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: items.length === 1 ? "default" : "pointer", color: items.length === 1 ? "rgba(255,255,255,0.12)" : T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                      <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3l10 10M13 3L3 13" /></svg>
-                    </button>
+                    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                      <button onClick={() => duplicateItem(item.id)} title="Duplicate"
+                        style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: "pointer", color: T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, opacity: 0.5 }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.color = "#818cf8"; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = "0.5"; e.currentTarget.style.color = T3; }}>
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="5" y="5" width="8" height="8" rx="1.5" /><path d="M3 11V3h8" /></svg>
+                      </button>
+                      <button onClick={() => removeItem(item.id)} disabled={items.length === 1} title="Remove"
+                        style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: items.length === 1 ? "default" : "pointer", color: items.length === 1 ? "rgba(255,255,255,0.12)" : T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                        <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3l10 10M13 3L3 13" /></svg>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </>
@@ -834,6 +879,17 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <Input type="number" min="0" value={delivery} onChange={e => setDelivery(e.target.value)} placeholder="0" className="h-8 text-[11px]" />
                 </div>
               </div>
+              {hasPriceChanged && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "7px 10px", borderRadius: 8, marginBottom: 8,
+                  background: "rgba(251,191,36,0.08)", border: "0.5px solid rgba(251,191,36,0.3)",
+                  fontSize: 11, color: "#fbbf24",
+                }}>
+                  <TriangleAlert size={13} style={{ flexShrink: 0 }} />
+                  Prices changed from saved version. Save to update the document.
+                </div>
+              )}
               {[
                 { label: "Subtotal", val: formatCurrency(subTotal, currency), color: T2 },
                 ...(parseFloat(tax) > 0 ? [{ label: `Tax (${tax}${taxType === "percentage" ? "%" : " fixed"})`, val: formatCurrency(taxAmt, currency), color: T2 }] : []),

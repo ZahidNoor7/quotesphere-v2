@@ -55,6 +55,8 @@ export interface IInvoice extends Document {
   tracking_no?: string;
   // Document design
   designId?: string;
+  // Exchange rates at time of creation
+  rateSnapshot?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -122,6 +124,8 @@ const invoiceSchema = new Schema<IInvoice>(
     tracking_no: String,
     // Document design
     designId: String,
+    // Exchange rates frozen at creation time
+    rateSnapshot: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, versionKey: false }
 );

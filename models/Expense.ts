@@ -34,6 +34,7 @@ export interface IExpense extends Document {
   project_id?: mongoose.Types.ObjectId;
   invoice_id?: mongoose.Types.ObjectId;
   quotation_id?: mongoose.Types.ObjectId;
+  rateSnapshot?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +75,7 @@ const expenseSchema = new Schema<IExpense>(
     project_id: { type: Schema.Types.ObjectId, ref: "Project" },
     invoice_id: { type: Schema.Types.ObjectId, ref: "Invoice" },
     quotation_id: { type: Schema.Types.ObjectId, ref: "Quotation" },
+    rateSnapshot: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, versionKey: false }
 );

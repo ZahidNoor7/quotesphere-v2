@@ -44,6 +44,11 @@ export function useSettings() {
     await patch({ enabledCurrencies: currencies });
   }
 
+  async function updateDefaultCurrency(currency: string) {
+    mutate(data ? { ...data, default_currency: currency } : data, false);
+    await patch({ default_currency: currency });
+  }
+
   return {
     settings: data,
     isLoading,
@@ -51,5 +56,6 @@ export function useSettings() {
     updateAppearance,
     updateLastUsed,
     updateEnabledCurrencies,
+    updateDefaultCurrency,
   };
 }

@@ -33,6 +33,8 @@ export interface IQuotation extends Document {
   approved_at?: Date;
   // Document design
   designId?: string;
+  // Exchange rates at time of creation
+  rateSnapshot?: Record<string, number>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +76,7 @@ const quotationSchema = new Schema<IQuotation>(
     converted_to: { type: Schema.Types.ObjectId, ref: "Invoice" },
     approved_at: Date,
     designId: String,
+    rateSnapshot: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true, versionKey: false }
 );
