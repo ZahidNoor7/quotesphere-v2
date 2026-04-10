@@ -1,11 +1,5 @@
 import { MongoClient, ServerApiVersion } from "mongodb";
 
-const uri = process.env.MONGO_URI!;
-
-if (!uri) {
-  throw new Error("Please add your MongoDB URI to .env.local");
-}
-
 const options = {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -20,22 +14,33 @@ const options = {
   retryReads: true,
 };
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
 declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
+function getClientPromise(): Promise<MongoClient> {
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    throw new Error("Please add your MongoDB URI to .env.local");
   }
-  clientPromise = global._mongoClientPromise;
-} else {
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  if (process.env.NODE_ENV === "development") {
+    if (!global._mongoClientPromise) {
+      global._mongoClientPromise = new MongoClient(uri, options).connect();
+    }
+    return global._mongoClientPromise;
+  }
+  if (!global._mongoClientPromise) {
+    global._mongoClientPromise = new MongoClient(uri, options).connect();
+  }
+  return global._mongoClientPromise;
 }
+
+// Lazy thenable — only connects when awaited or .then() is called
+const clientPromise: Promise<MongoClient> = {
+  then: (...args) => getClientPromise().then(...args),
+  catch: (...args) => getClientPromise().catch(...args),
+  finally: (...args) => getClientPromise().finally(...args),
+  [Symbol.toStringTag]: "Promise",
+} as Promise<MongoClient>;
 
 export default clientPromise;

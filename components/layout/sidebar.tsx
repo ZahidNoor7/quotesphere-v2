@@ -56,7 +56,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         borderRight: "0.5px solid var(--glass-border)",
         transition: "width 0.3s ease",
       }}
-      className="flex flex-col h-full flex-shrink-0 z-30 relative"
+      className="flex flex-col h-full flex-shrink-0 z-30 relative overflow-hidden"
     >
       {/* Logo */}
       <div style={{
