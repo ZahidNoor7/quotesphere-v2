@@ -14,14 +14,17 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const customer_id = searchParams.get("customer_id") || "";
+    const sort = searchParams.get("sort") || "createdAt";
+    const order = searchParams.get("order") || "desc";
 
     const query: any = {};
     if (search) query.$text = { $search: search };
     if (status) query.status = status;
     if (customer_id) query.customer_id = customer_id;
 
+    const sortObj: any = { [sort]: order === "asc" ? 1 : -1 };
     const total = await Project.countDocuments(query);
-    const data = await Project.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean();
+    const data = await Project.find(query).sort(sortObj).skip((page - 1) * limit).limit(limit).lean();
     return NextResponse.json({ success: true, data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch { return NextResponse.json({ success: false, error: "Failed to fetch projects" }, { status: 500 }); }
 }

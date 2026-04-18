@@ -16,6 +16,7 @@ export interface IProject extends Document {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  progress?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +41,7 @@ const projectSchema = new Schema<IProject>(
     customer_phone: { type: String, required: true },
     tags: [String],
     notes: String,
+    progress: { type: Number, default: 0, min: 0, max: 100 },
   },
   { timestamps: true, versionKey: false }
 );

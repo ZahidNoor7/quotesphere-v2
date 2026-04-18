@@ -276,11 +276,11 @@ export default function DashboardPage() {
                 fontWeight: t === tab ? 500 : 400,
                 ...(t === tab
                   ? {
-                      background:
-                        "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(129,140,248,0.18))",
-                      color: "#818cf8",
-                      boxShadow: "0 1px 6px rgba(99,102,241,0.2)",
-                    }
+                    background:
+                      "linear-gradient(135deg,rgba(99,102,241,0.3),rgba(129,140,248,0.18))",
+                    color: "#818cf8",
+                    boxShadow: "0 1px 6px rgba(99,102,241,0.2)",
+                  }
                   : { background: "none", color: T3 }),
               }}
             >

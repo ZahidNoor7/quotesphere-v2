@@ -37,7 +37,7 @@ import { DocumentRenderer } from "@/components/document-design/document-renderer
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
 import { useIsMobile } from "@/hooks/use-mobile";
-import type { Invoice } from "@/types";
+import type { Invoice, Project } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -56,6 +56,7 @@ type SortableCol = "invoice_no" | "customer_name" | "total_amount" | "issue_date
 const COLUMNS = [
   { key: "invoice_no" as const, label: "Invoice #", sortable: true },
   { key: "customer_name" as const, label: "Client", sortable: true },
+  { key: "project" as const, label: "Project", sortable: false },
   { key: "total_amount" as const, label: "Amount", sortable: true },
   { key: "status" as const, label: "Status", sortable: false },
   { key: "payment_status" as const, label: "Payment", sortable: false },
@@ -86,7 +87,7 @@ export default function InvoicesPage() {
   const [sortCol, setSortCol] = useState<SortableCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
-    invoice_no: true, customer_name: true, total_amount: true,
+    invoice_no: true, customer_name: true, project: true, total_amount: true,
     status: true, payment_status: true, issue_date: true, source: true,
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -124,6 +125,12 @@ export default function InvoicesPage() {
   );
   const rawInvoices: Invoice[] = data?.data ?? [];
   const pagination = data?.pagination;
+  const { data: projectsData = [] } = useSWR<Project[]>("/api/projects?limit=200", (url: string) => fetch(url).then(r => r.json()).then(d => d.data ?? []));
+  const projectMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    (projectsData as Project[]).forEach(p => { m[p._id] = p.name; });
+    return m;
+  }, [projectsData]);
 
   const invoices = useMemo(() => {
     if (!sortCol) return rawInvoices;
@@ -557,6 +564,11 @@ export default function InvoicesPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 26, flexWrap: "wrap" }}>
                   <InvoiceStatusBadge status={inv.status} />
                   <PaymentStatusBadge status={inv.payment_status} />
+                  {inv.project_id && projectMap[inv.project_id] && (
+                    <Link href={`/projects/${inv.project_id}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 100, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", textDecoration: "none" }}>
+                      <span style={{ fontSize: 10, color: "#818cf8", fontWeight: 500 }}>{projectMap[inv.project_id]}</span>
+                    </Link>
+                  )}
                   <span style={{ fontSize: 11, color: "var(--t3)", marginLeft: "auto" }}>
                     {formatDate(inv.issue_date)}
                   </span>
@@ -601,6 +613,7 @@ export default function InvoicesPage() {
                       </span>
                     </Th>
                   )}
+                  {visibleCols.project && <Th style={{ width: 130 }}>Project</Th>}
                   {visibleCols.total_amount && (
                     <Th style={{ width: 115, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("total_amount")}>
                       <span style={{ display: "inline-flex", alignItems: "center" }}>
@@ -642,6 +655,15 @@ export default function InvoicesPage() {
                     )}
                     {visibleCols.customer_name && (
                       <Td style={{ color: T1, fontWeight: 500 }}>{inv.customer_name}</Td>
+                    )}
+                    {visibleCols.project && (
+                      <Td>
+                        {inv.project_id && projectMap[inv.project_id] ? (
+                          <Link href={`/projects/${inv.project_id}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 100, background: "rgba(99,102,241,0.1)", border: "0.5px solid rgba(99,102,241,0.25)", textDecoration: "none", maxWidth: 120, overflow: "hidden" }}>
+                            <span style={{ fontSize: 10, color: "#818cf8", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectMap[inv.project_id]}</span>
+                          </Link>
+                        ) : <span style={{ fontSize: 10, color: "var(--t3)" }}>—</span>}
+                      </Td>
                     )}
                     {visibleCols.total_amount && (
                       <Td style={{ color: T1, fontWeight: 500 }}>

@@ -75,26 +75,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-theme={initialThemeId}
       suppressHydrationWarning
     >
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`MainBody ${geistSans.variable} ${geistMono.variable} antialiased fixed w-screen h-screen`}>
         <SessionProvider>
           <SWRProvider>
             <DeviceProvider initialMobile={initialMobile}>
-            <ThemeProvider initialTheme={initialThemeId}>
-              <Toaster
-                theme={isDark ? "dark" : "light"}
-                toastOptions={{
-                  style: {
-                    background: "var(--modal-bg)",
-                    border: "0.5px solid var(--glass-border-strong)",
-                    color: "var(--t1)",
-                    borderRadius: 12,
-                    backdropFilter: "blur(40px)",
-                    fontSize: 13,
-                  },
-                }}
-              />
-              {children}
-            </ThemeProvider>
+              <ThemeProvider initialTheme={initialThemeId}>
+                <Toaster
+                  theme={isDark ? "dark" : "light"}
+                  toastOptions={{
+                    style: {
+                      background: "var(--modal-bg)",
+                      border: "0.5px solid var(--glass-border-strong)",
+                      color: "var(--t1)",
+                      borderRadius: 12,
+                      backdropFilter: "blur(40px)",
+                      fontSize: 13,
+                    },
+                  }}
+                />
+                {children}
+              </ThemeProvider>
             </DeviceProvider>
           </SWRProvider>
         </SessionProvider>

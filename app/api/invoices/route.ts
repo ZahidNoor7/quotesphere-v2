@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status") || "";
     const payment_status = searchParams.get("payment_status") || "";
     const customer_id = searchParams.get("customer_id") || "";
+    const project_id = searchParams.get("project_id") || "";
     const from = searchParams.get("from") || "";
     const to = searchParams.get("to") || "";
 
@@ -24,6 +25,7 @@ export async function GET(req: NextRequest) {
     if (status) query.status = status;
     if (payment_status) query.payment_status = payment_status;
     if (customer_id) query.customer_id = customer_id;
+    if (project_id) query.project_id = project_id;
     if (from || to) {
       query.issue_date = {};
       if (from) query.issue_date.$gte = new Date(from);

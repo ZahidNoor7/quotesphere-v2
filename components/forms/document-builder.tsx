@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
-import type { Customer, Service } from "@/types";
+import type { Customer, Service, Project } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
 import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -57,14 +57,16 @@ interface MobileItemCardProps {
   idx: number;
   currency: string;
   disableRemove: boolean;
+  hasError?: boolean;
   onUpdate: (id: number, key: "name" | "quantity" | "price", val: string) => void;
   onRemove: (id: number) => void;
   onDuplicate: (id: number) => void;
   onImageDialog: (id: number) => void;
   onImageUpload: (id: number) => void;
+  onClearError?: () => void;
 }
 
-const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, onUpdate, onRemove, onDuplicate, onImageDialog, onImageUpload }: MobileItemCardProps) {
+const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, hasError, onUpdate, onRemove, onDuplicate, onImageDialog, onImageUpload, onClearError }: MobileItemCardProps) {
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(String(item.quantity));
   const [price, setPrice] = useState(String(item.price));
@@ -110,11 +112,18 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
       {/* Description */}
       <Input
         value={name}
-        onChange={e => setName(e.target.value)}
+        onChange={e => { setName(e.target.value); if (e.target.value.trim()) onClearError?.(); }}
         onBlur={() => onUpdate(item.id, "name", name)}
         placeholder="Service or item description"
         className="h-9 text-sm"
+        style={hasError ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined}
       />
+      {hasError && (
+        <div style={{ fontSize: 10, color: "#f87171", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5c.4 0 .7.3.7.7v3.6c0 .4-.3.7-.7.7s-.7-.3-.7-.7V5.2c0-.4.3-.7.7-.7zm0 6.5a.8.8 0 110-1.6.8.8 0 010 1.6z"/></svg>
+          Description is required
+        </div>
+      )}
       {/* Qty + Price */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
         <div>
@@ -158,6 +167,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   );
   const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>("/api/customers?limit=200", fetcher);
   const { data: services = [] } = useSWR<Service[]>("/api/services", fetcher);
+  const { data: projects = [] } = useSWR<Project[]>("/api/projects?limit=200&sort=name&order=asc", fetcher);
   const [showPreview, setShowPreview] = useState(true);
   const [showPreviewSheet, setShowPreviewSheet] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
@@ -212,6 +222,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   }, []);
 
   const [customerId, setCustomerId] = useState(initialData?.customer_id ?? searchParams.get("customer_id") ?? "");
+  const [projectId, setProjectId] = useState(initialData?.project_id ?? searchParams.get("project_id") ?? "");
   const [issueDate, setIssueDate] = useState(initialData?.issue_date ? new Date(initialData.issue_date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState(() => {
     if (initialData) {
@@ -266,6 +277,10 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       : [{ id: 1, name: "", quantity: 1, price: 0 }]
   );
   const [imageDialogItemId, setImageDialogItemId] = useState<number | null>(null);
+  const [clientError, setClientError] = useState(false);
+  const clientFieldRef = useRef<HTMLDivElement>(null);
+  const [itemErrors, setItemErrors] = useState<Set<number>>(new Set());
+  const itemRowRefs = useRef<Map<number, HTMLElement>>(new Map());
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [imgDragIdx, setImgDragIdx] = useState<number | null>(null);
@@ -348,6 +363,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       await mutateCustomers();
       setCustomerId(data.data._id);
       setClientSearch(data.data.name);
+      setClientError(false);
       setShowCreateClient(false);
       setCreateForm({ name: "", phone: "", company: "", address: "" });
       toast.success("Client created and selected.");
@@ -372,6 +388,12 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   }, []);
   const updateItem = useCallback((id: number, key: "name" | "quantity" | "price", val: string | number) => {
     setItems(p => p.map(i => i.id === id ? { ...i, [key]: key === "name" ? val : (parseFloat(val as string) || 0) } : i));
+    if (key === "name" && String(val).trim()) {
+      setItemErrors(p => { const next = new Set(p); next.delete(id); return next; });
+    }
+  }, []);
+  const clearItemError = useCallback((id: number) => {
+    setItemErrors(p => { const next = new Set(p); next.delete(id); return next; });
   }, []);
   const triggerImageUpload = useCallback((id: number) => {
     uploadTargetId.current = id;
@@ -420,8 +442,21 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   }
 
   async function handleSubmit(status: string) {
-    if (!customerId) { toast.error("Please select a client."); return; }
-    if (items.some(i => !i.name)) { toast.error("All line items need a description."); return; }
+    if (!customerId) {
+      setClientError(true);
+      clientFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.error("Please select a client.");
+      return;
+    }
+    const emptyItems = items.filter(i => !i.name.trim());
+    if (emptyItems.length > 0) {
+      const errorIds = new Set(emptyItems.map(i => i.id));
+      setItemErrors(errorIds);
+      const firstEl = itemRowRefs.current.get(emptyItems[0].id);
+      if (firstEl) firstEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.error("All line items need a description.");
+      return;
+    }
     setLoading(true);
     const payload: any = {
       issue_date: new Date(issueDate), currency, items, sub_total: subTotal,
@@ -431,6 +466,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       customer_phone: customer?.phone_no ?? "", customer_address: customer?.address ?? "",
       designId: activeDesign?.id ?? "",
     };
+    if (projectId) payload.project_id = projectId;
     // Snapshot current exchange rates on new documents only
     if (!initialData?._id) {
       payload.rateSnapshot = getSnapshot();
@@ -625,12 +661,12 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           <div style={{ padding: "14px 16px 0" }}>
             <div style={secTitle}>Client & details</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-              <div>
-                <div style={lbl}>Client *</div>
+              <div ref={clientFieldRef}>
+                <div style={{ ...lbl, color: clientError ? "#f87171" : undefined }}>Client *</div>
                 <div style={{ position: "relative" }} ref={clientDropRef}>
                   {customerId && (customers as Customer[]).find(c => c._id === customerId) ? (
                     /* Selected state: show chip */
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(255,255,255,0.06)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 7 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(255,255,255,0.06)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 7 }} onClick={() => setClientError(false)}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 500, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {(customers as Customer[]).find(c => c._id === customerId)?.name}
@@ -653,11 +689,11 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       <Input
                         type="text"
                         value={clientSearch}
-                        onChange={e => { setClientSearch(e.target.value); setShowClientDrop(true); }}
+                        onChange={e => { setClientSearch(e.target.value); setShowClientDrop(true); if (e.target.value) setClientError(false); }}
                         onFocus={() => setShowClientDrop(true)}
                         placeholder="Search clients..."
                         className="h-8 text-xs"
-                        style={{ paddingLeft: 28 }}
+                        style={{ paddingLeft: 28, ...(clientError ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : {}) }}
                       />
                     </div>
                   )}
@@ -666,7 +702,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "rgba(12,16,32,0.97)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxHeight: 220, overflowY: "auto" }}>
                       {filteredCustomers.slice(0, 20).map(c => (
                         <button key={c._id}
-                          onClick={() => { setCustomerId(c._id); setClientSearch(c.name); setShowClientDrop(false); }}
+                          onClick={() => { setCustomerId(c._id); setClientSearch(c.name); setShowClientDrop(false); setClientError(false); }}
                           style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 1, borderBottom: `0.5px solid rgba(255,255,255,0.04)` }}
                           onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.1)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "none")}
@@ -690,7 +726,31 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     </div>
                   )}
                 </div>
+                {clientError && (
+                  <div style={{ fontSize: 10, color: "#f87171", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5c.4 0 .7.3.7.7v3.6c0 .4-.3.7-.7.7s-.7-.3-.7-.7V5.2c0-.4.3-.7.7-.7zm0 6.5a.8.8 0 110-1.6.8.8 0 010 1.6z"/></svg>
+                    Client is required
+                  </div>
+                )}
               </div>
+              {/* Project (optional) */}
+              <div>
+                <div style={lbl}>
+                  Project <span style={{ opacity: 0.45, fontSize: 9.5, fontWeight: 400 }}>(optional)</span>
+                </div>
+                <Select value={projectId || "_none"} onValueChange={v => setProjectId(v === "_none" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="No project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">No project</SelectItem>
+                    {(projects as Project[]).map(p => (
+                      <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div>
                   <div style={lbl}>{type === "invoice" ? "Issue date" : "Date"}</div>
@@ -761,18 +821,21 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
               /* ── Mobile: card per item ── */
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
                 {items.map((item, idx) => (
-                  <MobileItemCard
-                    key={item.id}
-                    item={item}
-                    idx={idx}
-                    currency={currency}
-                    disableRemove={items.length === 1}
-                    onUpdate={updateItem}
-                    onRemove={removeItem}
-                    onDuplicate={duplicateItem}
-                    onImageDialog={setImageDialogItemId}
-                    onImageUpload={triggerImageUpload}
-                  />
+                  <div key={item.id} ref={(el) => { if (el) itemRowRefs.current.set(item.id, el); else itemRowRefs.current.delete(item.id); }}>
+                    <MobileItemCard
+                      item={item}
+                      idx={idx}
+                      currency={currency}
+                      disableRemove={items.length === 1}
+                      hasError={itemErrors.has(item.id)}
+                      onUpdate={updateItem}
+                      onRemove={removeItem}
+                      onDuplicate={duplicateItem}
+                      onImageDialog={setImageDialogItemId}
+                      onImageUpload={triggerImageUpload}
+                      onClearError={() => clearItemError(item.id)}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -787,6 +850,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 </div>
                 {items.map((item, idx) => (
                   <div key={item.id}
+                    ref={(el) => { if (el) itemRowRefs.current.set(item.id, el); else itemRowRefs.current.delete(item.id); }}
                     draggable
                     onDragStart={() => setDragIdx(idx)}
                     onDragOver={e => { e.preventDefault(); setDragOverIdx(idx); }}
@@ -807,7 +871,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       </svg>
                     </div>
                     <div style={{ position: "relative" }}>
-                      <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-8 text-xs pr-8" />
+                      <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-8 text-xs pr-8" style={itemErrors.has(item.id) ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined} />
                       {item.images?.length ? (
                         <button onClick={() => setImageDialogItemId(item.id)} title={`${item.images.length} image(s) — click to manage`}
                           style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>

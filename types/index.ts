@@ -164,6 +164,7 @@ export interface Project {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  progress?: number;
   createdAt: string;
   updatedAt: string;
 }
