@@ -212,7 +212,7 @@ export default function ProjectDetailPage() {
               aria-label="Back to projects"
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, textDecoration: "none", flexShrink: 0 }}
             >
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M8 2L4 6l4 4"/></svg>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M8 2L4 6l4 4" /></svg>
               <span className="hidden sm:inline">Projects</span>
             </Link>
             <div style={{ fontSize: 14, fontWeight: 600, color: T1 }} className="truncate min-w-0">{project.name}</div>
@@ -235,7 +235,7 @@ export default function ProjectDetailPage() {
                   style={{ ...ICON_PILL, width: 30, height: 30 }}
                   className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full"
                 >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.5 2.5a2.12 2.12 0 013 3L5 15H1v-4L11.5 2.5z"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.5 2.5a2.12 2.12 0 013 3L5 15H1v-4L11.5 2.5z" /></svg>
                 </button>
               </TooltipTrigger>
               <TooltipContent>Edit project</TooltipContent>
@@ -247,7 +247,7 @@ export default function ProjectDetailPage() {
                   style={{ ...ICON_PILL, width: 30, height: 30 }}
                   className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 rounded-full transition-colors hover:bg-red-500/10! hover:text-red-400! hover:border-red-400/30!"
                 >
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13" /></svg>
                 </button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -450,7 +450,7 @@ export default function ProjectDetailPage() {
         </div>
 
         <Dialog open={showEdit} onOpenChange={setShowEdit}>
-          <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full">
+          <DialogContent className="max-w-lg w-[calc(100dvw-2rem)] sm:w-full">
             <DialogHeader><DialogTitle>Edit project</DialogTitle></DialogHeader>
             {showEdit && <ProjectEditForm initial={project} onSave={() => { setShowEdit(false); mutate(); }} onClose={() => setShowEdit(false)} />}
           </DialogContent>

@@ -14,6 +14,7 @@ import { ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
 import { SpinnerCenter } from "@/components/loaders";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
@@ -32,6 +33,7 @@ export default function ExpenseViewPage() {
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: expense, isLoading } = useSWR<Expense>(`/api/expenses/${id}`, fetcher);
 
@@ -73,11 +75,11 @@ export default function ExpenseViewPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Topbar */}
       <div style={TOPBAR_STYLE}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <Link
             href="/expenses"
             style={{
-              display: "flex", alignItems: "center", gap: 5,
+              display: "flex", alignItems: "center", gap: 5, flexShrink: 0,
               padding: "5px 11px", borderRadius: 100,
               background: GLASS, border: `0.5px solid ${GLASS_BORDER}`,
               color: T2, fontSize: 11.5, textDecoration: "none",
@@ -88,10 +90,10 @@ export default function ExpenseViewPage() {
             </svg>
             Expenses
           </Link>
-          <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{expense.expense_no}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{expense.expense_no}</div>
           <ExpenseStatusBadge status={expense.status} />
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <Button asChild variant="outline" size="sm">
             <Link href={`/expenses/${id}/edit`} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <Pencil size={12} /> Edit
@@ -108,7 +110,7 @@ export default function ExpenseViewPage() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px", maxWidth: 700 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "18px 20px", maxWidth: 700, width: "100%" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
           {/* Details */}
@@ -156,39 +158,69 @@ export default function ExpenseViewPage() {
           <div>
             <div style={secTitle}>Expense items</div>
             <div style={{ borderRadius: 10, border: `0.5px solid ${GLASS_BORDER}`, overflow: "hidden" }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "3fr 52px 85px 75px",
-                gap: 5, padding: "6px 10px",
-                fontSize: 9.5, fontWeight: 500, letterSpacing: "0.05em",
-                textTransform: "uppercase", color: T3,
-                background: "rgba(255,255,255,0.025)",
-              }}>
-                <span>Description</span>
-                <span style={{ textAlign: "center" }}>Qty</span>
-                <span style={{ textAlign: "right" }}>Unit price</span>
-                <span style={{ textAlign: "right" }}>Total</span>
-              </div>
-              {expense.items.map((item, i) => (
-                <div
-                  key={i}
-                  style={{
+              {isMobile ? (
+                /* Mobile item list */
+                <>
+                  {expense.items.map((item, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        padding: "10px 12px",
+                        borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.04)` : "none",
+                        display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1 }}>
+                        <span style={{ fontSize: 12.5, color: T1 }}>{item.name}</span>
+                        {item.category && <span style={{ fontSize: 10, color: T3 }}>{item.category}</span>}
+                        <span style={{ fontSize: 11, color: T2 }}>
+                          {item.quantity} × {formatCurrency(item.unit_price, expense.currency)}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: T1, flexShrink: 0 }}>
+                        {formatCurrency(item.total, expense.currency)}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                /* Desktop grid */
+                <>
+                  <div style={{
                     display: "grid", gridTemplateColumns: "3fr 52px 85px 75px",
-                    gap: 5, padding: "8px 10px",
-                    borderTop: `0.5px solid rgba(255,255,255,0.04)`,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: 12, color: T1 }}>{item.name}</span>
-                    {item.category && (
-                      <span style={{ fontSize: 10, color: T3 }}>{item.category}</span>
-                    )}
+                    gap: 5, padding: "6px 10px",
+                    fontSize: 9.5, fontWeight: 500, letterSpacing: "0.05em",
+                    textTransform: "uppercase", color: T3,
+                    background: "rgba(255,255,255,0.025)",
+                  }}>
+                    <span>Description</span>
+                    <span style={{ textAlign: "center" }}>Qty</span>
+                    <span style={{ textAlign: "right" }}>Unit price</span>
+                    <span style={{ textAlign: "right" }}>Total</span>
                   </div>
-                  <span style={{ fontSize: 11, color: T2, textAlign: "center" }}>{item.quantity}</span>
-                  <span style={{ fontSize: 11, color: T2, textAlign: "right" }}>{formatCurrency(item.unit_price, expense.currency)}</span>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: T1, textAlign: "right" }}>{formatCurrency(item.total, expense.currency)}</span>
-                </div>
-              ))}
+                  {expense.items.map((item, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "grid", gridTemplateColumns: "3fr 52px 85px 75px",
+                        gap: 5, padding: "8px 10px",
+                        borderTop: `0.5px solid rgba(255,255,255,0.04)`,
+                        alignItems: "center",
+                      }}
+                    >
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontSize: 12, color: T1 }}>{item.name}</span>
+                        {item.category && (
+                          <span style={{ fontSize: 10, color: T3 }}>{item.category}</span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: T2, textAlign: "center" }}>{item.quantity}</span>
+                      <span style={{ fontSize: 11, color: T2, textAlign: "right" }}>{formatCurrency(item.unit_price, expense.currency)}</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: T1, textAlign: "right" }}>{formatCurrency(item.total, expense.currency)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
 
               {/* Totals */}
               <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "rgba(255,255,255,0.015)", display: "flex", flexDirection: "column", gap: 4 }}>

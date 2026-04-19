@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import useSWR from "swr";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -173,6 +174,7 @@ export default function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editClient, setEditClient] = useState<Customer | null>(null);
+  const isMobile = useIsMobile();
 
   const params = new URLSearchParams({ page: String(page), limit: "15" });
   if (search)       params.set("search", search);
@@ -254,7 +256,7 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div style={{ padding: "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: isMobile ? "12px 12px" : "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
 
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -284,8 +286,8 @@ export default function CustomersPage() {
             </SelectContent>
           </Select>
 
-          {/* Column visibility */}
-          <DropdownMenu>
+          {/* Column visibility — desktop only */}
+          {!isMobile && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, height: 32 }}>
                 <SlidersHorizontal size={13} /> Columns
@@ -304,7 +306,7 @@ export default function CustomersPage() {
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
 
         {/* ── Bulk actions bar ─────────────────────────────────────────────── */}
@@ -343,11 +345,11 @@ export default function CustomersPage() {
           </div>
         )}
 
-        {/* ── Table ────────────────────────────────────────────────────────── */}
-        <TableWrapper style={{ flex: 1, overflowY: "auto" }}>
-          {isLoading ? (
-            <SpinnerCenter height={200} />
-          ) : customers.length === 0 ? (
+        {/* ── Table / Cards ────────────────────────────────────────────────── */}
+        {isLoading ? (
+          <TableWrapper style={{ flex: 1 }}><SpinnerCenter height={200} /></TableWrapper>
+        ) : customers.length === 0 ? (
+          <TableWrapper style={{ flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 8 }}>
               <svg width="40" height="40" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="0.8">
                 <circle cx="8" cy="5" r="3" />
@@ -359,7 +361,102 @@ export default function CustomersPage() {
                 + Add client
               </Button>
             </div>
-          ) : (
+          </TableWrapper>
+        ) : isMobile ? (
+          /* ── Mobile card list ── */
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+            {customers.map((c, i) => (
+              <div
+                key={c._id}
+                style={{
+                  background: selected.has(c._id) ? "var(--glass-hover)" : "var(--glass)",
+                  border: `0.5px solid ${selected.has(c._id) ? "rgba(99,102,241,0.35)" : "var(--glass-border)"}`,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {/* Row 1: checkbox + avatar + name + actions */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Checkbox
+                    checked={selected.has(c._id)}
+                    onCheckedChange={() => toggleRow(c._id)}
+                  />
+                  <div
+                    style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: AV_COLORS[i % AV_COLORS.length],
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 600,
+                      color: AV_TEXT[i % AV_TEXT.length],
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getInitials(c.name)}
+                  </div>
+                  <Link
+                    href={`/customers/${c._id}`}
+                    style={{ flex: 1, color: T1, fontWeight: 600, fontSize: 13, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {c.name}
+                  </Link>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button style={{ ...ICON_PILL, width: 28, height: 28 }}>
+                        <MoreVertical size={13} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" style={{ minWidth: 168 }}>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/customers/${c._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                          <Eye size={13} /> View
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        style={{ display: "flex", alignItems: "center", gap: 8 }}
+                        onClick={() => { setEditClient(c); setShowForm(true); }}
+                      >
+                        <Pencil size={13} /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        style={{ color: "#f87171", display: "flex", alignItems: "center", gap: 8 }}
+                        onClick={() => setDeleteTarget(c)}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Row 2: company + phone */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 26, flexWrap: "wrap" }}>
+                  {c.company && (
+                    <span style={{ fontSize: 12, color: "var(--t2)", fontWeight: 500 }}>{c.company}</span>
+                  )}
+                  <span style={{ fontSize: 12, color: "var(--t2)" }}>{c.phone_no}</span>
+                  {c.email && (
+                    <span style={{ fontSize: 11, color: "var(--t3)" }}>{c.email}</span>
+                  )}
+                </div>
+
+                {/* Row 3: status badge + date */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 26, flexWrap: "wrap" }}>
+                  <Badge variant={c.status ? "success" : "muted"}>
+                    {c.status ? "Active" : "Inactive"}
+                  </Badge>
+                  <span style={{ fontSize: 11, color: "var(--t3)", marginLeft: "auto" }}>
+                    {formatDate(c.createdAt)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* ── Desktop table ── */
+          <TableWrapper style={{ flex: 1, overflowY: "auto" }}>
             <DataTable>
               <thead>
                 <tr>
@@ -486,8 +583,8 @@ export default function CustomersPage() {
                 ))}
               </tbody>
             </DataTable>
-          )}
-        </TableWrapper>
+          </TableWrapper>
+        )}
 
         <PaginationBar
           page={page}

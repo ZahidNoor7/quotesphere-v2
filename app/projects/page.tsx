@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DatePickerInput } from "@/components/ui/date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -98,7 +99,7 @@ function ProjectForm({ onSave, onClose, initial }: { onSave: () => void; onClose
 
   return (
     <>
-      <div className="flex flex-col gap-3 pt-1.5 max-h-[70vh] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-3 pt-1.5 pb-1 max-h-[70vh] overflow-y-auto no-scrollbar px-0.5 -mx-0.5">
         <div className="space-y-1">
           <Label htmlFor="proj-name" className={lbl} style={{ color: T3 }}>Project name *</Label>
           <Input id="proj-name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Office renovation Phase 1" style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />
@@ -135,11 +136,11 @@ function ProjectForm({ onSave, onClose, initial }: { onSave: () => void; onClose
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div className="space-y-1">
             <Label className={lbl} style={{ color: T3 }}>Start date</Label>
-            <Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />
+            <DatePickerInput value={form.start_date} onChange={v => setForm(p => ({ ...p, start_date: v }))} placeholder="Pick start date" className="bg-(--glass) border-(--glass-border) text-(--t1) focus-visible:ring-indigo-500/30" />
           </div>
           <div className="space-y-1">
             <Label className={lbl} style={{ color: T3 }}>Due date</Label>
-            <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />
+            <DatePickerInput value={form.due_date} onChange={v => setForm(p => ({ ...p, due_date: v }))} placeholder="Pick due date" className="bg-(--glass) border-(--glass-border) text-(--t1) focus-visible:ring-indigo-500/30" />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -274,7 +275,7 @@ export default function ProjectsPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <button aria-label="Export CSV" onClick={exportCSV} style={{ ...ICON_PILL, width: 30, height: 30 }} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full">
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1v9M4 6l4 4 4-4M2 12h12v2H2z"/></svg>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 1v9M4 6l4 4 4-4M2 12h12v2H2z" /></svg>
                 </button>
               </TooltipTrigger>
               <TooltipContent>Export CSV</TooltipContent>
@@ -350,8 +351,8 @@ export default function ProjectsPage() {
                     className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full"
                   >
                     {order === "desc"
-                      ? <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M4 9l4 4 4-4"/></svg>
-                      : <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 13V3M4 7l4-4 4 4"/></svg>}
+                      ? <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M4 9l4 4 4-4" /></svg>
+                      : <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 13V3M4 7l4-4 4 4" /></svg>}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{order === "desc" ? "Descending" : "Ascending"}</TooltipContent>
@@ -394,7 +395,7 @@ export default function ProjectsPage() {
                           checked={isSelected}
                           aria-label={`Select ${p.name}`}
                           className="mt-0.5 shrink-0 data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
-                          onCheckedChange={() => {}}
+                          onCheckedChange={() => { }}
                           onClick={e => toggleSelect(p._id, e as unknown as React.MouseEvent)}
                         />
                         <div className="min-w-0">
@@ -412,7 +413,7 @@ export default function ProjectsPage() {
                               style={{ ...ICON_PILL, width: 22, height: 22 }}
                               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full"
                             >
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.5 2.5a2.12 2.12 0 013 3L5 15H1v-4L11.5 2.5z"/></svg>
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.5 2.5a2.12 2.12 0 013 3L5 15H1v-4L11.5 2.5z" /></svg>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>Edit</TooltipContent>
@@ -425,7 +426,7 @@ export default function ProjectsPage() {
                               style={{ ...ICON_PILL, width: 22, height: 22 }}
                               className="hidden sm:flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full"
                             >
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 10V3h7"/></svg>
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="5" y="5" width="9" height="9" rx="1" /><path d="M3 10V3h7" /></svg>
                             </button>
                           </TooltipTrigger>
                           <TooltipContent>Duplicate</TooltipContent>
@@ -438,7 +439,7 @@ export default function ProjectsPage() {
                               style={{ ...ICON_PILL, width: 22, height: 22 }}
                               className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 rounded-full hover:bg-red-500/10! hover:text-red-400! hover:border-red-400/30! transition-colors"
                             >
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
+                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13" /></svg>
                             </button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -471,10 +472,10 @@ export default function ProjectsPage() {
 
           {pagination && pagination.pages > 1 && (
             <div className="flex justify-between items-center">
-              <span style={{ fontSize: 12, color: T3 }} className="tabular-nums">{(page-1)*pagination.limit+1}–{Math.min(page*pagination.limit,pagination.total)} of {pagination.total}</span>
+              <span style={{ fontSize: 12, color: T3 }} className="tabular-nums">{(page - 1) * pagination.limit + 1}–{Math.min(page * pagination.limit, pagination.total)} of {pagination.total}</span>
               <div className="flex gap-1.5">
-                <Button variant="outline" size="sm" disabled={page<=1} onClick={()=>setPage(p=>p-1)}>← Prev</Button>
-                <Button variant="outline" size="sm" disabled={page>=pagination.pages} onClick={()=>setPage(p=>p+1)}>Next →</Button>
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</Button>
+                <Button variant="outline" size="sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Next →</Button>
               </div>
             </div>
           )}
@@ -482,7 +483,7 @@ export default function ProjectsPage() {
 
         {/* Bulk action bar */}
         {selected.length > 0 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 flex-wrap justify-center px-4 py-2.5 rounded-xl shadow-2xl max-w-[calc(100vw-2rem)]"
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 flex-wrap justify-center px-4 py-2.5 rounded-xl shadow-2xl max-w-[calc(100dvw-2rem)]"
             style={{ background: "rgba(15,15,30,0.92)", backdropFilter: "blur(20px)", border: `0.5px solid ${GLASS_BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#818cf8" }}>{selected.length} selected</span>
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
@@ -508,13 +509,13 @@ export default function ProjectsPage() {
               </AlertDialogContent>
             </AlertDialog>
             <button aria-label="Clear selection" onClick={() => setSelected([])} style={{ ...ICON_PILL, width: 24, height: 24 }} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full">
-              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 3l10 10M13 3L3 13"/></svg>
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 3l10 10M13 3L3 13" /></svg>
             </button>
           </div>
         )}
 
         <Dialog open={formTarget !== null} onOpenChange={open => !open && setFormTarget(null)}>
-          <DialogContent className="max-w-lg w-[calc(100vw-2rem)] sm:w-full">
+          <DialogContent className="max-w-lg w-[calc(100dvw-2rem)] sm:w-full">
             <DialogHeader><DialogTitle>{editProject ? "Edit project" : "New project"}</DialogTitle></DialogHeader>
             <ProjectForm
               initial={editProject}
@@ -523,7 +524,7 @@ export default function ProjectsPage() {
             />
           </DialogContent>
         </Dialog>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}`}</style>
       </div>
     </TooltipProvider>
   );

@@ -547,7 +547,7 @@ export default function DocumentDesignPage() {
 
   if (isLoading || !settings) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
         {/* Topbar skeleton */}
         <div style={{ ...TOPBAR_STYLE }}>
           <Link href="/settings" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, cursor: "pointer", textDecoration: "none" }}>
@@ -567,7 +567,7 @@ export default function DocumentDesignPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", overflow: "hidden" }}>
       {/* Topbar */}
       <div style={{ ...TOPBAR_STYLE }}>
         <Link href="/settings" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, cursor: "pointer", textDecoration: "none" }}>

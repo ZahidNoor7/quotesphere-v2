@@ -43,7 +43,7 @@ export default function LoginPage() {
 
   return (
     <>
-      <div className="auth-page" style={{ minHeight: "100vh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#0d1120" }}>
+      <div className="auth-page" style={{ minHeight: "100dvh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#0d1120" }}>
 
         {/* ── Left: Form ── */}
         <div className="auth-form-panel" style={{ display: "flex", flexDirection: "column", padding: "32px 48px", background: "#0d1120" }}>
@@ -135,7 +135,7 @@ export default function LoginPage() {
         @media (max-width: 768px) {
           .auth-page { grid-template-columns: 1fr !important; }
           .auth-carousel-panel { display: none !important; }
-          .auth-form-panel { padding: 28px 24px !important; min-height: 100vh; box-sizing: border-box; }
+          .auth-form-panel { padding: 28px 24px !important; min-height: 100dvh; box-sizing: border-box; }
           .auth-form-inner { max-width: 100% !important; }
           .auth-logo { margin-bottom: 36px !important; }
         }

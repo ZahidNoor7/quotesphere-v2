@@ -7,6 +7,7 @@ import { PaymentStatusBadge, QuotationStatusBadge, ExpenseStatusBadge } from "@/
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD } from "@/lib/ds";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Customer, Invoice, Quotation, Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
@@ -18,6 +19,7 @@ export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>("invoices");
   const { data, isLoading } = useSWR(`/api/customers/${id}`, fetcher);
+  const isMobile = useIsMobile();
 
   if (isLoading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300 }}>
@@ -43,22 +45,22 @@ export default function CustomerDetailPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={TOPBAR_STYLE}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-          <Link href="/customers" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, textDecoration: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+          <Link href="/customers" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, textDecoration: "none", flexShrink: 0 }}>
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M8 2L4 6l4 4"/></svg>
             Clients
           </Link>
-          <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{customer.name}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{customer.name}</div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <Button asChild variant="outline" size="sm"><Link href={`/quotations/new?customer_id=${id}`}>+ Quotation</Link></Button>
-          <Button asChild size="sm"><Link href={`/invoices/new?customer_id=${id}`}>+ Invoice</Link></Button>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <Button asChild variant="outline" size="sm"><Link href={`/quotations/new?customer_id=${id}`}>{isMobile ? "+ Quote" : "+ Quotation"}</Link></Button>
+          <Button asChild size="sm"><Link href={`/invoices/new?customer_id=${id}`}>{isMobile ? "+ Invoice" : "+ Invoice"}</Link></Button>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: "hidden", overflowY: "auto", padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", overflowY: "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Top: profile + stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
           {/* Profile card */}
           <div style={{ ...CARD, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -120,13 +122,34 @@ export default function CustomerDetailPage() {
         </div>
 
         {/* Tab content */}
-        <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, overflow: "hidden" }}>
+        <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, overflow: isMobile ? "visible" : "hidden" }}>
           {/* Invoices */}
           {tab === "invoices" && (
             invoices.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
                 <div style={{ fontSize: 13, color: T2, marginBottom: 6 }}>No invoices yet</div>
                 <Button asChild size="sm"><Link href={`/invoices/new?customer_id=${id}`}>+ Create invoice</Link></Button>
+              </div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {invoices.map((inv: Invoice, i) => (
+                  <div key={inv._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{inv.invoice_no}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(inv.total_amount, inv.currency)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <PaymentStatusBadge status={inv.payment_status} />
+                      {inv.outstanding > 0 && (
+                        <span style={{ fontSize: 11, color: "#fbbf24", fontWeight: 500 }}>
+                          {formatCurrency(inv.outstanding, inv.currency)} outstanding
+                        </span>
+                      )}
+                      <span style={{ fontSize: 11, color: T3, marginLeft: "auto" }}>{formatDate(inv.issue_date)}</span>
+                    </div>
+                    <Link href={`/invoices/${inv._id}`} style={{ fontSize: 11.5, color: AC2, textDecoration: "none", alignSelf: "flex-end" }}>View →</Link>
+                  </div>
+                ))}
               </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -167,6 +190,25 @@ export default function CustomerDetailPage() {
                 <div style={{ fontSize: 13, color: T2, marginBottom: 6 }}>No quotations yet</div>
                 <Button asChild size="sm"><Link href={`/quotations/new?customer_id=${id}`}>+ Create quotation</Link></Button>
               </div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {quotations.map((qt: Quotation, i) => (
+                  <div key={qt._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{qt.quotation_no}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(qt.total_amount, qt.currency)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <QuotationStatusBadge status={qt.status} />
+                      <span style={{ fontSize: 11, color: T3 }}>{formatDate(qt.issue_date)}</span>
+                      {qt.valid_until && (
+                        <span style={{ fontSize: 11, color: T3, marginLeft: "auto" }}>Until {formatDate(qt.valid_until)}</span>
+                      )}
+                    </div>
+                    <Link href={`/quotations/${qt._id}`} style={{ fontSize: 11.5, color: AC2, textDecoration: "none", alignSelf: "flex-end" }}>View →</Link>
+                  </div>
+                ))}
+              </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
@@ -200,6 +242,22 @@ export default function CustomerDetailPage() {
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
                 <div style={{ fontSize: 13, color: T2, marginBottom: 6 }}>No expenses recorded</div>
                 <Button asChild size="sm"><Link href={`/expenses/new?customer_id=${id}`}>+ Record expense</Link></Button>
+              </div>
+            ) : isMobile ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {expenses.map((exp: Expense, i) => (
+                  <div key={exp._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{exp.expense_no}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(exp.total_amount, exp.currency)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <ExpenseStatusBadge status={exp.status} />
+                      {exp.vendor_name && <span style={{ fontSize: 11, color: T2 }}>{exp.vendor_name}</span>}
+                      <span style={{ fontSize: 11, color: T3, marginLeft: "auto" }}>{formatDate(exp.bill_date)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>

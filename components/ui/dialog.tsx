@@ -33,7 +33,7 @@ export const DialogContent = React.forwardRef<
       ref={ref}
       style={{
         position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 51,
-        width: "90vw", maxWidth: 520, maxHeight: "85vh", overflow: "hidden",
+        width: "90vw", maxWidth: 520, maxHeight: "85vh",
         background: "var(--modal-bg)",
         backdropFilter: "blur(40px) saturate(180%)", WebkitBackdropFilter: "blur(40px) saturate(180%)",
         border: "0.5px solid var(--glass-border-strong)",

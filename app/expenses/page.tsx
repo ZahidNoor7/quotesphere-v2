@@ -28,6 +28,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T3, AC2, TOPBAR_STYLE, ICON_PILL } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
 import { SpinnerCenter } from "@/components/loaders";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -67,6 +68,7 @@ export default function ExpensesPage() {
   });
   const [selected,     setSelected]     = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
+  const isMobile = useIsMobile();
 
   const params = new URLSearchParams({ page: String(page), limit: "15" });
   if (search) params.set("search", search);
@@ -186,7 +188,7 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      <div style={{ padding: "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: isMobile ? "12px 12px" : "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
 
         {/* ── Toolbar ─────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -214,7 +216,8 @@ export default function ExpensesPage() {
             </SelectContent>
           </Select>
 
-          <DropdownMenu>
+          {/* Column visibility — desktop only */}
+          {!isMobile && <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, height: 32 }}>
                 <SlidersHorizontal size={13} /> Columns
@@ -233,7 +236,7 @@ export default function ExpensesPage() {
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
 
         {/* ── Bulk actions bar ─────────────────────────────────────────────── */}
@@ -287,18 +290,114 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        {/* ── Table ───────────────────────────────────────────────────────── */}
-        <TableWrapper style={{ flex: 1, overflowY: "auto" }}>
-          {isLoading ? (
-            <SpinnerCenter height={200} />
-          ) : expenses.length === 0 ? (
+        {/* ── Table / Cards ───────────────────────────────────────────────── */}
+        {isLoading ? (
+          <TableWrapper style={{ flex: 1 }}><SpinnerCenter height={200} /></TableWrapper>
+        ) : expenses.length === 0 ? (
+          <TableWrapper style={{ flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 8 }}>
               <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}>No expenses recorded</div>
               <Button asChild size="sm" style={{ marginTop: 4 }}>
                 <Link href="/expenses/new">+ Record expense</Link>
               </Button>
             </div>
-          ) : (
+          </TableWrapper>
+        ) : isMobile ? (
+          /* ── Mobile card list ── */
+          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+            {expenses.map(exp => (
+              <div
+                key={exp._id}
+                style={{
+                  background: selected.has(exp._id) ? "var(--glass-hover)" : "var(--glass)",
+                  border: `0.5px solid ${selected.has(exp._id) ? "rgba(99,102,241,0.35)" : "var(--glass-border)"}`,
+                  borderRadius: 12,
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {/* Row 1: checkbox + expense# + amount + actions */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Checkbox
+                    checked={selected.has(exp._id)}
+                    onCheckedChange={() => toggleRow(exp._id)}
+                  />
+                  <Link
+                    href={`/expenses/${exp._id}`}
+                    style={{ flex: 1, color: AC2, fontWeight: 600, fontSize: 13, textDecoration: "none" }}
+                  >
+                    {exp.expense_no}
+                  </Link>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>
+                    {formatCurrency(exp.total_amount, exp.currency)}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button style={{ ...ICON_PILL, width: 28, height: 28 }}>
+                        <MoreVertical size={13} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" style={{ minWidth: 168 }}>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/expenses/${exp._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                          <Eye size={13} /> View
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/expenses/${exp._id}/edit`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                          <Pencil size={13} /> Edit
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>Change Status</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {exp.status !== "draft"     && <DropdownMenuItem onClick={() => changeStatus(exp._id, "draft")}>Draft</DropdownMenuItem>}
+                          {exp.status !== "recorded"  && <DropdownMenuItem onClick={() => changeStatus(exp._id, "recorded")}>Recorded</DropdownMenuItem>}
+                          {exp.status !== "verified"  && <DropdownMenuItem onClick={() => changeStatus(exp._id, "verified")}>Verified</DropdownMenuItem>}
+                          {exp.status !== "cancelled" && <DropdownMenuItem onClick={() => changeStatus(exp._id, "cancelled")}>Cancelled</DropdownMenuItem>}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        style={{ color: "#f87171" }}
+                        onClick={() => setDeleteTarget(exp)}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {/* Row 2: vendor + client */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 26, flexWrap: "wrap" }}>
+                  {exp.vendor_name && (
+                    <span style={{ fontSize: 12, color: "var(--t2)", fontWeight: 500 }}>{exp.vendor_name}</span>
+                  )}
+                  <span style={{ fontSize: 12, color: "var(--t2)" }}>{exp.customer_name}</span>
+                </div>
+
+                {/* Row 3: status badge + date */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 26, flexWrap: "wrap" }}>
+                  <ExpenseStatusBadge status={exp.status} />
+                  <span style={{ fontSize: 11, color: "var(--t3)", marginLeft: "auto" }}>
+                    {formatDate(exp.bill_date)}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Page total */}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 4px", fontSize: 12, color: T3 }}>
+              <span>Page total</span>
+              <span style={{ fontWeight: 600, color: T1 }}>{formatCurrency(pageTotal)}</span>
+            </div>
+          </div>
+        ) : (
+          /* ── Desktop table ── */
+          <TableWrapper style={{ flex: 1, overflowY: "auto" }}>
             <DataTable>
               <thead>
                 <tr>
@@ -435,8 +534,8 @@ export default function ExpensesPage() {
                 </tr>
               </tfoot>
             </DataTable>
-          )}
-        </TableWrapper>
+          </TableWrapper>
+        )}
 
         <PaginationBar
           page={page}
