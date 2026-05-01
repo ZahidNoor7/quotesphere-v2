@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
@@ -29,14 +29,10 @@ function InlineStatusSelect({ project, onUpdate }: { project: Project; onUpdate:
   const [saving, setSaving] = useState(false);
   const color = STATUS_COLORS[project.status] || "#6366f1";
   return (
-    <select
-      aria-label="Change project status"
+    <Select
       value={project.status}
       disabled={saving}
-      onClick={e => e.stopPropagation()}
-      onChange={async (e) => {
-        e.stopPropagation();
-        const newStatus = e.target.value;
+      onValueChange={async (newStatus) => {
         setSaving(true);
         try {
           await fetch(`/api/projects/${project._id}`, {
@@ -46,14 +42,24 @@ function InlineStatusSelect({ project, onUpdate }: { project: Project; onUpdate:
           onUpdate();
         } finally { setSaving(false); }
       }}
-      style={{ fontSize: 10, fontWeight: 600, background: `${color}22`, color, border: `1px solid ${color}55`, borderRadius: 5, padding: "2px 5px", cursor: "pointer", outline: "none", opacity: saving ? 0.6 : 1, flexShrink: 0 }}
     >
-      <option value="pending">Pending</option>
-      <option value="in_progress">In Progress</option>
-      <option value="on_hold">On Hold</option>
-      <option value="complete">Complete</option>
-      <option value="cancelled">Cancelled</option>
-    </select>
+      <SelectTrigger
+        onClick={e => e.stopPropagation()}
+        className="w-auto"
+        style={{ fontSize: 10, fontWeight: 600, background: `${color}22`, color, border: `1px solid ${color}55`, borderRadius: 5, padding: "2px 8px 2px 5px", height: "auto", minHeight: "unset", opacity: saving ? 0.6 : 1, flexShrink: 0 }}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="in_progress">In Progress</SelectItem>
+          <SelectItem value="on_hold">On Hold</SelectItem>
+          <SelectItem value="complete">Complete</SelectItem>
+          <SelectItem value="cancelled">Cancelled</SelectItem>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 

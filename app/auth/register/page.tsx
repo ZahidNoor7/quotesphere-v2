@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureCarousel } from "@/components/auth/feature-carousel";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const T1 = "#eef0ff";
 const T3 = "rgba(160,170,255,0.42)";
@@ -38,12 +40,6 @@ export default function RegisterPage() {
     } catch { toast.error("Something went wrong."); setLoading(false); }
   }
 
-  const inputStyle = {
-    width: "100%", background: "rgba(255,255,255,0.055)",
-    border: "0.5px solid rgba(255,255,255,0.11)", borderRadius: 10,
-    padding: "10px 12px", color: T1, fontSize: 13, outline: "none",
-  } as const;
-
   return (
     <>
       <div className="auth-page" style={{ minHeight: "100dvh", display: "grid", gridTemplateColumns: "1fr 1fr", background: "#0d1120" }}>
@@ -65,9 +61,11 @@ export default function RegisterPage() {
             </p>
 
             {/* Google */}
-            <button
+            <Button
+              variant="outline"
+              type="button"
               onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, height: 42, borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.055)", border: "0.5px solid rgba(255,255,255,0.14)", color: "rgba(210,216,255,0.72)", fontSize: 13, fontWeight: 500, marginBottom: 24 }}
+              className="w-full h-10.5 rounded-[10px] text-[13px] justify-center gap-2.5 mb-6"
             >
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -76,7 +74,7 @@ export default function RegisterPage() {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
               </svg>
               Continue with Google
-            </button>
+            </Button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
               <div style={{ flex: 1, height: "0.5px", background: "rgba(255,255,255,0.09)" }} />
@@ -87,33 +85,27 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 <label style={{ fontSize: 12, color: T3, fontWeight: 500 }}>Full name</label>
-                <input
+                <Input
                   type="text" value={name} required placeholder="Jane Smith"
                   onChange={e => setName(e.target.value)}
-                  style={inputStyle}
-                  onFocus={e => { (e.target as any).style.borderColor = "rgba(99,102,241,0.55)"; (e.target as any).style.background = "rgba(255,255,255,0.08)"; }}
-                  onBlur={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.11)"; (e.target as any).style.background = "rgba(255,255,255,0.055)"; }}
+                  style={{ fontSize: 13, borderRadius: 10, padding: "10px 12px" }}
                 />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 <label style={{ fontSize: 12, color: T3, fontWeight: 500 }}>Email address</label>
-                <input
+                <Input
                   type="email" value={email} required placeholder="you@company.com"
                   onChange={e => setEmail(e.target.value)}
-                  style={inputStyle}
-                  onFocus={e => { (e.target as any).style.borderColor = "rgba(99,102,241,0.55)"; (e.target as any).style.background = "rgba(255,255,255,0.08)"; }}
-                  onBlur={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.11)"; (e.target as any).style.background = "rgba(255,255,255,0.055)"; }}
+                  style={{ fontSize: 13, borderRadius: 10, padding: "10px 12px" }}
                 />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 <label style={{ fontSize: 12, color: T3, fontWeight: 500 }}>Password</label>
                 <div style={{ position: "relative" }}>
-                  <input
+                  <Input
                     type={showPw ? "text" : "password"} value={password} required placeholder="Min. 8 characters"
                     onChange={e => setPassword(e.target.value)}
-                    style={{ ...inputStyle, paddingRight: 42 }}
-                    onFocus={e => { (e.target as any).style.borderColor = "rgba(99,102,241,0.55)"; (e.target as any).style.background = "rgba(255,255,255,0.08)"; }}
-                    onBlur={e => { (e.target as any).style.borderColor = "rgba(255,255,255,0.11)"; (e.target as any).style.background = "rgba(255,255,255,0.055)"; }}
+                    style={{ fontSize: 13, borderRadius: 10, padding: "10px 12px", paddingRight: 42 }}
                   />
                   <button type="button" onClick={() => setShowPw(!showPw)}
                     style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T3, display: "flex" }}>
@@ -121,13 +113,12 @@ export default function RegisterPage() {
                   </button>
                 </div>
               </div>
-              <button
-                type="submit" disabled={loading}
-                style={{ height: 42, borderRadius: 10, border: "none", cursor: loading ? "not-allowed" : "pointer", background: "linear-gradient(135deg,#6366f1,rgba(129,140,248,0.9))", color: "#fff", fontSize: 13, fontWeight: 600, boxShadow: "0 2px 14px rgba(99,102,241,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, opacity: loading ? 0.7 : 1, marginTop: 4 }}
+              <Button
+                type="submit" loading={loading}
+                className="w-full h-10.5 rounded-[10px] text-[13px] mt-1"
               >
-                {loading && <span style={{ width: 15, height: 15, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />}
                 Create account
-              </button>
+              </Button>
             </form>
 
             <p style={{ fontSize: 13, color: T3, marginTop: 24, textAlign: "center" }}>
@@ -144,7 +135,6 @@ export default function RegisterPage() {
       </div>
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
           .auth-page { grid-template-columns: 1fr !important; }
           .auth-carousel-panel { display: none !important; }

@@ -5,29 +5,62 @@ import useSWR from "swr";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Eye, Pencil, Trash2, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown,
-  SlidersHorizontal, ChevronDown, Search,
+  Eye,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  SlidersHorizontal,
+  ChevronDown,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuCheckboxItem,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   AlertDialogTrigger,
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-  Input,
-} from "@/components/ui/input";
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/card";
 import { formatDate, getInitials } from "@/lib/utils";
 import { T1, AC2, TOPBAR_STYLE, ICON_PILL, T3, FIELD_INPUT } from "@/lib/ds";
-import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
+import {
+  TableWrapper,
+  DataTable,
+  Th,
+  Td,
+  Tr,
+  PaginationBar,
+} from "@/components/custom-ui";
 import { SpinnerCenter } from "@/components/loaders";
 import type { Customer } from "@/types";
 
@@ -37,27 +70,49 @@ type SortDir = "asc" | "desc";
 type SortableCol = "name" | "company" | "createdAt";
 
 const COLUMNS = [
-  { key: "name" as const,      label: "Client",  sortable: true },
-  { key: "company" as const,   label: "Company", sortable: true },
-  { key: "phone_no" as const,  label: "Phone",   sortable: false },
-  { key: "email" as const,     label: "Email",   sortable: false },
-  { key: "status" as const,    label: "Status",  sortable: false },
-  { key: "createdAt" as const, label: "Added",   sortable: true },
+  { key: "name" as const, label: "Client", sortable: true },
+  { key: "company" as const, label: "Company", sortable: true },
+  { key: "phone_no" as const, label: "Phone", sortable: false },
+  { key: "email" as const, label: "Email", sortable: false },
+  { key: "status" as const, label: "Status", sortable: false },
+  { key: "createdAt" as const, label: "Added", sortable: true },
 ] as const;
 
-type ColKey = typeof COLUMNS[number]["key"];
+type ColKey = (typeof COLUMNS)[number]["key"];
 
 const AV_COLORS = [
-  "rgba(99,102,241,0.25)", "rgba(45,212,191,0.2)", "rgba(251,191,36,0.2)",
-  "rgba(167,139,250,0.2)", "rgba(52,211,153,0.2)", "rgba(248,113,113,0.2)",
+  "rgba(99,102,241,0.25)",
+  "rgba(45,212,191,0.2)",
+  "rgba(251,191,36,0.2)",
+  "rgba(167,139,250,0.2)",
+  "rgba(52,211,153,0.2)",
+  "rgba(248,113,113,0.2)",
 ];
-const AV_TEXT = ["#818cf8", "#2dd4bf", "#fbbf24", "#c4b5fd", "#34d399", "#f87171"];
+const AV_TEXT = [
+  "#818cf8",
+  "#2dd4bf",
+  "#fbbf24",
+  "#c4b5fd",
+  "#34d399",
+  "#f87171",
+];
 
-function SortIcon({ col, sortCol, sortDir }: { col: SortableCol; sortCol: SortableCol | null; sortDir: SortDir }) {
-  if (sortCol !== col) return <ArrowUpDown size={11} style={{ marginLeft: 3, opacity: 0.35 }} />;
-  return sortDir === "asc"
-    ? <ArrowUp size={11} style={{ marginLeft: 3, opacity: 0.75 }} />
-    : <ArrowDown size={11} style={{ marginLeft: 3, opacity: 0.75 }} />;
+function SortIcon({
+  col,
+  sortCol,
+  sortDir,
+}: {
+  col: SortableCol;
+  sortCol: SortableCol | null;
+  sortDir: SortDir;
+}) {
+  if (sortCol !== col)
+    return <ArrowUpDown size={11} style={{ marginLeft: 3, opacity: 0.35 }} />;
+  return sortDir === "asc" ? (
+    <ArrowUp size={11} style={{ marginLeft: 3, opacity: 0.75 }} />
+  ) : (
+    <ArrowDown size={11} style={{ marginLeft: 3, opacity: 0.75 }} />
+  );
 }
 
 // ─── Inline form component ──────────────────────────────────────────────────
@@ -72,12 +127,12 @@ function CustomerForm({
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
-    name:     initial?.name     ?? "",
+    name: initial?.name ?? "",
     phone_no: initial?.phone_no ?? "",
-    email:    initial?.email    ?? "",
-    company:  initial?.company  ?? "",
-    address:  initial?.address  ?? "",
-    notes:    initial?.notes    ?? "",
+    email: initial?.email ?? "",
+    company: initial?.company ?? "",
+    address: initial?.address ?? "",
+    notes: initial?.notes ?? "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -100,7 +155,7 @@ function CustomerForm({
           method: initial?._id ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(form),
-        }
+        },
       );
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -113,42 +168,68 @@ function CustomerForm({
     }
   }
 
-  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+  const lbl = {
+    fontSize: 11,
+    color: T3,
+    fontWeight: 500,
+    marginBottom: 4,
+    display: "block",
+  } as const;
 
   return (
     <>
-      <div style={{ padding: "6px 0 0", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          padding: "6px 0 0",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+        >
           <div>
             <label style={lbl}>Full name *</label>
-            <input {...f("name")} placeholder="Jane Smith" style={FIELD_INPUT} />
+            <Input {...f("name")} placeholder="Jane Smith" />
           </div>
           <div>
             <label style={lbl}>Phone *</label>
-            <input {...f("phone_no")} placeholder="+92 300 1234567" style={FIELD_INPUT} />
+            <Input {...f("phone_no")} placeholder="+92 300 1234567" />
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+        >
           <div>
             <label style={lbl}>Email</label>
-            <input {...f("email")} type="email" placeholder="jane@co.com" style={FIELD_INPUT} />
+            <Input {...f("email")} type="email" placeholder="jane@co.com" />
           </div>
           <div>
             <label style={lbl}>Company</label>
-            <input {...f("company")} placeholder="Company Ltd." style={FIELD_INPUT} />
+            <Input {...f("company")} placeholder="Company Ltd." />
           </div>
         </div>
         <div>
           <label style={lbl}>Address</label>
-          <input {...f("address")} placeholder="Street, City" style={FIELD_INPUT} />
+          <Input {...f("address")} placeholder="Street, City" />
         </div>
         <div>
           <label style={lbl}>Notes</label>
-          <input {...f("notes")} placeholder="Any notes..." style={FIELD_INPUT} />
+          <Input {...f("notes")} placeholder="Any notes..." />
         </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          marginTop: 18,
+        }}
+      >
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
         <Button loading={loading} onClick={save}>
           {initial?._id ? "Save changes" : "Add client"}
         </Button>
@@ -161,14 +242,19 @@ function CustomerForm({
 
 export default function CustomersPage() {
   const [searchInput, setSearchInput] = useState("");
-  const [search,      setSearch]      = useState("");
+  const [search, setSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage]   = useState(1);
+  const [page, setPage] = useState(1);
   const [sortCol, setSortCol] = useState<SortableCol | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [visibleCols, setVisibleCols] = useState<Record<ColKey, boolean>>({
-    name: true, company: true, phone_no: true, email: true, status: true, createdAt: true,
+    name: true,
+    company: true,
+    phone_no: true,
+    email: true,
+    status: true,
+    createdAt: true,
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
@@ -177,11 +263,13 @@ export default function CustomersPage() {
   const isMobile = useIsMobile();
 
   const params = new URLSearchParams({ page: String(page), limit: "15" });
-  if (search)       params.set("search", search);
+  if (search) params.set("search", search);
   if (statusFilter) params.set("status", statusFilter);
 
   const { data, mutate, isLoading } = useSWR(
-    `/api/customers?${params}`, fetcher, { keepPreviousData: true }
+    `/api/customers?${params}`,
+    fetcher,
+    { keepPreviousData: true },
   );
   const rawCustomers: Customer[] = data?.data ?? [];
   const pagination = data?.pagination;
@@ -197,31 +285,37 @@ export default function CustomersPage() {
   }, [rawCustomers, sortCol, sortDir]);
 
   function toggleSort(col: SortableCol) {
-    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortCol(col); setSortDir("asc"); }
+    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
   }
 
   function handleSearch(v: string) {
     setSearchInput(v);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => { setSearch(v); setPage(1); }, 350);
+    debounceRef.current = setTimeout(() => {
+      setSearch(v);
+      setPage(1);
+    }, 350);
   }
 
-  const allIds  = customers.map(c => c._id);
-  const allSel  = allIds.length > 0 && allIds.every(id => selected.has(id));
-  const someSel = !allSel && allIds.some(id => selected.has(id));
-  const selCount = allIds.filter(id => selected.has(id)).length;
+  const allIds = customers.map((c) => c._id);
+  const allSel = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const someSel = !allSel && allIds.some((id) => selected.has(id));
+  const selCount = allIds.filter((id) => selected.has(id)).length;
 
   function toggleAll() {
-    setSelected(prev => {
+    setSelected((prev) => {
       const s = new Set(prev);
-      if (allSel) allIds.forEach(id => s.delete(id));
-      else allIds.forEach(id => s.add(id));
+      if (allSel) allIds.forEach((id) => s.delete(id));
+      else allIds.forEach((id) => s.add(id));
       return s;
     });
   }
   function toggleRow(id: string) {
-    setSelected(prev => {
+    setSelected((prev) => {
       const s = new Set(prev);
       s.has(id) ? s.delete(id) : s.add(id);
       return s;
@@ -231,14 +325,20 @@ export default function CustomersPage() {
   async function del(id: string) {
     await fetch(`/api/customers/${id}`, { method: "DELETE" });
     toast.success("Client deleted.");
-    setSelected(prev => { const s = new Set(prev); s.delete(id); return s; });
+    setSelected((prev) => {
+      const s = new Set(prev);
+      s.delete(id);
+      return s;
+    });
     setDeleteTarget(null);
     mutate();
   }
 
   async function bulkDelete() {
-    const ids = allIds.filter(id => selected.has(id));
-    await Promise.all(ids.map(id => fetch(`/api/customers/${id}`, { method: "DELETE" })));
+    const ids = allIds.filter((id) => selected.has(id));
+    await Promise.all(
+      ids.map((id) => fetch(`/api/customers/${id}`, { method: "DELETE" })),
+    );
     toast.success(`${ids.length} client(s) deleted.`);
     setSelected(new Set());
     mutate();
@@ -248,34 +348,77 @@ export default function CustomersPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Topbar */}
       <div style={TOPBAR_STYLE}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Clients</span>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: T1,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          Clients
+        </span>
         <div style={{ marginLeft: "auto" }}>
-          <Button size="sm" onClick={() => { setEditClient(null); setShowForm(true); }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditClient(null);
+              setShowForm(true);
+            }}
+          >
             + Add client
           </Button>
         </div>
       </div>
 
-      <div style={{ padding: isMobile ? "12px 12px" : "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 12 }}>
-
+      <div
+        style={{
+          padding: isMobile ? "12px 12px" : "18px 20px",
+          flex: 1,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
         {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
           {/* Search */}
           <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
             <Search
               size={13}
-              style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--t3)", pointerEvents: "none" }}
+              style={{
+                position: "absolute",
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--t3)",
+                pointerEvents: "none",
+              }}
             />
             <Input
               value={searchInput}
-              onChange={e => handleSearch(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by name, phone, email..."
               style={{ paddingLeft: 28, height: 32 }}
             />
           </div>
 
           {/* Status filter */}
-          <Select value={statusFilter || "_all"} onValueChange={v => { setStatusFilter(v === "_all" ? "" : v); setPage(1); }}>
+          <Select
+            value={statusFilter || "_all"}
+            onValueChange={(v) => {
+              setStatusFilter(v === "_all" ? "" : v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger style={{ width: 130 }}>
               <SelectValue placeholder="All status" />
             </SelectTrigger>
@@ -287,58 +430,108 @@ export default function CustomersPage() {
           </Select>
 
           {/* Column visibility — desktop only */}
-          {!isMobile && <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, height: 32 }}>
-                <SlidersHorizontal size={13} /> Columns
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" style={{ minWidth: 160 }}>
-              <DropdownMenuLabel style={{ fontSize: 11, opacity: 0.7 }}>Toggle columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {COLUMNS.map(col => (
-                <DropdownMenuCheckboxItem
-                  key={col.key}
-                  checked={visibleCols[col.key]}
-                  onCheckedChange={v => setVisibleCols(p => ({ ...p, [col.key]: !!v }))}
+          {!isMobile && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    height: 32,
+                  }}
                 >
-                  {col.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>}
+                  <SlidersHorizontal size={13} /> Columns
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" style={{ minWidth: 160 }}>
+                <DropdownMenuLabel style={{ fontSize: 11, opacity: 0.7 }}>
+                  Toggle columns
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {COLUMNS.map((col) => (
+                  <DropdownMenuCheckboxItem
+                    key={col.key}
+                    checked={visibleCols[col.key]}
+                    onCheckedChange={(v) =>
+                      setVisibleCols((p) => ({ ...p, [col.key]: !!v }))
+                    }
+                  >
+                    {col.label}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* ── Bulk actions bar ─────────────────────────────────────────────── */}
         {selCount > 0 && (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
-            background: "var(--glass)", border: "0.5px solid var(--glass-border)",
-            borderRadius: 10, flexWrap: "wrap",
-          }}>
-            <span style={{ fontSize: 12, color: T1, fontWeight: 500 }}>{selCount} selected</span>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 12px",
+              background: "var(--glass)",
+              border: "0.5px solid var(--glass-border)",
+              borderRadius: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: 12, color: T1, fontWeight: 500 }}>
+              {selCount} selected
+            </span>
+            <div
+              style={{
+                marginLeft: "auto",
+                display: "flex",
+                gap: 6,
+                alignItems: "center",
+              }}
+            >
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     size="sm"
-                    style={{ background: "#ef4444", color: "#fff", border: "none", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}
+                    style={{
+                      background: "#ef4444",
+                      color: "#fff",
+                      border: "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      fontSize: 12,
+                    }}
                   >
                     <Trash2 size={12} /> Delete ({selCount})
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {selCount} client(s)?</AlertDialogTitle>
-                    <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                    <AlertDialogTitle>
+                      Delete {selCount} client(s)?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This cannot be undone.
+                    </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={bulkDelete}>Delete</AlertDialogAction>
+                    <AlertDialogAction onClick={bulkDelete}>
+                      Delete
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <Button variant="ghost" size="sm" style={{ fontSize: 12 }} onClick={() => setSelected(new Set())}>
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{ fontSize: 12 }}
+                onClick={() => setSelected(new Set())}
+              >
                 Clear
               </Button>
             </div>
@@ -347,29 +540,70 @@ export default function CustomersPage() {
 
         {/* ── Table / Cards ────────────────────────────────────────────────── */}
         {isLoading ? (
-          <TableWrapper style={{ flex: 1 }}><SpinnerCenter height={200} /></TableWrapper>
+          <TableWrapper style={{ flex: 1 }}>
+            <SpinnerCenter height={200} />
+          </TableWrapper>
         ) : customers.length === 0 ? (
           <TableWrapper style={{ flex: 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 8 }}>
-              <svg width="40" height="40" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="0.8">
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "60px 20px",
+                gap: 8,
+              }}
+            >
+              <svg
+                width="40"
+                height="40"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="var(--t3)"
+                strokeWidth="0.8"
+              >
                 <circle cx="8" cy="5" r="3" />
                 <path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" />
               </svg>
-              <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}>No clients found</div>
-              <div style={{ fontSize: 12, color: "var(--t3)" }}>Add your first client to get started</div>
-              <Button size="sm" style={{ marginTop: 8 }} onClick={() => { setEditClient(null); setShowForm(true); }}>
+              <div
+                style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}
+              >
+                No clients found
+              </div>
+              <div style={{ fontSize: 12, color: "var(--t3)" }}>
+                Add your first client to get started
+              </div>
+              <Button
+                size="sm"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  setEditClient(null);
+                  setShowForm(true);
+                }}
+              >
                 + Add client
               </Button>
             </div>
           </TableWrapper>
         ) : isMobile ? (
           /* ── Mobile card list ── */
-          <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
             {customers.map((c, i) => (
               <div
                 key={c._id}
                 style={{
-                  background: selected.has(c._id) ? "var(--glass-hover)" : "var(--glass)",
+                  background: selected.has(c._id)
+                    ? "var(--glass-hover)"
+                    : "var(--glass)",
                   border: `0.5px solid ${selected.has(c._id) ? "rgba(99,102,241,0.35)" : "var(--glass-border)"}`,
                   borderRadius: 12,
                   padding: "12px 14px",
@@ -386,10 +620,15 @@ export default function CustomersPage() {
                   />
                   <div
                     style={{
-                      width: 28, height: 28, borderRadius: "50%",
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
                       background: AV_COLORS[i % AV_COLORS.length],
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 600,
                       color: AV_TEXT[i % AV_TEXT.length],
                       flexShrink: 0,
                     }}
@@ -398,7 +637,16 @@ export default function CustomersPage() {
                   </div>
                   <Link
                     href={`/customers/${c._id}`}
-                    style={{ flex: 1, color: T1, fontWeight: 600, fontSize: 13, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    style={{
+                      flex: 1,
+                      color: T1,
+                      fontWeight: 600,
+                      fontSize: 13,
+                      textDecoration: "none",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     {c.name}
                   </Link>
@@ -410,19 +658,39 @@ export default function CustomersPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" style={{ minWidth: 168 }}>
                       <DropdownMenuItem asChild>
-                        <Link href={`/customers/${c._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                        <Link
+                          href={`/customers/${c._id}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: "100%",
+                          }}
+                        >
                           <Eye size={13} /> View
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        style={{ display: "flex", alignItems: "center", gap: 8 }}
-                        onClick={() => { setEditClient(c); setShowForm(true); }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                        onClick={() => {
+                          setEditClient(c);
+                          setShowForm(true);
+                        }}
                       >
                         <Pencil size={13} /> Edit
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        style={{ color: "#f87171", display: "flex", alignItems: "center", gap: 8 }}
+                        style={{
+                          color: "#f87171",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
                         onClick={() => setDeleteTarget(c)}
                       >
                         <Trash2 size={13} /> Delete
@@ -432,22 +700,56 @@ export default function CustomersPage() {
                 </div>
 
                 {/* Row 2: company + phone */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 26, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingLeft: 26,
+                    flexWrap: "wrap",
+                  }}
+                >
                   {c.company && (
-                    <span style={{ fontSize: 12, color: "var(--t2)", fontWeight: 500 }}>{c.company}</span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "var(--t2)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {c.company}
+                    </span>
                   )}
-                  <span style={{ fontSize: 12, color: "var(--t2)" }}>{c.phone_no}</span>
+                  <span style={{ fontSize: 12, color: "var(--t2)" }}>
+                    {c.phone_no}
+                  </span>
                   {c.email && (
-                    <span style={{ fontSize: 11, color: "var(--t3)" }}>{c.email}</span>
+                    <span style={{ fontSize: 11, color: "var(--t3)" }}>
+                      {c.email}
+                    </span>
                   )}
                 </div>
 
                 {/* Row 3: status badge + date */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingLeft: 26, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingLeft: 26,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <Badge variant={c.status ? "success" : "muted"}>
                     {c.status ? "Active" : "Inactive"}
                   </Badge>
-                  <span style={{ fontSize: 11, color: "var(--t3)", marginLeft: "auto" }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "var(--t3)",
+                      marginLeft: "auto",
+                    }}
+                  >
                     {formatDate(c.createdAt)}
                   </span>
                 </div>
@@ -467,26 +769,62 @@ export default function CustomersPage() {
                     />
                   </Th>
                   {visibleCols.name && (
-                    <Th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("name")}>
-                      <span style={{ display: "inline-flex", alignItems: "center" }}>
-                        Client <SortIcon col="name" sortCol={sortCol} sortDir={sortDir} />
+                    <Th
+                      style={{ cursor: "pointer", userSelect: "none" }}
+                      onClick={() => toggleSort("name")}
+                    >
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center" }}
+                      >
+                        Client{" "}
+                        <SortIcon
+                          col="name"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </span>
                     </Th>
                   )}
                   {visibleCols.company && (
-                    <Th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("company")}>
-                      <span style={{ display: "inline-flex", alignItems: "center" }}>
-                        Company <SortIcon col="company" sortCol={sortCol} sortDir={sortDir} />
+                    <Th
+                      style={{ cursor: "pointer", userSelect: "none" }}
+                      onClick={() => toggleSort("company")}
+                    >
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center" }}
+                      >
+                        Company{" "}
+                        <SortIcon
+                          col="company"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </span>
                     </Th>
                   )}
-                  {visibleCols.phone_no && <Th style={{ width: 140 }}>Phone</Th>}
-                  {visibleCols.email    && <Th>Email</Th>}
-                  {visibleCols.status   && <Th style={{ width: 90 }}>Status</Th>}
+                  {visibleCols.phone_no && (
+                    <Th style={{ width: 140 }}>Phone</Th>
+                  )}
+                  {visibleCols.email && <Th>Email</Th>}
+                  {visibleCols.status && <Th style={{ width: 90 }}>Status</Th>}
                   {visibleCols.createdAt && (
-                    <Th style={{ width: 90, cursor: "pointer", userSelect: "none" }} onClick={() => toggleSort("createdAt")}>
-                      <span style={{ display: "inline-flex", alignItems: "center" }}>
-                        Added <SortIcon col="createdAt" sortCol={sortCol} sortDir={sortDir} />
+                    <Th
+                      style={{
+                        width: 90,
+                        cursor: "pointer",
+                        userSelect: "none",
+                      }}
+                      onClick={() => toggleSort("createdAt")}
+                    >
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center" }}
+                      >
+                        Added{" "}
+                        <SortIcon
+                          col="createdAt"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </span>
                     </Th>
                   )}
@@ -497,9 +835,13 @@ export default function CustomersPage() {
                 {customers.map((c, i) => (
                   <Tr
                     key={c._id}
-                    style={selected.has(c._id) ? { background: "var(--glass-hover)" } : undefined}
+                    style={
+                      selected.has(c._id)
+                        ? { background: "var(--glass-hover)" }
+                        : undefined
+                    }
                   >
-                    <Td onClick={e => e.stopPropagation()}>
+                    <Td onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={selected.has(c._id)}
                         onCheckedChange={() => toggleRow(c._id)}
@@ -507,20 +849,41 @@ export default function CustomersPage() {
                     </Td>
                     {visibleCols.name && (
                       <Td>
-                        <Link href={`/customers/${c._id}`} style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                        <Link
+                          href={`/customers/${c._id}`}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            textDecoration: "none",
+                          }}
+                        >
                           <div
                             style={{
-                              width: 26, height: 26, borderRadius: "50%",
+                              width: 26,
+                              height: 26,
+                              borderRadius: "50%",
                               background: AV_COLORS[i % AV_COLORS.length],
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 10, fontWeight: 600,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 10,
+                              fontWeight: 600,
                               color: AV_TEXT[i % AV_TEXT.length],
                               flexShrink: 0,
                             }}
                           >
                             {getInitials(c.name)}
                           </div>
-                          <span style={{ color: T1, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span
+                            style={{
+                              color: T1,
+                              fontWeight: 500,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
                             {c.name}
                           </span>
                         </Link>
@@ -543,7 +906,9 @@ export default function CustomersPage() {
                       </Td>
                     )}
                     {visibleCols.createdAt && (
-                      <Td style={{ color: "var(--t3)" }}>{formatDate(c.createdAt)}</Td>
+                      <Td style={{ color: "var(--t3)" }}>
+                        {formatDate(c.createdAt)}
+                      </Td>
                     )}
 
                     {/* Row actions dropdown */}
@@ -552,26 +917,49 @@ export default function CustomersPage() {
                         <DropdownMenuTrigger asChild>
                           <button
                             style={{ ...ICON_PILL, width: 28, height: 28 }}
-                            onClick={e => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <MoreVertical size={13} />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" style={{ minWidth: 168 }}>
+                        <DropdownMenuContent
+                          align="end"
+                          style={{ minWidth: 168 }}
+                        >
                           <DropdownMenuItem asChild>
-                            <Link href={`/customers/${c._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                            <Link
+                              href={`/customers/${c._id}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                width: "100%",
+                              }}
+                            >
                               <Eye size={13} /> View
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            style={{ display: "flex", alignItems: "center", gap: 8 }}
-                            onClick={() => { setEditClient(c); setShowForm(true); }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                            onClick={() => {
+                              setEditClient(c);
+                              setShowForm(true);
+                            }}
                           >
                             <Pencil size={13} /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            style={{ color: "#f87171", display: "flex", alignItems: "center", gap: 8 }}
+                            style={{
+                              color: "#f87171",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
                             onClick={() => setDeleteTarget(c)}
                           >
                             <Trash2 size={13} /> Delete
@@ -589,13 +977,18 @@ export default function CustomersPage() {
         <PaginationBar
           page={page}
           pagination={pagination}
-          onPrev={() => setPage(p => p - 1)}
-          onNext={() => setPage(p => p + 1)}
+          onPrev={() => setPage((p) => p - 1)}
+          onNext={() => setPage((p) => p + 1)}
         />
       </div>
 
       {/* State-controlled delete dialog */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {deleteTarget?.name}?</AlertDialogTitle>
@@ -605,7 +998,9 @@ export default function CustomersPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteTarget && del(deleteTarget._id)}>
+            <AlertDialogAction
+              onClick={() => deleteTarget && del(deleteTarget._id)}
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -616,12 +1011,21 @@ export default function CustomersPage() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editClient ? "Edit client" : "Add new client"}</DialogTitle>
+            <DialogTitle>
+              {editClient ? "Edit client" : "Add new client"}
+            </DialogTitle>
           </DialogHeader>
           <CustomerForm
             initial={editClient ?? undefined}
-            onSave={() => { setShowForm(false); setEditClient(null); mutate(); }}
-            onClose={() => { setShowForm(false); setEditClient(null); }}
+            onSave={() => {
+              setShowForm(false);
+              setEditClient(null);
+              mutate();
+            }}
+            onClose={() => {
+              setShowForm(false);
+              setEditClient(null);
+            }}
           />
         </DialogContent>
       </Dialog>

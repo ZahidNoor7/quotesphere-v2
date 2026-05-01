@@ -3,6 +3,8 @@ import { useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
@@ -36,13 +38,13 @@ function ServiceForm({ initial, onSave, onClose }: { initial?: Service; onSave: 
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
-        <div><label style={lbl}>Service name *</label><input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Site visit & assessment" style={FIELD_INPUT} /></div>
+        <div><label style={lbl}>Service name *</label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Site visit & assessment" /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div><label style={lbl}>Category</label><select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={{ ...FIELD_INPUT, cursor: "pointer" }}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
-          <div><label style={lbl}>Unit</label><select value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))} style={{ ...FIELD_INPUT, cursor: "pointer" }}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></div>
+          <div><label style={lbl}>Category</label><Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
+          <div><label style={lbl}>Unit</label><Select value={form.unit} onValueChange={v => setForm(p => ({ ...p, unit: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
         </div>
-        <div><label style={lbl}>Default price (PKR)</label><input type="number" value={form.default_price} onChange={e => setForm(p => ({ ...p, default_price: e.target.value }))} placeholder="0" style={FIELD_INPUT} /></div>
-        <div><label style={lbl}>Description</label><input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description" style={FIELD_INPUT} /></div>
+        <div><label style={lbl}>Default price (PKR)</label><Input type="number" value={form.default_price} onChange={e => setForm(p => ({ ...p, default_price: e.target.value }))} placeholder="0" /></div>
+        <div><label style={lbl}>Description</label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description" /></div>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
         <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -78,7 +80,7 @@ export default function ServicesPage() {
       </div>
 
       <div style={{ padding: "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 14 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search services..." style={{ ...GLASS_INPUT, maxWidth: 320 }} />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search services..." style={{ maxWidth: 320, borderRadius: 100 }} />
 
         {isLoading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>

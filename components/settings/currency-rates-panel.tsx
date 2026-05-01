@@ -4,6 +4,7 @@ import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useSettings } from "@/hooks/use-settings";
 import { Spinner, SpinnerCenter } from "@/components/loaders/spinner";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
+import { Input } from "@/components/ui/input";
 import { RefreshCw } from "lucide-react";
 import {
   Select,
@@ -194,7 +195,7 @@ function CurrencyRow({
                 </button>
               );
             })}
-            <input
+            <Input
               type="number"
               min="0.01"
               step="0.01"
@@ -209,12 +210,7 @@ function CurrencyRow({
                 setInputVal(isNaN(v) || v <= 0 ? String(threshold) : String(v));
               }}
               placeholder="custom"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: `0.5px solid ${GLASS_BORDER}`,
-                borderRadius: 6, padding: "2px 7px",
-                color: T1, fontSize: 10, outline: "none", width: 58,
-              }}
+              style={{ width: 58, padding: "2px 7px", fontSize: 10 }}
             />
           </div>
 

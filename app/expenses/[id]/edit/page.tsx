@@ -5,6 +5,9 @@ import useSWR from "swr";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, FIELD_INPUT } from "@/lib/ds";
 import { SpinnerCenter } from "@/components/loaders";
@@ -152,40 +155,59 @@ export default function EditExpensePage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
               <div>
                 <label style={lbl}>Client *</label>
-                <select value={customerId} onChange={e => setCustomerId(e.target.value)} style={{ ...FIELD_INPUT, cursor: "pointer" }}>
-                  <option value="">Select client</option>
-                  {(customers as Customer[]).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                </select>
+                <Select value={customerId} onValueChange={setCustomerId}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {(customers as Customer[]).map(c => <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>)}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
-                <div><label style={lbl}>Bill date</label><input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} style={FIELD_INPUT} /></div>
+                <div><label style={lbl}>Bill date</label><Input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} /></div>
                 <div>
                   <label style={lbl}>Currency</label>
-                  <select value={currency} onChange={e => setCurrency(e.target.value)} style={{ ...FIELD_INPUT, cursor: "pointer" }}>
-                    {["PKR", "USD", "EUR", "GBP", "AED"].map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <Select value={currency} onValueChange={setCurrency}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {["PKR", "USD", "EUR", "GBP", "AED"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
-                <div><label style={lbl}>Vendor name</label><input value={vendorName} onChange={e => setVendorName(e.target.value)} placeholder="Vendor or supplier" style={FIELD_INPUT} /></div>
-                <div><label style={lbl}>Bill / Invoice #</label><input value={billNumber} onChange={e => setBillNumber(e.target.value)} placeholder="BILL-001" style={FIELD_INPUT} /></div>
+                <div><label style={lbl}>Vendor name</label><Input value={vendorName} onChange={e => setVendorName(e.target.value)} placeholder="Vendor or supplier" /></div>
+                <div><label style={lbl}>Bill / Invoice #</label><Input value={billNumber} onChange={e => setBillNumber(e.target.value)} placeholder="BILL-001" /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
                 <div>
                   <label style={lbl}>Payment method</label>
-                  <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={{ ...FIELD_INPUT, cursor: "pointer" }}>
-                    {[["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["cheque", "Cheque"], ["online", "Online"]].map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {[["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["cheque", "Cheque"], ["online", "Online"]].map(([v, l]) => (
+                          <SelectItem key={v} value={v}>{l}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <label style={lbl}>Payment status</label>
-                  <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)} style={{ ...FIELD_INPUT, cursor: "pointer" }}>
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="partial">Partial</option>
-                  </select>
+                  <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="partial">Partial</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -232,29 +254,32 @@ export default function EditExpensePage() {
                   }}
                 >
                   <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    <input
+                    <Input
                       value={item.name}
                       onChange={e => upd(item.id, "name", e.target.value)}
                       placeholder="Item description"
-                      style={{ background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 7px", color: T1, fontSize: 11, width: "100%", outline: "none" }}
+                      style={{ padding: "4px 7px", fontSize: 11 }}
                     />
-                    <select
-                      value={item.category}
-                      onChange={e => upd(item.id, "category", e.target.value)}
-                      style={{ background: "rgba(255,255,255,0.04)", border: "0.5px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "2px 5px", color: T3, fontSize: 10, outline: "none" }}
-                    >
-                      {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                    </select>
+                    <Select value={item.category} onValueChange={val => upd(item.id, "category", val)}>
+                      <SelectTrigger style={{ height: "auto", minHeight: "unset", fontSize: 10, padding: "2px 8px 2px 5px" }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {CATEGORIES.map(c => <SelectItem key={c} value={c} style={{ fontSize: 10 }}>{c}</SelectItem>)}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <input
+                  <Input
                     type="number" min="0" value={item.quantity}
                     onChange={e => upd(item.id, "quantity", e.target.value)}
-                    style={{ background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 5px", color: T1, fontSize: 11, width: "100%", outline: "none", textAlign: "center" }}
+                    style={{ padding: "4px 5px", fontSize: 11, textAlign: "center" }}
                   />
-                  <input
+                  <Input
                     type="number" min="0" value={item.unit_price}
                     onChange={e => upd(item.id, "unit_price", e.target.value)}
-                    style={{ background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 5, padding: "4px 7px", color: T1, fontSize: 11, width: "100%", outline: "none", textAlign: "right" }}
+                    style={{ padding: "4px 7px", fontSize: 11, textAlign: "right" }}
                   />
                   <span style={{ fontSize: 11, fontWeight: 500, color: T1, textAlign: "right" }}>
                     {formatCurrency(item.quantity * item.unit_price, currency)}
@@ -276,19 +301,19 @@ export default function EditExpensePage() {
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 11.5, color: T2 }}>Tax (%)</span>
-                  <input
+                  <Input
                     type="number" min="0" value={tax}
                     onChange={e => setTax(e.target.value)}
-                    style={{ width: 60, background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 5, padding: "3px 6px", color: T1, fontSize: 11, outline: "none", textAlign: "right" }}
+                    style={{ width: 60, padding: "3px 6px", fontSize: 11, textAlign: "right" }}
                   />
                   <span style={{ fontSize: 11, color: T2, minWidth: 80, textAlign: "right" }}>{formatCurrency(taxAmt, currency)}</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 11.5, color: T2 }}>Discount</span>
-                  <input
+                  <Input
                     type="number" min="0" value={discount}
                     onChange={e => setDiscount(e.target.value)}
-                    style={{ width: 60, background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.08)", borderRadius: 5, padding: "3px 6px", color: T1, fontSize: 11, outline: "none", textAlign: "right" }}
+                    style={{ width: 60, padding: "3px 6px", fontSize: 11, textAlign: "right" }}
                   />
                   <span style={{ fontSize: 11, color: T2, minWidth: 80, textAlign: "right" }}>−{formatCurrency(parseFloat(discount || "0"), currency)}</span>
                 </div>
@@ -302,12 +327,12 @@ export default function EditExpensePage() {
           {/* Notes */}
           <div>
             <div style={secTitle}>Notes</div>
-            <textarea
+            <Textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={3}
               placeholder="Any additional notes..."
-              style={{ ...FIELD_INPUT, resize: "none", height: 68, fontSize: 12 }}
+              style={{ height: 68 }}
             />
           </div>
 

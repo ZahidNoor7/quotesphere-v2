@@ -1,31 +1,14 @@
-import { GLASS_INPUT, GLASS_SELECT } from "@/lib/ds";
+"use client";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 interface SearchFilterBarProps {
   search: string;
   onSearch: (value: string) => void;
   searchPlaceholder?: string;
-  /** Additional filter controls (FilterSelect elements) */
   children?: React.ReactNode;
 }
 
-/**
- * Standardized search + filter row.
- *
- * Replaces the duplicated `<div style={{ display:"flex", gap: 7, flexWrap:"wrap" }}>`
- * + `<input style={GLASS_INPUT}>` pattern found on every list page.
- *
- * The search input gets `flex:1` so it fills available space; extra filter
- * controls are passed as children (typically <FilterSelect> elements).
- *
- * Usage:
- *   <SearchFilterBar search={search} onSearch={v => { setSearch(v); setPage(1); }}
- *     searchPlaceholder="Search by # or client...">
- *     <FilterSelect value={status} onChange={e => setStatus(e.target.value)}>
- *       <option value="">All status</option>
- *       ...
- *     </FilterSelect>
- *   </SearchFilterBar>
- */
 export function SearchFilterBar({
   search,
   onSearch,
@@ -33,37 +16,51 @@ export function SearchFilterBar({
   children,
 }: SearchFilterBarProps) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 7,
-        flexWrap: "wrap",
-        alignItems: "center",
-      }}
-    >
-      <input
+    <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+      <Input
         value={search}
         onChange={(e) => onSearch(e.target.value)}
         placeholder={searchPlaceholder}
-        style={{ ...GLASS_INPUT, flex: 1, minWidth: 140 }}
+        style={{ flex: 1, minWidth: 140, borderRadius: 100 }}
       />
       {children}
     </div>
   );
 }
 
+interface FilterSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  children: React.ReactNode;
+}
+
 /**
- * A single filter select for use inside <SearchFilterBar>.
- * Inherits the standard glass pill select style from lib/ds.ts.
+ * A filter select for use inside <SearchFilterBar>.
+ * Wraps shadcn Select with glass styling applied globally via select.tsx.
+ *
+ * Usage:
+ *   <SearchFilterBar search={search} onSearch={v => setSearch(v)}>
+ *     <FilterSelect value={status} onValueChange={setStatus} placeholder="All status">
+ *       <SelectItem value="pending">Pending</SelectItem>
+ *       ...
+ *     </FilterSelect>
+ *   </SearchFilterBar>
  */
-export function FilterSelect({
-  children,
-  style,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function FilterSelect({ value, onValueChange, placeholder, className, children }: FilterSelectProps) {
   return (
-    <select style={{ ...GLASS_SELECT, ...style }} {...props}>
-      {children}
-    </select>
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className={`w-auto min-w-27.5 ${className ?? ""}`}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {children}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
+
+export { SelectItem };
