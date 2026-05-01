@@ -17,6 +17,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, GLASS_INPUT, ICON_PILL, FIELD_INPUT } from "@/lib/ds";
 import type { Project, Customer, ProjectStatus } from "@/types";
+import { ErrorState } from "@/components/shared/error-state";
+import { EmptyState } from "@/components/shared/empty-state";
+import { FolderOpen } from "lucide-react";
+import { SpinnerCenter } from "@/components/loaders";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 const cfetch = (url: string) => fetch(url).then(r => r.json()).then(d => d.data || d);
@@ -197,7 +201,7 @@ export default function ProjectsPage() {
   if (status) params.set("status", status);
   if (customerId) params.set("customer_id", customerId);
 
-  const { data, mutate, isLoading } = useSWR(`/api/projects?${params}`, fetcher, { keepPreviousData: true });
+  const { data, mutate, isLoading, error } = useSWR(`/api/projects?${params}`, fetcher, { keepPreviousData: true });
   const { data: statsData } = useSWR("/api/projects/stats", (url) => fetch(url).then(r => r.json()).then(d => d.data));
   const { data: customerList = [] } = useSWR<Customer[]>("/api/customers?limit=200", cfetch);
 
@@ -368,13 +372,17 @@ export default function ProjectsPage() {
 
           {/* Content */}
           {isLoading ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
-              <div style={{ width: 24, height: 24, border: "2px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-            </div>
+            <div style={{ flex: 1 }}><SpinnerCenter /></div>
+          ) : error ? (
+            <div style={{ flex: 1 }}><ErrorState message="Failed to load projects." onRetry={() => mutate()} /></div>
           ) : projects.length === 0 ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <div style={{ fontSize: 13, color: T2 }}>No projects yet</div>
-              <Button onClick={() => setFormTarget("new")} size="sm">+ Create first project</Button>
+            <div style={{ flex: 1 }}>
+              <EmptyState
+                icon={FolderOpen}
+                title="No projects yet"
+                description="Create your first project to start tracking work"
+                action={<Button onClick={() => setFormTarget("new")} size="sm">+ Create project</Button>}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto" style={{ flex: 1, paddingBottom: selected.length > 0 ? 72 : 0, alignContent: "start" }}>
@@ -385,11 +393,11 @@ export default function ProjectsPage() {
                 return (
                   <div
                     key={p._id}
-                    className="glass-card"
+                    className="glass-card focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-1"
                     role="button"
                     tabIndex={0}
                     aria-label={`Open project ${p.name}`}
-                    style={{ padding: "12px 14px", cursor: "pointer", transition: "transform 0.2s", position: "relative", outline: isSelected ? "1.5px solid rgba(99,102,241,0.5)" : "none" }}
+                    style={{ padding: "12px 14px", cursor: "pointer", transition: "transform 0.2s", position: "relative", outline: isSelected ? "1.5px solid rgba(99,102,241,0.5)" : undefined }}
                     onClick={() => router.push(`/projects/${p._id}`)}
                     onKeyDown={e => e.key === "Enter" && router.push(`/projects/${p._id}`)}
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"}

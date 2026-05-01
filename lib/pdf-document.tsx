@@ -44,19 +44,28 @@ function parseGradientColors(bg: string): [string, string] | null {
   if (hexes && hexes.length >= 2) return [hexes[0], hexes[hexes.length - 1]];
   return null;
 }
+// Point widths for supported page sizes (portrait orientation).
+// Used to size the gradient SVG so the full gradient range is visible.
+const PDF_PAGE_WIDTHS: Record<string, number> = { A4: 595, Letter: 612, A3: 842, A5: 420 };
+
 /**
  * Renders a View with a true SVG LinearGradient background.
  * react-pdf's SVG renderer produces smooth vector gradients in the PDF —
  * no banding or strip artifacts.
  * Falls back to a solid color for non-gradient backgrounds.
+ *
+ * `pageWidth` must match the page size so the gradient covers the full width.
+ * A4 portrait = 595pt (default). Using the wrong width causes the gradient
+ * to be clipped mid-transition, so color B never fully appears.
  */
 function GradientView({
-  bg, wrapperStyle = {}, contentStyle = {}, children,
+  bg, wrapperStyle = {}, contentStyle = {}, children, pageWidth = 595,
 }: {
   bg: string;
   wrapperStyle?: Record<string, any>;
   contentStyle?: Record<string, any>;
   children?: React.ReactNode;
+  pageWidth?: number;
 }) {
   const colors = parseGradientColors(bg);
   if (!colors) {
@@ -70,7 +79,7 @@ function GradientView({
     <View style={{ ...wrapperStyle, position: "relative", overflow: "hidden" }}>
       {/* True SVG linear gradient — clipped to parent bounds via overflow:hidden */}
       <View style={{ position: "absolute", top: 0, left: 0 }}>
-        <Svg width={842} height={300}>
+        <Svg width={pageWidth} height={300}>
           <Defs>
             {/* objectBoundingBox coords: 0,0 = top-left → 1,1 = bottom-right (≈135°) */}
             <LinearGradient id="hGrad" x1="0" y1="0" x2="1" y2="1">
@@ -78,7 +87,7 @@ function GradientView({
               <Stop offset="100%" stopColor={colors[1]} stopOpacity={1} />
             </LinearGradient>
           </Defs>
-          <Rect x={0} y={0} width={842} height={300} fill="url(#hGrad)" />
+          <Rect x={0} y={0} width={pageWidth} height={300} fill="url(#hGrad)" />
         </Svg>
       </View>
       {/* Content rendered on top */}
@@ -328,6 +337,7 @@ function ClassicPDF({ cfg, data, font, bold }: { cfg: Cfg; data: DocData; font: 
       {/* Header */}
       <GradientView
         bg={cfg.headerBg ?? "#1a2744"}
+        pageWidth={PDF_PAGE_WIDTHS[(cfg.pageSize as string) ?? "A4"] ?? 595}
         contentStyle={{ paddingTop: 18, paddingBottom: 18, paddingLeft: 24, paddingRight: 24, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
       >
         <View>
@@ -382,6 +392,7 @@ function ModernGradientPDF({ cfg, data, font, bold }: { cfg: Cfg; data: DocData;
       {/* Gradient header */}
       <GradientView
         bg={cfg.headerBg ?? "linear-gradient(135deg, #6366f1, #8b5cf6)"}
+        pageWidth={PDF_PAGE_WIDTHS[(cfg.pageSize as string) ?? "A4"] ?? 595}
         contentStyle={{ paddingTop: 16, paddingBottom: 16, paddingLeft: 20, paddingRight: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}
       >
         <View>
@@ -505,6 +516,7 @@ function ExecutiveDarkPDF({ cfg, data, font, bold }: { cfg: Cfg; data: DocData; 
       {/* Dark header */}
       <GradientView
         bg={cfg.headerBg ?? "#0f172a"}
+        pageWidth={PDF_PAGE_WIDTHS[(cfg.pageSize as string) ?? "A4"] ?? 595}
         contentStyle={{ paddingTop: 18, paddingBottom: 18, paddingLeft: 22, paddingRight: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", borderBottomWidth: 1, borderBottomColor: "rgba(148,163,184,0.15)" }}
       >
         <View>

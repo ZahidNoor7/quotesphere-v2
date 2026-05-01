@@ -78,62 +78,62 @@ app/
 
 All routes are under `app/api/` and protected via `auth()` from `auth.ts`.
 
-| Route | Methods | Description |
-|---|---|---|
-| `/api/auth/[...nextauth]` | — | NextAuth handler |
-| `/api/auth/register` | POST | Create new user (bcrypt password) |
-| `/api/customers` | GET, POST | List / create customers |
-| `/api/customers/[id]` | GET, PUT, DELETE | Single customer CRUD |
-| `/api/invoices` | GET, POST | List / create invoices |
-| `/api/invoices/[id]` | GET, PUT, DELETE | Single invoice CRUD |
-| `/api/invoices/[id]/payments` | POST | Add payment entry |
-| `/api/quotations` | GET, POST | List / create quotations |
-| `/api/quotations/[id]` | GET, PUT, DELETE | Single quotation CRUD |
-| `/api/quotations/[id]/convert` | POST | Convert quotation → invoice |
-| `/api/expenses` | GET, POST | List / create expenses |
-| `/api/expenses/[id]` | GET, PUT, DELETE | Single expense CRUD |
-| `/api/projects` | GET, POST | List / create projects |
-| `/api/projects/[id]` | GET, PUT, DELETE | Single project CRUD |
-| `/api/projects/stats` | GET | Project-level aggregated stats |
-| `/api/services` | GET, POST | List / create services |
-| `/api/services/[id]` | GET, PUT, DELETE | Single service CRUD |
-| `/api/dashboard` | GET | Aggregated dashboard stats |
-| `/api/settings` | GET, PUT | User settings (upsert) |
-| `/api/settings/document-designs` | GET, POST | List / create document designs |
-| `/api/settings/document-designs/[id]` | PUT, DELETE | Update / delete design |
-| `/api/settings/currency-rates` | GET, PUT | Fetch / update currency exchange rates |
-| `/api/team` | GET | Team member list |
+| Route                                 | Methods          | Description                            |
+| ------------------------------------- | ---------------- | -------------------------------------- |
+| `/api/auth/[...nextauth]`             | —                | NextAuth handler                       |
+| `/api/auth/register`                  | POST             | Create new user (bcrypt password)      |
+| `/api/customers`                      | GET, POST        | List / create customers                |
+| `/api/customers/[id]`                 | GET, PUT, DELETE | Single customer CRUD                   |
+| `/api/invoices`                       | GET, POST        | List / create invoices                 |
+| `/api/invoices/[id]`                  | GET, PUT, DELETE | Single invoice CRUD                    |
+| `/api/invoices/[id]/payments`         | POST             | Add payment entry                      |
+| `/api/quotations`                     | GET, POST        | List / create quotations               |
+| `/api/quotations/[id]`                | GET, PUT, DELETE | Single quotation CRUD                  |
+| `/api/quotations/[id]/convert`        | POST             | Convert quotation → invoice            |
+| `/api/expenses`                       | GET, POST        | List / create expenses                 |
+| `/api/expenses/[id]`                  | GET, PUT, DELETE | Single expense CRUD                    |
+| `/api/projects`                       | GET, POST        | List / create projects                 |
+| `/api/projects/[id]`                  | GET, PUT, DELETE | Single project CRUD                    |
+| `/api/projects/stats`                 | GET              | Project-level aggregated stats         |
+| `/api/services`                       | GET, POST        | List / create services                 |
+| `/api/services/[id]`                  | GET, PUT, DELETE | Single service CRUD                    |
+| `/api/dashboard`                      | GET              | Aggregated dashboard stats             |
+| `/api/settings`                       | GET, PUT         | User settings (upsert)                 |
+| `/api/settings/document-designs`      | GET, POST        | List / create document designs         |
+| `/api/settings/document-designs/[id]` | PUT, DELETE      | Update / delete design                 |
+| `/api/settings/currency-rates`        | GET, PUT         | Fetch / update currency exchange rates |
+| `/api/team`                           | GET              | Team member list                       |
 
 ## Key Files
 
-| File | Purpose |
-|---|---|
-| `auth.ts` | NextAuth config — Google + Credentials providers, JWT callbacks |
-| `auth.config.ts` | Shared auth config (pages, callbacks used in middleware) |
-| `middleware_old.ts` | (legacy, unused) |
-| `types/index.ts` | All shared TS types: `Invoice`, `Quotation`, `Expense`, `Project`, `Customer`, `Service`, `Settings`, etc. |
-| `lib/db.ts` | Lazy MongoDB `clientPromise` — single connection pool, dev-mode singleton |
-| `lib/mongoose.ts` | Mongoose connection helper |
-| `lib/ds.ts` | Design system tokens — CSS custom property constants + reusable inline style objects (`CARD`, `TABLE_STYLE`, `GLASS_INPUT`, etc.) |
-| `lib/themes.ts` | Theme definitions (10 themes), `applyTheme()`, `getResolvedBase()` |
-| `lib/document-designs.ts` | Built-in PDF design presets, `getAllDesigns()`, `getDefaultDesign()`, `resolveConfig()` |
-| `lib/pdf-document.tsx` | `@react-pdf/renderer` PDF template component |
-| `lib/pdf-export.ts` | HTML-to-canvas PDF export helper (`jspdf` + `html2canvas`) |
-| `lib/utils.ts` | `cn()` utility (clsx + tailwind-merge) |
-| `models/` | Mongoose models: `Invoice`, `Quotation`, `Expense`, `Project`, `Customer`, `Service`, `Settings`, `Counter`, `User` |
-| `hooks/use-settings.ts` | SWR hook for settings — `updateAppearance`, `updateLastUsed`, `updateEnabledCurrencies` |
-| `hooks/use-currency-rates.ts` | SWR hook for live exchange rates |
-| `hooks/use-mobile.tsx` | Viewport breakpoint detection |
-| `components/layout/app-shell.tsx` | Main app shell wrapping sidebar + content |
-| `components/layout/sidebar.tsx` | Collapsible sidebar with nav links |
-| `components/layout/theme-provider.tsx` | `next-themes` provider |
-| `components/layout/swr-provider.tsx` | SWR global config provider |
-| `components/forms/document-builder.tsx` | Invoice / quotation form with line items |
-| `components/document-design/document-renderer.tsx` | Live PDF preview renderer |
-| `components/custom-ui/data-table.tsx` | Reusable paginated data table |
-| `components/custom-ui/search-filter-bar.tsx` | Search + filter bar component |
-| `components/settings/currency-rates-panel.tsx` | Currency rate management UI |
-| `components/shared/status-badges.tsx` | Status badge components for invoices, quotations, expenses, projects |
+| File                                               | Purpose                                                                                                                           |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `auth.ts`                                          | NextAuth config — Google + Credentials providers, JWT callbacks                                                                   |
+| `auth.config.ts`                                   | Shared auth config (pages, callbacks used in middleware)                                                                          |
+| `middleware_old.ts`                                | (legacy, unused)                                                                                                                  |
+| `types/index.ts`                                   | All shared TS types: `Invoice`, `Quotation`, `Expense`, `Project`, `Customer`, `Service`, `Settings`, etc.                        |
+| `lib/db.ts`                                        | Lazy MongoDB `clientPromise` — single connection pool, dev-mode singleton                                                         |
+| `lib/mongoose.ts`                                  | Mongoose connection helper                                                                                                        |
+| `lib/ds.ts`                                        | Design system tokens — CSS custom property constants + reusable inline style objects (`CARD`, `TABLE_STYLE`, `GLASS_INPUT`, etc.) |
+| `lib/themes.ts`                                    | Theme definitions (10 themes), `applyTheme()`, `getResolvedBase()`                                                                |
+| `lib/document-designs.ts`                          | Built-in PDF design presets, `getAllDesigns()`, `getDefaultDesign()`, `resolveConfig()`                                           |
+| `lib/pdf-document.tsx`                             | `@react-pdf/renderer` PDF template component                                                                                      |
+| `lib/pdf-export.ts`                                | HTML-to-canvas PDF export helper (`jspdf` + `html2canvas`)                                                                        |
+| `lib/utils.ts`                                     | `cn()` utility (clsx + tailwind-merge)                                                                                            |
+| `models/`                                          | Mongoose models: `Invoice`, `Quotation`, `Expense`, `Project`, `Customer`, `Service`, `Settings`, `Counter`, `User`               |
+| `hooks/use-settings.ts`                            | SWR hook for settings — `updateAppearance`, `updateLastUsed`, `updateEnabledCurrencies`                                           |
+| `hooks/use-currency-rates.ts`                      | SWR hook for live exchange rates                                                                                                  |
+| `hooks/use-mobile.tsx`                             | Viewport breakpoint detection                                                                                                     |
+| `components/layout/app-shell.tsx`                  | Main app shell wrapping sidebar + content                                                                                         |
+| `components/layout/sidebar.tsx`                    | Collapsible sidebar with nav links                                                                                                |
+| `components/layout/theme-provider.tsx`             | `next-themes` provider                                                                                                            |
+| `components/layout/swr-provider.tsx`               | SWR global config provider                                                                                                        |
+| `components/forms/document-builder.tsx`            | Invoice / quotation form with line items                                                                                          |
+| `components/document-design/document-renderer.tsx` | Live PDF preview renderer                                                                                                         |
+| `components/custom-ui/data-table.tsx`              | Reusable paginated data table                                                                                                     |
+| `components/custom-ui/search-filter-bar.tsx`       | Search + filter bar component                                                                                                     |
+| `components/settings/currency-rates-panel.tsx`     | Currency rate management UI                                                                                                       |
+| `components/shared/status-badges.tsx`              | Status badge components for invoices, quotations, expenses, projects                                                              |
 
 ## Auth & Session
 
@@ -148,11 +148,13 @@ All routes are under `app/api/` and protected via `auth()` from `auth.ts`.
 All styling uses CSS custom properties set per-theme via `[data-theme="X"]` selectors in `globals.css`. Never hardcode color values — import tokens from `lib/ds.ts`.
 
 **Token constants** (`lib/ds.ts`):
+
 - `T1`, `T2`, `T3` — primary/secondary/muted text
 - `AC`, `AC2` — accent colors (theme-specific)
 - `GLASS`, `GLASS_HOVER`, `GLASS_BORDER`, `GLASS_BORDER_STRONG` — glassmorphism surface values
 
 **Reusable style objects** (inline styles for custom layouts):
+
 - `CARD`, `TOPBAR_STYLE`, `TABLE_STYLE`, `TH_STYLE`, `TD_STYLE`
 - `GLASS_INPUT`, `GLASS_SELECT`, `FIELD_INPUT`, `TABLE_WRAP`, `ICON_PILL`
 
@@ -184,3 +186,55 @@ Currencies: `PKR | USD | EUR | GBP | AED | SAR`. Each document stores a `rateSna
 - Custom reusable components go in `components/custom-ui/` or `components/shared/`.
 - Inline styles using `lib/ds.ts` tokens are acceptable for complex custom layouts; prefer Tailwind classes for standard components.
 - Page layouts use `app-shell` + `sidebar`. Page sections use `TOPBAR_STYLE` for filter/action bars and `TABLE_WRAP` + `TABLE_STYLE` for data tables.
+
+## Coding Rules & Constraints
+
+### Component Usage (MANDATORY)
+
+- **Always use shadcn/ui components** for all standard UI elements: `Button`, `Input`, `Select`, `Textarea`, `Checkbox`, `Switch`, `Table`, `Dialog`, `Sheet`, `Popover`, `DropdownMenu`, `Badge`, `Card`, `Separator`, `Tabs`, `Tooltip`, `Alert`, `Form`, `Label`, `Skeleton`, `ScrollArea`, `Avatar`, `Command`, `Calendar`, `DatePicker`, etc.
+- **Use the shadcn MCP server** (`mcp__shadcn__*`) to look up available components, examples, and add commands before reaching for custom implementations.
+- Only create a custom component or use a native HTML tag when the required UI pattern has **no shadcn/ui equivalent**. Document why in a comment when you do.
+- Never replace a shadcn/ui component with a raw `<button>`, `<input>`, `<select>`, or `<table>` — always import from `components/ui/`.
+
+### Icons (MANDATORY)
+
+- **Always use Lucide React icons** (`lucide-react`) — never hand-craft SVG paths.
+- Only design a custom SVG when the required icon provably does not exist in the Lucide library. Check https://lucide.dev/icons/ before deciding.
+- Import icons by name: `import { IconName } from "lucide-react"`.
+
+### Visual Style — iOS Liquid Glass (MANDATORY, Single Source of Truth)
+
+- All surfaces (cards, modals, sidebars, popovers, panels) must use the **iOS liquid glass** aesthetic defined in `lib/ds.ts`: `GLASS`, `GLASS_HOVER`, `GLASS_BORDER`, `GLASS_BORDER_STRONG`, `CARD`.
+- Never hardcode `backdrop-filter`, `background`, or `border` values inline — always pull from `lib/ds.ts` tokens or the corresponding Tailwind CSS variable aliases in `globals.css`.
+- `lib/ds.ts` is the **single source of truth** for all glass/surface styles. If a new glass variant is needed, add it there and reuse it everywhere — do not duplicate values across files.
+- Use `GLASS_INPUT` / `GLASS_SELECT` tokens for form controls, `ICON_PILL` for icon containers, `CARD` for panels and cards.
+
+### Best Practices (MANDATORY)
+
+- Write **industry-standard, idiomatic** Next.js 16 / React 19 / TypeScript code. Follow the latest patterns: Server Components by default, `use client` only when needed, `async`/`await` in Server Components, `use server` for Server Actions.
+- Use **strict TypeScript** — no `any`, no type assertions unless unavoidable. All props and API response shapes must be typed via `types/index.ts`.
+- Use **`react-hook-form` + `zod`** for all forms — no uncontrolled inputs.
+- Use **SWR** for all client-side data fetching — no raw `useEffect`/`fetch` patterns.
+- Use **`sonner`** for all toast notifications — no `alert()` or custom toast components.
+- API routes must validate input with `zod` and return consistent `{ data } | { error }` shapes.
+- Keep Server Components lean — push interactivity down to small `"use client"` leaf components.
+
+### Next.js 16 Specifics
+
+- **Use `proxy.ts`** for middleware — Next.js 16 renamed `middleware.ts` to `proxy.ts`. Do not create or reference `middleware.ts`.
+- The legacy `middleware_old.ts` file is unused — do not modify or copy from it.
+- Use the `app/` directory App Router exclusively — no `pages/` directory patterns.
+
+When auditing:
+
+- think like a principal engineer
+- think like QA
+- think like security engineer
+- think like UX expert
+- think like accessibility auditor
+- think like performance engineer
+- think mobile-first
+- identify root cause, not symptom
+- propose fixes, not observations
+- verify every assumption
+- no shallow review

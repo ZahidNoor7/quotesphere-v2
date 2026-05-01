@@ -29,10 +29,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { QuotationStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { generatePdfFromElement, downloadFile } from "@/lib/pdf-export";
-import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
+import type { DocData } from "@/lib/pdf-document";
+import { applyPeriodParams } from "@/lib/date-utils";
 import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
-import { SpinnerCenter } from "@/components/loaders";
+import { TableSkeleton } from "@/components/loaders";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
@@ -99,27 +102,9 @@ export default function QuotationsPage() {
   const params = new URLSearchParams({ page: String(page), limit: "15" });
   if (search) params.set("search", search);
   if (status) params.set("status", status);
-  {
-    const now = new Date();
-    if (period === "month") {
-      params.set("from", format(new Date(now.getFullYear(), now.getMonth(), 1), "yyyy-MM-dd"));
-      params.set("to", format(now, "yyyy-MM-dd"));
-    } else if (period === "3months") {
-      params.set("from", format(new Date(now.getFullYear(), now.getMonth() - 2, 1), "yyyy-MM-dd"));
-      params.set("to", format(now, "yyyy-MM-dd"));
-    } else if (period === "6months") {
-      params.set("from", format(new Date(now.getFullYear(), now.getMonth() - 5, 1), "yyyy-MM-dd"));
-      params.set("to", format(now, "yyyy-MM-dd"));
-    } else if (period === "year") {
-      params.set("from", format(new Date(now.getFullYear(), 0, 1), "yyyy-MM-dd"));
-      params.set("to", format(now, "yyyy-MM-dd"));
-    } else if (period === "custom" && dateRange?.from) {
-      params.set("from", format(dateRange.from, "yyyy-MM-dd"));
-      if (dateRange.to) params.set("to", format(dateRange.to, "yyyy-MM-dd"));
-    }
-  }
+  applyPeriodParams(params, period, dateRange);
 
-  const { data, mutate, isLoading } = useSWR(
+  const { data, mutate, isLoading, error } = useSWR(
     `/api/quotations?${params}`, fetcher, { keepPreviousData: true }
   );
   const rawQuotations: Quotation[] = data?.data ?? [];
@@ -465,20 +450,17 @@ export default function QuotationsPage() {
 
         {/* ── Table / Cards ────────────────────────────────────────────────── */}
         {isLoading ? (
-          <TableWrapper style={{ flex: 1 }}><SpinnerCenter height={200} /></TableWrapper>
+          <TableWrapper style={{ flex: 1 }}><TableSkeleton cols={8} /></TableWrapper>
+        ) : error ? (
+          <TableWrapper style={{ flex: 1 }}><ErrorState message="Failed to load quotations." onRetry={() => mutate()} /></TableWrapper>
         ) : quotations.length === 0 ? (
           <TableWrapper style={{ flex: 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 8 }}>
-              <svg width="40" height="40" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="0.8">
-                <path d="M4 2h5l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
-                <path d="M9 2v3h3M5 7h6M5 10h4" />
-              </svg>
-              <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}>No quotations found</div>
-              <div style={{ fontSize: 12, color: "var(--t3)" }}>Create your first quotation to get started</div>
-              <Button asChild size="sm" style={{ marginTop: 8 }}>
-                <Link href="/quotations/new">+ Create quotation</Link>
-              </Button>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="No quotations found"
+              description="Create your first quotation to get started"
+              action={<Button asChild size="sm"><Link href="/quotations/new">+ Create quotation</Link></Button>}
+            />
           </TableWrapper>
         ) : isMobile ? (
           /* ── Mobile card list ── */
@@ -513,7 +495,7 @@ export default function QuotationsPage() {
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button style={{ ...ICON_PILL, width: 28, height: 28 }}>
+                      <button style={{ ...ICON_PILL, width: 28, height: 28 }} aria-label="Open quotation actions">
                         <MoreVertical size={13} />
                       </button>
                     </DropdownMenuTrigger>
@@ -719,6 +701,7 @@ export default function QuotationsPage() {
                           <button
                             style={{ ...ICON_PILL, width: 28, height: 28 }}
                             onClick={e => e.stopPropagation()}
+                            aria-label="Open quotation actions"
                           >
                             <MoreVertical size={13} />
                           </button>
@@ -950,6 +933,7 @@ function QuotationPdfPreviewDialog({ quotationId, settings, onClose }: { quotati
                     companyAddress: settings?.company_address,
                     termsText: settings?.terms_and_conditions,
                   };
+                  const { downloadAsPdf } = await import("@/lib/pdf-document");
                   await downloadAsPdf(quotationDesign, data, `Quotation-${quotation.quotation_no}.pdf`);
                 } finally { setSharing(null); }
               }}

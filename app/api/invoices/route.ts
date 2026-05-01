@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const payment_status = searchParams.get("payment_status") || "";
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     });
   } catch (err) {
+    console.error("[invoices GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch invoices" }, { status: 500 });
   }
 }
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     await invoice.save();
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (err: any) {
+    console.error("[invoices POST]", err);
     return NextResponse.json({ success: false, error: err.message || "Failed to create invoice" }, { status: 500 });
   }
 }

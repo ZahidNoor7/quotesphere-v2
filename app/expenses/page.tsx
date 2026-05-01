@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   Eye, Pencil, Trash2, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown,
-  SlidersHorizontal, ChevronDown, Search,
+  SlidersHorizontal, ChevronDown, Search, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +27,9 @@ import { ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T3, AC2, TOPBAR_STYLE, ICON_PILL } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
-import { SpinnerCenter } from "@/components/loaders";
+import { TableSkeleton } from "@/components/loaders";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Expense } from "@/types";
 
@@ -74,7 +76,7 @@ export default function ExpensesPage() {
   if (search) params.set("search", search);
   if (status) params.set("status", status);
 
-  const { data, mutate, isLoading } = useSWR(
+  const { data, mutate, isLoading, error } = useSWR(
     `/api/expenses?${params}`, fetcher, { keepPreviousData: true }
   );
   const rawExpenses: Expense[] = data?.data ?? [];
@@ -292,15 +294,17 @@ export default function ExpensesPage() {
 
         {/* ── Table / Cards ───────────────────────────────────────────────── */}
         {isLoading ? (
-          <TableWrapper style={{ flex: 1 }}><SpinnerCenter height={200} /></TableWrapper>
+          <TableWrapper style={{ flex: 1 }}><TableSkeleton cols={6} /></TableWrapper>
+        ) : error ? (
+          <TableWrapper style={{ flex: 1 }}><ErrorState message="Failed to load expenses." onRetry={() => mutate()} /></TableWrapper>
         ) : expenses.length === 0 ? (
           <TableWrapper style={{ flex: 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 8 }}>
-              <div style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}>No expenses recorded</div>
-              <Button asChild size="sm" style={{ marginTop: 4 }}>
-                <Link href="/expenses/new">+ Record expense</Link>
-              </Button>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="No expenses recorded"
+              description="Record your first expense to start tracking costs"
+              action={<Button asChild size="sm"><Link href="/expenses/new">+ Record expense</Link></Button>}
+            />
           </TableWrapper>
         ) : isMobile ? (
           /* ── Mobile card list ── */

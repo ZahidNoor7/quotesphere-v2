@@ -17,7 +17,7 @@ export const authConfig: NextAuthConfig = {
       const isPublicPath =
         nextUrl.pathname === "/" ||
         nextUrl.pathname.startsWith("/_next") ||
-        nextUrl.pathname.startsWith("/api");
+        nextUrl.pathname.startsWith("/api/auth");
 
       // Logged in + trying to access auth pages → redirect to dashboard
       if (isLoggedIn && isAuthPage) {

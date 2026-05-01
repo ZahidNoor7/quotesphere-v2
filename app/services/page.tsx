@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, GLASS_INPUT, ICON_PILL, FIELD_INPUT, CARD } from "@/lib/ds";
 import type { Service } from "@/types";
+import { ErrorState } from "@/components/shared/error-state";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 const CATEGORIES = ["General", "Consultation", "Installation", "Repair", "Cleaning", "Inspection", "Design", "Delivery", "Other"];
@@ -58,7 +59,7 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editSvc, setEditSvc] = useState<Service | null>(null);
-  const { data: services = [], mutate, isLoading } = useSWR<Service[]>(`/api/services?${search ? `search=${search}` : ""}`, fetcher);
+  const { data: services = [], mutate, isLoading, error } = useSWR<Service[]>(`/api/services?${search ? `search=${search}` : ""}`, fetcher);
 
   async function del(id: string) {
     await fetch(`/api/services/${id}`, { method: "DELETE" });
@@ -86,6 +87,8 @@ export default function ServicesPage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
             <div style={{ width: 24, height: 24, border: "2px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
           </div>
+        ) : error ? (
+          <div style={{ flex: 1 }}><ErrorState message="Failed to load services." onRetry={() => mutate()} /></div>
         ) : (services as Service[]).length === 0 ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={{ fontSize: 13, color: T2 }}>No services yet</div>

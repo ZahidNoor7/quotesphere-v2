@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Customer from "@/models/Customer";
@@ -13,6 +14,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await connectDB();
     const { id } = await params;
+    if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
+
     const customer = await Customer.findById(id).lean();
     if (!customer) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
@@ -33,6 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ success: true, data: { customer, invoices, quotations, expenses, stats } });
   } catch (err) {
+    console.error("[customers/[id] GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch customer" }, { status: 500 });
   }
 }
@@ -44,12 +48,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await connectDB();
     const { id } = await params;
+    if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
+
     const body = await req.json();
     const customer = await Customer.findByIdAndUpdate(id, body, { new: true });
     if (!customer) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     return NextResponse.json({ success: true, data: customer });
   } catch (err: any) {
+    console.error("[customers/[id] PUT]", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
@@ -61,9 +68,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await connectDB();
     const { id } = await params;
+    if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
+
     await Customer.findByIdAndDelete(id);
     return NextResponse.json({ success: true });
   } catch (err) {
+    console.error("[customers/[id] DELETE]", err);
     return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
   }
 }

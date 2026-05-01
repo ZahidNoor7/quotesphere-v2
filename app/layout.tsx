@@ -82,6 +82,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <ThemeProvider initialTheme={initialThemeId}>
                 <Toaster
                   theme={isDark ? "dark" : "light"}
+                  richColors
+                  closeButton
                   toastOptions={{
                     style: {
                       background: "var(--modal-bg)",

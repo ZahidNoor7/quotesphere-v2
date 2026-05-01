@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose, { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
@@ -11,6 +12,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     await connectDB();
     const { id } = await params;
+
+    if (!isValidObjectId(id)) {
+      return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
+    }
+
     const { selectedItemIds, issue_date, due_date, payment_mode, currency, project_id, remarks } = await req.json();
 
     const quotation = await Quotation.findById(id);
@@ -52,15 +58,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       converted_from: quotation._id,
     });
 
-    await invoice.save();
-
-    // Mark quotation as invoiced
-    quotation.status = "invoiced";
-    quotation.converted_to = invoice._id as any;
-    await quotation.save();
+    // Use a transaction so both writes succeed or both roll back
+    const dbSession = await mongoose.startSession();
+    try {
+      await dbSession.withTransaction(async () => {
+        await invoice.save({ session: dbSession });
+        quotation.status = "invoiced";
+        quotation.converted_to = invoice._id as any;
+        await quotation.save({ session: dbSession });
+      });
+    } finally {
+      await dbSession.endSession();
+    }
 
     return NextResponse.json({ success: true, data: { invoice, quotation } });
   } catch (err: any) {
+    console.error("[quotation convert]", err);
     return NextResponse.json({ success: false, error: err.message || "Conversion failed" }, { status: 500 });
   }
 }

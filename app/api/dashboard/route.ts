@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     const now = new Date();
 
-    // Determine effective date range for chart generation
+    // Effective range for chart generation
     const effectiveFrom = fromParam
       ? new Date(fromParam)
       : new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -27,84 +27,159 @@ export async function GET(req: Request) {
       ? (() => { const d = new Date(toParam); d.setHours(23, 59, 59, 999); return d; })()
       : now;
 
-    // Build invoice query with optional date filter
-    const invoiceQuery: Record<string, any> = { status: { $ne: "cancelled" } };
+    // Base invoice match — applies to all KPI aggregations
+    const invoiceMatch: Record<string, any> = { status: { $ne: "cancelled" } };
     if (fromParam || toParam) {
-      invoiceQuery.issue_date = {};
-      if (fromParam) invoiceQuery.issue_date.$gte = new Date(fromParam);
+      invoiceMatch.issue_date = {};
+      if (fromParam) invoiceMatch.issue_date.$gte = new Date(fromParam);
       if (toParam) {
-        const toDate = new Date(toParam);
-        toDate.setHours(23, 59, 59, 999);
-        invoiceQuery.issue_date.$lte = toDate;
+        const d = new Date(toParam);
+        d.setHours(23, 59, 59, 999);
+        invoiceMatch.issue_date.$lte = d;
       }
     }
 
-    const [invoices, quotations, customers, expenses] = await Promise.all([
-      Invoice.find(invoiceQuery).sort({ issue_date: -1 }).limit(500).lean(),
-      Quotation.find().countDocuments(),
-      Customer.find({ status: true }).countDocuments(),
-      Expense.find({ status: { $ne: "cancelled" } }).lean(),
+    // Run all aggregations in parallel — no document fetching into JS memory
+    const [
+      [revenueStat],
+      overdueCount,
+      revenueByMonthRaw,
+      topClientsRaw,
+      paymentBreakdownRaw,
+      recentInvoices,
+      invoiceCount,
+      quotationCount,
+      customerCount,
+      [expenseStat],
+    ] = await Promise.all([
+      // ── KPI totals ────────────────────────────────────────────────────────
+      Invoice.aggregate([
+        { $match: invoiceMatch },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$total_amount" },
+            totalReceived: { $sum: "$total_paid" },
+            totalOutstanding: { $sum: "$outstanding" },
+          },
+        },
+      ]),
+
+      // ── Overdue count ─────────────────────────────────────────────────────
+      Invoice.countDocuments({
+        ...invoiceMatch,
+        due_date: { $lt: now },
+        payment_status: { $ne: "complete" },
+      }),
+
+      // ── Revenue by month (for chart) ──────────────────────────────────────
+      Invoice.aggregate([
+        {
+          $match: {
+            ...invoiceMatch,
+            issue_date: { $gte: effectiveFrom, $lte: effectiveTo },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$issue_date" },
+              month: { $month: "$issue_date" }, // 1-based
+            },
+            revenue: { $sum: "$total_amount" },
+            received: { $sum: { $ifNull: ["$total_paid", 0] } },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+
+      // ── Top 5 clients ─────────────────────────────────────────────────────
+      Invoice.aggregate([
+        { $match: invoiceMatch },
+        {
+          $group: {
+            _id: "$customer_id",
+            name: { $first: "$customer_name" },
+            total: { $sum: "$total_amount" },
+            paid: { $sum: { $ifNull: ["$total_paid", 0] } },
+          },
+        },
+        { $sort: { total: -1 } },
+        { $limit: 5 },
+      ]),
+
+      // ── Payment status breakdown ──────────────────────────────────────────
+      Invoice.aggregate([
+        { $match: invoiceMatch },
+        {
+          $group: {
+            _id: "$payment_status",
+            count: { $sum: 1 },
+            amount: { $sum: "$total_amount" },
+          },
+        },
+      ]),
+
+      // ── 5 most recent invoices for the activity feed ──────────────────────
+      Invoice.find(invoiceMatch).sort({ issue_date: -1 }).limit(5).lean(),
+
+      // ── Counts ───────────────────────────────────────────────────────────
+      Invoice.countDocuments(invoiceMatch),
+      Quotation.countDocuments(),
+      Customer.countDocuments({ status: true }),
+
+      // ── Total expenses (all time, not date-filtered) ──────────────────────
+      Expense.aggregate([
+        { $match: { status: { $ne: "cancelled" } } },
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
+      ]),
     ]);
 
-    const totalRevenue = invoices.reduce((s, i) => s + i.total_amount, 0);
-    const totalReceived = invoices.reduce((s, i) => s + (i.total_paid || 0), 0);
-    const totalOutstanding = invoices.reduce((s, i) => s + (i.outstanding || 0), 0);
-    const totalExpenses = (expenses as any[]).reduce((s, e) => s + e.total_amount, 0);
+    // ── Post-process aggregation results ─────────────────────────────────────
 
-    const overdueCount = (invoices as any[]).filter((i) => {
-      return i.due_date && new Date(i.due_date) < now && i.payment_status !== "complete";
-    }).length;
+    const totalRevenue     = revenueStat?.totalRevenue    ?? 0;
+    const totalReceived    = revenueStat?.totalReceived   ?? 0;
+    const totalOutstanding = revenueStat?.totalOutstanding ?? 0;
+    const totalExpenses    = expenseStat?.total           ?? 0;
 
-    // Revenue by month — dynamically generated for the effective range
+    // Build the monthly chart array, filling every month in the range with 0
+    // so the chart always shows a continuous x-axis.
     const spanYears = effectiveTo.getFullYear() !== effectiveFrom.getFullYear();
     const monthlyMap = new Map<string, { label: string; revenue: number; received: number }>();
-    let d = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
-    while (d <= effectiveTo) {
-      const mapKey = `${d.getFullYear()}-${d.getMonth()}`;
+    let cursor = new Date(effectiveFrom.getFullYear(), effectiveFrom.getMonth(), 1);
+    while (cursor <= effectiveTo) {
+      const key = `${cursor.getFullYear()}-${cursor.getMonth() + 1}`; // 1-based month key
       const label = spanYears
-        ? d.toLocaleString("default", { month: "short", year: "2-digit" })
-        : d.toLocaleString("default", { month: "short" });
-      monthlyMap.set(mapKey, { label, revenue: 0, received: 0 });
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        ? cursor.toLocaleString("default", { month: "short", year: "2-digit" })
+        : cursor.toLocaleString("default", { month: "short" });
+      monthlyMap.set(key, { label, revenue: 0, received: 0 });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
-    (invoices as any[]).forEach((inv) => {
-      const invDate = new Date(inv.issue_date);
-      const mapKey = `${invDate.getFullYear()}-${invDate.getMonth()}`;
-      const entry = monthlyMap.get(mapKey);
+    for (const row of revenueByMonthRaw) {
+      // MongoDB $month is 1-based, matching our key format
+      const key = `${row._id.year}-${row._id.month}`;
+      const entry = monthlyMap.get(key);
       if (entry) {
-        entry.revenue += inv.total_amount;
-        entry.received += inv.total_paid || 0;
+        entry.revenue  = row.revenue;
+        entry.received = row.received;
       }
-    });
+    }
     const revenueByMonth = Array.from(monthlyMap.values()).map(({ label, revenue, received }) => ({
       month: label,
       revenue,
       received,
     }));
 
-    // Top clients
-    const clientMap: Record<string, { name: string; total: number; paid: number }> = {};
-    (invoices as any[]).forEach((inv) => {
-      const id = inv.customer_id?.toString();
-      if (!clientMap[id]) clientMap[id] = { name: inv.customer_name, total: 0, paid: 0 };
-      clientMap[id].total += inv.total_amount;
-      clientMap[id].paid += inv.total_paid || 0;
-    });
-    const topClients = Object.values(clientMap).sort((a, b) => b.total - a.total).slice(0, 5);
-
-    // Payment breakdown
-    const breakdown = { pending: 0, partial: 0, complete: 0 };
-    (invoices as any[]).forEach((i) => {
-      breakdown[i.payment_status as keyof typeof breakdown] =
-        (breakdown[i.payment_status as keyof typeof breakdown] || 0) + 1;
-    });
-    const paymentStatusBreakdown = Object.entries(breakdown).map(([status, count]) => ({
-      status,
-      count,
-      amount: (invoices as any[])
-        .filter((i) => i.payment_status === status)
-        .reduce((s, i) => s + i.total_amount, 0),
+    const topClients = topClientsRaw.map((r: any) => ({
+      name:  r.name,
+      total: r.total,
+      paid:  r.paid,
     }));
+
+    const paymentStatusBreakdown = ["pending", "partial", "complete"].map((status) => {
+      const row = paymentBreakdownRaw.find((r: any) => r._id === status);
+      return { status, count: row?.count ?? 0, amount: row?.amount ?? 0 };
+    });
 
     return NextResponse.json({
       success: true,
@@ -113,18 +188,18 @@ export async function GET(req: Request) {
         totalReceived,
         totalOutstanding,
         totalExpenses,
-        invoiceCount: invoices.length,
-        quotationCount: quotations,
-        customerCount: customers,
+        invoiceCount,
+        quotationCount,
+        customerCount,
         overdueCount,
         revenueByMonth,
         topClients,
-        recentInvoices: (invoices as any[]).slice(0, 5),
+        recentInvoices,
         paymentStatusBreakdown,
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("[dashboard]", err);
     return NextResponse.json({ success: false, error: "Failed to load dashboard" }, { status: 500 });
   }
 }

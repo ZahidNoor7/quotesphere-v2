@@ -40,6 +40,8 @@ export default function EditExpensePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // `hydrated` is used as a "run once" guard — intentionally excluded from deps
+    // so SWR revalidations don't wipe edits the user has already made.
     if (!expense || hydrated) return;
     setCustomerId(expense.customer_id);
     setBillDate(expense.bill_date.slice(0, 10));
@@ -59,7 +61,7 @@ export default function EditExpensePage() {
       category: i.category ?? "Materials",
     })));
     setHydrated(true);
-  }, [expense, hydrated]);
+  }, [expense]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const customer = (customers as Customer[]).find(c => c._id === customerId);
   const subTotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);

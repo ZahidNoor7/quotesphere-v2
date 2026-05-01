@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
-
 export async function connectDB() {
-  if (isConnected && mongoose.connections[0].readyState === 1) return;
+  // readyState: 0=disconnected, 1=connected, 2=connecting, 3=disconnecting
+  // Mongoose handles concurrent calls to connect() internally, so no custom flag needed
+  if (mongoose.connection.readyState >= 1) return;
 
   const uri = process.env.MONGO_URI;
   if (!uri) throw new Error("MONGO_URI is not defined");
@@ -16,7 +16,6 @@ export async function connectDB() {
       socketTimeoutMS: 60000,
       family: 4,
     });
-    isConnected = true;
   } catch (err) {
     console.error("MongoDB connection error:", err);
     throw err;

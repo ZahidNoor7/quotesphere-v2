@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Service from "@/models/Service";
@@ -9,10 +10,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { id } = await params;
+    if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
     const data = await Service.findByIdAndUpdate(id, body, { new: true });
+    if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true, data });
-  } catch (err: any) { return NextResponse.json({ success: false, error: err.message }, { status: 500 }); }
+  } catch (err: any) {
+    console.error("[services/[id] PUT]", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +27,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { id } = await params;
+    if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     await Service.findByIdAndDelete(id);
     return NextResponse.json({ success: true });
-  } catch { return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 }); }
+  } catch (err) {
+    console.error("[services/[id] DELETE]", err);
+    return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
+  }
 }

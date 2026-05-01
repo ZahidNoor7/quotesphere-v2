@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "20")));
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
     const customer_id = searchParams.get("customer_id") || "";
@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
     const total = await Project.countDocuments(query);
     const data = await Project.find(query).sort(sortObj).skip((page - 1) * limit).limit(limit).lean();
     return NextResponse.json({ success: true, data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
-  } catch { return NextResponse.json({ success: false, error: "Failed to fetch projects" }, { status: 500 }); }
+  } catch (err) {
+    console.error("[projects GET]", err);
+    return NextResponse.json({ success: false, error: "Failed to fetch projects" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +42,7 @@ export async function POST(req: NextRequest) {
     await project.save();
     return NextResponse.json({ success: true, data: project }, { status: 201 });
   } catch (err: any) {
+    console.error("[projects POST]", err);
     return NextResponse.json({ success: false, error: err.message || "Failed to create project" }, { status: 500 });
   }
 }

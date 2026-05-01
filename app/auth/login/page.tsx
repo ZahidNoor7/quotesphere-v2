@@ -15,8 +15,8 @@ const T3 = "rgba(160,170,255,0.42)";
 export default function LoginPage() {
   const router = useRouter();
   const { status } = useSession();
-  const [email, setEmail] = useState("zahid@gmail.com");
-  const [password, setPassword] = useState("1234567890");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   useEffect(() => {

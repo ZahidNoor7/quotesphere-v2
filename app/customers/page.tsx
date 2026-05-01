@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Search,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,7 +62,9 @@ import {
   Tr,
   PaginationBar,
 } from "@/components/custom-ui";
-import { SpinnerCenter } from "@/components/loaders";
+import { TableSkeleton } from "@/components/loaders";
+import { ErrorState } from "@/components/shared/error-state";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { Customer } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -266,7 +269,7 @@ export default function CustomersPage() {
   if (search) params.set("search", search);
   if (statusFilter) params.set("status", statusFilter);
 
-  const { data, mutate, isLoading } = useSWR(
+  const { data, mutate, isLoading, error } = useSWR(
     `/api/customers?${params}`,
     fetcher,
     { keepPreviousData: true },
@@ -540,51 +543,21 @@ export default function CustomersPage() {
 
         {/* ── Table / Cards ────────────────────────────────────────────────── */}
         {isLoading ? (
-          <TableWrapper style={{ flex: 1 }}>
-            <SpinnerCenter height={200} />
-          </TableWrapper>
+          <TableWrapper style={{ flex: 1 }}><TableSkeleton cols={7} /></TableWrapper>
+        ) : error ? (
+          <TableWrapper style={{ flex: 1 }}><ErrorState message="Failed to load customers." onRetry={() => mutate()} /></TableWrapper>
         ) : customers.length === 0 ? (
           <TableWrapper style={{ flex: 1 }}>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "60px 20px",
-                gap: 8,
-              }}
-            >
-              <svg
-                width="40"
-                height="40"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="var(--t3)"
-                strokeWidth="0.8"
-              >
-                <circle cx="8" cy="5" r="3" />
-                <path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" />
-              </svg>
-              <div
-                style={{ fontSize: 13, color: "var(--t2)", fontWeight: 500 }}
-              >
-                No clients found
-              </div>
-              <div style={{ fontSize: 12, color: "var(--t3)" }}>
-                Add your first client to get started
-              </div>
-              <Button
-                size="sm"
-                style={{ marginTop: 8 }}
-                onClick={() => {
-                  setEditClient(null);
-                  setShowForm(true);
-                }}
-              >
-                + Add client
-              </Button>
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No clients found"
+              description="Add your first client to get started"
+              action={
+                <Button size="sm" onClick={() => { setEditClient(null); setShowForm(true); }}>
+                  + Add client
+                </Button>
+              }
+            />
           </TableWrapper>
         ) : isMobile ? (
           /* ── Mobile card list ── */
@@ -652,7 +625,7 @@ export default function CustomersPage() {
                   </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button style={{ ...ICON_PILL, width: 28, height: 28 }}>
+                      <button style={{ ...ICON_PILL, width: 28, height: 28 }} aria-label="Open customer actions">
                         <MoreVertical size={13} />
                       </button>
                     </DropdownMenuTrigger>
@@ -918,6 +891,7 @@ export default function CustomersPage() {
                           <button
                             style={{ ...ICON_PILL, width: 28, height: 28 }}
                             onClick={(e) => e.stopPropagation()}
+                            aria-label="Open customer actions"
                           >
                             <MoreVertical size={13} />
                           </button>

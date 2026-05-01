@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { DashboardSkeleton } from "@/components/loaders";
 import { PaymentStatusBadge } from "@/components/shared/status-badges";
+import { ErrorState } from "@/components/shared/error-state";
 import { formatCurrency } from "@/lib/utils";
 import { TOPBAR_STYLE, T1, T2, T3 } from "@/lib/ds";
 import type { DashboardStats } from "@/types";
@@ -99,13 +100,14 @@ export default function DashboardPage() {
     [period, dateRange]
   );
 
-  const { data: stats, isLoading } = useSWR<DashboardStats>(
+  const { data: stats, isLoading, error, mutate } = useSWR<DashboardStats>(
     apiUrl,
     fetcher,
     { refreshInterval: 60000 }
   );
 
   if (isLoading) return <DashboardSkeleton />;
+  if (error) return <ErrorState message="Failed to load dashboard data." onRetry={() => mutate()} />;
 
   const s = stats!;
 
