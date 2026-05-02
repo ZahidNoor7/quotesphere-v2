@@ -21,10 +21,10 @@ import { PaymentStatusBadge } from "@/components/shared/status-badges";
 import { ErrorState } from "@/components/shared/error-state";
 import { formatCurrency } from "@/lib/utils";
 import { TOPBAR_STYLE, T1, T2, T3 } from "@/lib/ds";
+import { useTheme } from "@/components/layout/theme-provider";
 import type { DashboardStats } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json()).then((d) => d.data);
-const PIE_COLORS = ["#fbbf24", "#a78bfa", "#34d399"];
 
 type Period = "month" | "3months" | "6months" | "year" | "custom";
 
@@ -89,6 +89,7 @@ function buildApiUrl(period: Period, dateRange: DateRange | undefined): string {
 }
 
 export default function DashboardPage() {
+  const { themeId } = useTheme();
   const [tab, setTab] = useState<"overview" | "analytics">("overview");
   const [period, setPeriod] = useState<Period>("6months");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);   // committed
@@ -99,6 +100,20 @@ export default function DashboardPage() {
     () => buildApiUrl(period, dateRange),
     [period, dateRange]
   );
+
+  // Derive chart colours from the active theme's CSS custom properties so the
+  // pie chart adapts when the user switches themes.  Falls back to universally
+  // legible defaults in case the vars aren't set (SSR, unsupported browser).
+  const pieColors = useMemo(() => {
+    if (typeof document === "undefined") return ["#fbbf24", "#a78bfa", "#34d399"];
+    const root = getComputedStyle(document.documentElement);
+    const accent = root.getPropertyValue("--accent").trim();
+    return [
+      "#fbbf24",          // pending  — semantic warning amber (theme-independent)
+      accent || "#a78bfa", // partial  — theme primary accent
+      "#34d399",          // complete — semantic success green (theme-independent)
+    ];
+  }, [themeId]); // recompute whenever the user switches theme
 
   const { data: stats, isLoading, error, mutate } = useSWR<DashboardStats>(
     apiUrl,
@@ -583,7 +598,7 @@ export default function DashboardPage() {
                   <Pie
                     data={(s?.paymentStatusBreakdown ?? []).map((d, i) => ({
                       ...d,
-                      fill: PIE_COLORS[i % PIE_COLORS.length],
+                      fill: pieColors[i % pieColors.length],
                     }))}
                     cx="50%"
                     cy="45%"

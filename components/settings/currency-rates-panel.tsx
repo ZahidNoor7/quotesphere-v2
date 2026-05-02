@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useSettings } from "@/hooks/use-settings";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Spinner, SpinnerCenter } from "@/components/loaders/spinner";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { Input } from "@/components/ui/input";
@@ -14,16 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-function useIsMobile(breakpoint = 640) {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < breakpoint);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, [breakpoint]);
-  return isMobile;
-}
 
 const QUICK_MULTIPLIERS = [0.5, 1, 1.5, 2, 3, 5, 10];
 

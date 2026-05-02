@@ -65,8 +65,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   const theme = getTheme(initialThemeId);
-  // system defaults to dark on server (can't read media query server-side)
-  const isDark = theme.base === "dark" || theme.base === "system";
+
+  // Resolve the "system" theme using the Sec-CH-Prefers-Color-Scheme client hint.
+  // On first visit the header is absent (falls back to dark). From the second
+  // request onwards the browser sends the actual OS preference, eliminating the
+  // light-mode flash.  See the Accept-CH / Critical-CH headers in next.config.ts.
+  const prefersColorScheme = headersList.get("sec-ch-prefers-color-scheme");
+  const isDark =
+    theme.base === "dark" ||
+    (theme.base === "system" && prefersColorScheme !== "light");
 
   return (
     <html

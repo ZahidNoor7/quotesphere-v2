@@ -495,7 +495,7 @@ export default function QuotationsPage() {
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button style={{ ...ICON_PILL, width: 28, height: 28 }} aria-label="Open quotation actions">
+                      <button style={{ ...ICON_PILL, width: 44, height: 44 }} aria-label="Open quotation actions">
                         <MoreVertical size={13} />
                       </button>
                     </DropdownMenuTrigger>

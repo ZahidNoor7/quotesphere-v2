@@ -29,7 +29,7 @@ Time summary per project and per team member
 
 6- add option for the loged in user to update its profile such as name, password, phone number, avatar or image, bio or anyother relevant info.
 
-Issues
+Issues / Fixes
 
 1- Every time i click on a navigation link when collapsed, sidebar opens and closes.
 

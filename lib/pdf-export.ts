@@ -6,7 +6,7 @@
  * style rule in the document and injecting their computed values into :root
  * so the print window renders identically to the app.
  */
-export function printAsPdf(elementId: string, title: string): void {
+export async function printAsPdf(elementId: string, title: string): Promise<void> {
   const el = document.getElementById(elementId);
   if (!el) return;
 
@@ -62,12 +62,14 @@ export function printAsPdf(elementId: string, title: string): void {
   );
   win.document.close();
 
-  // Allow external stylesheets + web fonts time to load before printing
-  setTimeout(() => {
-    win.focus();
-    win.print();
-    win.close();
-  }, 1200);
+  // Wait for fonts in the print window to finish loading before triggering print.
+  // document.fonts.ready resolves as soon as all @font-face rules are done —
+  // far more reliable than a fixed timeout which under-waits on slow connections
+  // and over-waits on fast ones.
+  await win.document.fonts.ready;
+  win.focus();
+  win.print();
+  win.close();
 }
 
 /**

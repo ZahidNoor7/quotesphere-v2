@@ -190,7 +190,7 @@ function CustomerForm({
         }}
       >
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}
         >
           <div>
             <label style={lbl}>Full name *</label>
@@ -202,7 +202,7 @@ function CustomerForm({
           </div>
         </div>
         <div
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}
         >
           <div>
             <label style={lbl}>Email</label>
@@ -625,7 +625,7 @@ export default function CustomersPage() {
                   </Link>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button style={{ ...ICON_PILL, width: 28, height: 28 }} aria-label="Open customer actions">
+                      <button style={{ ...ICON_PILL, width: 44, height: 44 }} aria-label="Open customer actions">
                         <MoreVertical size={13} />
                       </button>
                     </DropdownMenuTrigger>

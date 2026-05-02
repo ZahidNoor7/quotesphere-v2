@@ -44,6 +44,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <style>{`.cust-detail-row:hover td { background: rgba(255,255,255,0.03); }`}</style>
       <div style={TOPBAR_STYLE}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <Link href="/customers" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, textDecoration: "none", flexShrink: 0 }}>
@@ -163,8 +164,7 @@ export default function CustomerDetailPage() {
                 <tbody>
                   {invoices.map((inv: Invoice) => (
                     <tr key={inv._id}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = "rgba(255,255,255,0.03)"))}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = ""))}
+                      className="cust-detail-row"
                     >
                       <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: AC2, fontWeight: 500 }}>{inv.invoice_no}</td>
                       <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{formatDate(inv.issue_date)}</td>

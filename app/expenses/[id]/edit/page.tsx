@@ -15,8 +15,9 @@ import type { Customer, Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
+import { EXPENSE_CATEGORIES } from "@/lib/constants";
+
 interface ExpItem { id: number; name: string; quantity: number; unit_price: number; category: string; }
-const CATEGORIES = ["Materials", "Labour", "Transport", "Equipment", "Software", "Office", "Other"];
 
 export default function EditExpensePage() {
   const { id } = useParams<{ id: string }>();
@@ -166,7 +167,7 @@ export default function EditExpensePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
                 <div><label style={lbl}>Bill date</label><Input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} /></div>
                 <div>
                   <label style={lbl}>Currency</label>
@@ -180,11 +181,11 @@ export default function EditExpensePage() {
                   </Select>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
                 <div><label style={lbl}>Vendor name</label><Input value={vendorName} onChange={e => setVendorName(e.target.value)} placeholder="Vendor or supplier" /></div>
                 <div><label style={lbl}>Bill / Invoice #</label><Input value={billNumber} onChange={e => setBillNumber(e.target.value)} placeholder="BILL-001" /></div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
                 <div>
                   <label style={lbl}>Payment method</label>
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -268,7 +269,7 @@ export default function EditExpensePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {CATEGORIES.map(c => <SelectItem key={c} value={c} style={{ fontSize: 10 }}>{c}</SelectItem>)}
+                          {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c} style={{ fontSize: 10 }}>{c}</SelectItem>)}
                         </SelectGroup>
                       </SelectContent>
                     </Select>

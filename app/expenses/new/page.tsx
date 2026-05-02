@@ -1,5 +1,5 @@
 "use client";
-import { useState, memo, useEffect } from "react";
+import { useState, memo, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { formatCurrency } from "@/lib/utils";
+import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Customer } from "@/types";
@@ -33,15 +34,6 @@ interface ExpItem {
   unit_price: number;
   category: string;
 }
-const CATEGORIES = [
-  "Materials",
-  "Labour",
-  "Transport",
-  "Equipment",
-  "Software",
-  "Office",
-  "Other",
-];
 const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED"];
 const PAYMENT_METHODS: [string, string][] = [
   ["cash", "Cash"],
@@ -159,7 +151,7 @@ const MobileExpItemCard = memo(function MobileExpItemCard({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {CATEGORIES.map((c) => (
+          {EXPENSE_CATEGORIES.map((c) => (
             <SelectItem key={c} value={c}>
               {c}
             </SelectItem>
@@ -168,7 +160,7 @@ const MobileExpItemCard = memo(function MobileExpItemCard({
       </Select>
 
       {/* Qty + Price */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
         <div>
           <div
             style={{
@@ -291,10 +283,12 @@ export default function NewExpensePage() {
       },
     ]);
   }
-  function removeItem(id: number) {
-    if (items.length > 1) setItems((p) => p.filter((i) => i.id !== id));
-  }
-  function upd(id: number, k: keyof ExpItem, v: string | number) {
+  // Stable references so memo() on MobileExpItemCard actually short-circuits
+  const removeItem = useCallback((id: number) => {
+    setItems((p) => (p.length > 1 ? p.filter((i) => i.id !== id) : p));
+  }, []);
+
+  const upd = useCallback((id: number, k: keyof ExpItem, v: string | number) => {
     setItems((p) =>
       p.map((i) =>
         i.id === id
@@ -308,7 +302,7 @@ export default function NewExpensePage() {
           : i,
       ),
     );
-  }
+  }, []);
 
   async function save() {
     if (!customerId) {
@@ -521,7 +515,7 @@ export default function NewExpensePage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                   gap: 10,
                 }}
               >
@@ -695,7 +689,7 @@ export default function NewExpensePage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
-                            {CATEGORIES.map((c) => (
+                            {EXPENSE_CATEGORIES.map((c) => (
                               <SelectItem key={c} value={c} style={{ fontSize: 10 }}>
                                 {c}
                               </SelectItem>
