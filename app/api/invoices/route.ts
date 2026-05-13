@@ -1,8 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
+
+const itemSchema = z.object({
+  id: z.number(),
+  name: z.string().max(500),
+  quantity: z.number().min(0),
+  price: z.number().min(0),
+  images: z.array(z.string()).optional(),
+});
+
+const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const;
+const PAYMENT_METHODS = ["cash", "bank_transfer", "card", "online", "cheque"] as const;
+
+const invoiceSchema = z.object({
+  customer_id: z.string().min(1, "Customer is required"),
+  customer_name: z.string().min(1),
+  customer_phone: z.string().optional(),
+  customer_address: z.string().optional(),
+  issue_date: z.string().min(1),
+  due_date: z.string().optional(),
+  status: z.enum(["draft", "issued", "cancelled"] as const).optional(),
+  payment_status: z.enum(["pending", "partial", "complete"] as const).optional(),
+  payment_mode: z.enum(PAYMENT_METHODS).optional(),
+  items: z.array(itemSchema).min(1, "At least one item is required"),
+  tax: z.number().min(0).optional(),
+  tax_type: z.enum(["percentage", "value"] as const).optional(),
+  discount: z.number().min(0).optional(),
+  delivery_charges: z.number().min(0).optional(),
+  advance: z.number().min(0).optional(),
+  currency: z.enum(CURRENCIES).optional(),
+  remarks: z.string().max(2000).optional(),
+  project_id: z.string().optional(),
+  converted_from: z.string().optional(),
+  designId: z.string().optional(),
+  rateSnapshot: z.record(z.string(), z.number()).optional(),
+  delivery_status: z.enum(["pending", "shipped", "delivered"] as const).optional(),
+  tracking_no: z.string().optional(),
+});
 
 export const GET = withLog("GET /api/invoices", async (req: NextRequest) => {
   try {
@@ -55,10 +94,16 @@ export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
 
     await connectDB();
     const body = await req.json();
-    const invoice = new Invoice(body);
+    const parsed = invoiceSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
+    }
+    const invoice = new Invoice(parsed.data);
     await invoice.save();
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (err: any) {

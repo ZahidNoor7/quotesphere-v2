@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
 
-export const GET = withLog("GET /api/invoices/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withLog("GET /api/invoices/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -25,14 +27,19 @@ export const PUT = withLog("PUT /api/invoices/[id]", async (req: NextRequest, { 
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
+    // Allow partial updates — strip unknown keys but don't require all fields
+    const parsed = z.record(z.string(), z.unknown()).safeParse(body);
+    if (!parsed.success) return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 });
     const invoice = await Invoice.findById(id);
     if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
-    Object.assign(invoice, body);
+    Object.assign(invoice, parsed.data);
     await invoice.save();
     return NextResponse.json({ success: true, data: invoice });
   } catch (err: any) {
@@ -45,6 +52,8 @@ export const DELETE = withLog("DELETE /api/invoices/[id]", async (req: NextReque
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });

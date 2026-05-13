@@ -4,8 +4,9 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Expense from "@/models/Expense";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
 
-export const GET = withLog("GET /api/expenses/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withLog("GET /api/expenses/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -25,6 +26,8 @@ export const PUT = withLog("PUT /api/expenses/[id]", async (req: NextRequest, { 
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
@@ -42,6 +45,8 @@ export const DELETE = withLog("DELETE /api/expenses/[id]", async (req: NextReque
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });

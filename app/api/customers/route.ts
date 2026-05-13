@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Customer from "@/models/Customer";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
+
+const customerSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  phone_no: z.string().min(1, "Phone is required").max(50),
+  email: z.email("Invalid email").optional().or(z.literal("")),
+  address: z.string().max(500).optional(),
+  company: z.string().max(200).optional(),
+  tax_id: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  status: z.boolean().optional(),
+  currency: z.string().optional(),
+});
 
 export const GET = withLog("GET /api/customers", async (req: NextRequest) => {
   try {
@@ -43,10 +57,16 @@ export const POST = withLog("POST /api/customers", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
 
     await connectDB();
     const body = await req.json();
-    const customer = await Customer.create(body);
+    const parsed = customerSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
+    }
+    const customer = await Customer.create(parsed.data);
     return NextResponse.json({ success: true, data: customer }, { status: 201 });
   } catch (err: any) {
     console.error("[customers POST]", err);

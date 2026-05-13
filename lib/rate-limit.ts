@@ -1,33 +1,4 @@
-// In-memory sliding-window rate limiter.
-// Works correctly on traditional Node.js deployments. For serverless/edge
-// (Vercel, Cloudflare Workers) replace the Map store with @upstash/ratelimit + Redis.
-
-interface Entry {
-  count: number;
-  resetAt: number;
-}
-
-// Module-level store — persists across requests in a single Node.js process.
-// Use a global symbol to survive Next.js HMR hot-reloads in development.
-const STORE_KEY = Symbol.for("__qs_rate_limit_store");
-if (!(globalThis as any)[STORE_KEY]) {
-  (globalThis as any)[STORE_KEY] = new Map<string, Entry>();
-}
-const store: Map<string, Entry> = (globalThis as any)[STORE_KEY];
-
-// Clean up entries that have already expired (runs every 10 minutes).
-const CLEANUP_KEY = Symbol.for("__qs_rate_limit_cleanup");
-if (!(globalThis as any)[CLEANUP_KEY]) {
-  const timer = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      if (now > entry.resetAt) store.delete(key);
-    }
-  }, 10 * 60 * 1000);
-  // Don't block process exit in Node.js
-  if (typeof timer === "object" && "unref" in timer) timer.unref();
-  (globalThis as any)[CLEANUP_KEY] = timer;
-}
+import clientPromise from "@/lib/db";
 
 export interface RateLimitResult {
   success: boolean;
@@ -35,30 +6,61 @@ export interface RateLimitResult {
   retryAfterMs: number;
 }
 
+// ─── Ensure TTL index exists once per process ──────────────────────────────────
+let _indexEnsured = false;
+async function ensureIndex() {
+  if (_indexEnsured) return;
+  try {
+    const client = await clientPromise;
+    const coll = client.db().collection("_rate_limits");
+    await coll.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, background: true });
+    await coll.createIndex({ key: 1 }, { background: true });
+    _indexEnsured = true;
+  } catch {
+    // Non-fatal — index will be created eventually
+  }
+}
+
 /**
+ * Distributed fixed-window rate limiter backed by MongoDB.
+ * Works across all instances/serverless functions — safe for Vercel deployments.
+ *
  * @param key      Unique string identifying the rate-limit bucket (e.g. "login:1.2.3.4")
  * @param limit    Maximum number of requests allowed in the window
  * @param windowMs Window duration in milliseconds
  */
-export function rateLimit(
+export async function rateLimit(
   key: string,
   limit: number,
   windowMs: number
-): RateLimitResult {
-  const now = Date.now();
-  const entry = store.get(key);
+): Promise<RateLimitResult> {
+  try {
+    await ensureIndex();
+    const client = await clientPromise;
+    const coll = client.db().collection<{ key: string; count: number; expiresAt: Date }>("_rate_limits");
 
-  if (!entry || now > entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + windowMs });
+    const now = new Date();
+    // Align to fixed window boundaries so all instances agree on the same window
+    const windowStart = Math.floor(Date.now() / windowMs) * windowMs;
+    const expiresAt = new Date(windowStart + windowMs);
+    const windowKey = `${key}:${windowStart}`;
+
+    const doc = await coll.findOneAndUpdate(
+      { key: windowKey },
+      { $inc: { count: 1 }, $setOnInsert: { expiresAt } },
+      { upsert: true, returnDocument: "after" }
+    );
+
+    if (!doc) return { success: true, retryAfterMs: 0 };
+
+    if (doc.count > limit) {
+      return { success: false, retryAfterMs: expiresAt.getTime() - now.getTime() };
+    }
+    return { success: true, retryAfterMs: 0 };
+  } catch {
+    // Fail open — never block users due to a rate-limit DB error
     return { success: true, retryAfterMs: 0 };
   }
-
-  if (entry.count >= limit) {
-    return { success: false, retryAfterMs: entry.resetAt - now };
-  }
-
-  entry.count += 1;
-  return { success: true, retryAfterMs: 0 };
 }
 
 /**

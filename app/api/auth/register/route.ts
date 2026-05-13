@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import { rateLimit, getClientIP } from "@/lib/rate-limit";
 import { withLog } from "@/lib/logger";
+import { sendWelcomeEmail } from "@/lib/email";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -14,7 +15,7 @@ const registerSchema = z.object({
 
 export const POST = withLog("POST /api/auth/register", async (req: NextRequest) => {
   const ip = getClientIP(req);
-  const rl = rateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
+  const rl = await rateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
   if (!rl.success) {
     return NextResponse.json(
       { success: false, error: "Too many registration attempts. Please try again later." },
@@ -45,6 +46,13 @@ export const POST = withLog("POST /api/auth/register", async (req: NextRequest) 
 
     const hashed = await bcrypt.hash(password, 12);
     const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role });
+
+    // Fire-and-forget — don't let email failure block registration
+    sendWelcomeEmail({
+      to: user.email,
+      name: user.name,
+      loginUrl: process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/auth/login` : undefined,
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

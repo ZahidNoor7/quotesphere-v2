@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
+
+const projectSchema = z.object({
+  name: z.string().min(1, "Name is required").max(200),
+  description: z.string().max(2000).optional(),
+  status: z.enum(["pending", "in_progress", "on_hold", "cancelled", "complete"] as const).optional(),
+  start_date: z.string().optional(),
+  due_date: z.string().optional(),
+  budget: z.number().min(0).optional(),
+  currency: z.enum(["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const).optional(),
+  customer_id: z.string().min(1, "Customer is required"),
+  customer_name: z.string().min(1),
+  customer_phone: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  notes: z.string().max(2000).optional(),
+  progress: z.number().min(0).max(100).optional(),
+});
 
 export const GET = withLog("GET /api/projects", async (req: NextRequest) => {
   try {
@@ -37,9 +55,15 @@ export const POST = withLog("POST /api/projects", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
     await connectDB();
     const body = await req.json();
-    const project = new Project(body);
+    const parsed = projectSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
+    }
+    const project = new Project(parsed.data);
     await project.save();
     return NextResponse.json({ success: true, data: project }, { status: 201 });
   } catch (err: any) {

@@ -23,7 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials, request) {
         // 10 login attempts per IP per 15 minutes
         const ip = getClientIP(request as Request);
-        const rl = rateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+        const rl = await rateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
         if (!rl.success) {
           throw new Error("Too many login attempts. Please try again later.");
         }

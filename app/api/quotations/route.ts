@@ -1,8 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
 import { withLog } from "@/lib/logger";
+import { requireRole } from "@/lib/rbac";
+
+const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const;
+
+const quotationSchema = z.object({
+  customer_id: z.string().min(1, "Customer is required"),
+  customer_name: z.string().min(1),
+  customer_phone: z.string().optional(),
+  customer_address: z.string().optional(),
+  issue_date: z.string().min(1),
+  valid_until: z.string().optional(),
+  status: z.enum(["draft", "pending", "approved", "rejected", "cancelled", "invoiced", "expired"] as const).optional(),
+  items: z.array(z.object({
+    id: z.number(),
+    name: z.string().max(500),
+    quantity: z.number().min(0),
+    price: z.number().min(0),
+  })).min(1, "At least one item is required"),
+  tax: z.number().min(0).optional(),
+  tax_type: z.enum(["percentage", "value"] as const).optional(),
+  discount: z.number().min(0).optional(),
+  delivery_charges: z.number().min(0).optional(),
+  currency: z.enum(CURRENCIES).optional(),
+  remarks: z.string().max(2000).optional(),
+  project_id: z.string().optional(),
+  designId: z.string().optional(),
+  rateSnapshot: z.record(z.string(), z.number()).optional(),
+});
 
 export const GET = withLog("GET /api/quotations", async (req: NextRequest) => {
   try {
@@ -58,10 +87,16 @@ export const POST = withLog("POST /api/quotations", async (req: NextRequest) => 
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method);
+    if (denied) return denied;
 
     await connectDB();
     const body = await req.json();
-    const quotation = new Quotation(body);
+    const parsed = quotationSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
+    }
+    const quotation = new Quotation(parsed.data);
     await quotation.save();
     return NextResponse.json({ success: true, data: quotation }, { status: 201 });
   } catch (err: any) {
