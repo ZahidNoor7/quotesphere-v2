@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
+import { withLog } from "@/lib/logger";
 
-export async function GET(req: NextRequest) {
+export const GET = withLog("GET /api/projects/stats", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -17,5 +18,7 @@ export async function GET(req: NextRequest) {
     ]);
     const total_budget = budgetAgg[0]?.total ?? 0;
     return NextResponse.json({ success: true, data: { total, in_progress, overdue, total_budget } });
-  } catch { return NextResponse.json({ success: false, error: "Failed" }, { status: 500 }); }
-}
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
+  }
+});

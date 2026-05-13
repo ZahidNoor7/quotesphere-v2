@@ -1,18 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
+import { withLog } from "@/lib/logger";
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 
-// Ordered list of APIs to try — first success wins
 const RATE_PROVIDERS: Array<{
   url: (base: string) => string;
   parse: (json: any) => { rates: Record<string, number>; lastUpdated: Date };
 }> = [
   {
-    // exchangerate-api.com v6 — authenticated, most reliable (PKR supported)
     url: (base) => {
       const key = process.env.EXCHANGERATE_API_KEY;
       if (!key) throw new Error("EXCHANGERATE_API_KEY not set");
@@ -20,14 +19,10 @@ const RATE_PROVIDERS: Array<{
     },
     parse: (json) => {
       if (json.result !== "success") throw new Error(`exchangerate-api v6: ${json["error-type"] ?? "non-success"}`);
-      return {
-        rates: json.conversion_rates as Record<string, number>,
-        lastUpdated: new Date(json.time_last_update_utc),
-      };
+      return { rates: json.conversion_rates as Record<string, number>, lastUpdated: new Date(json.time_last_update_utc) };
     },
   },
   {
-    // open.er-api.com — free tier fallback, no key required
     url: (base) => `https://open.er-api.com/v6/latest/${base}`,
     parse: (json) => {
       if (json.result !== "success") throw new Error("open.er-api: non-success result");
@@ -35,7 +30,6 @@ const RATE_PROVIDERS: Array<{
     },
   },
   {
-    // exchangerate-api.com v4 — keyless fallback
     url: (base) => `https://api.exchangerate-api.com/v4/latest/${base}`,
     parse: (json) => {
       if (!json.rates) throw new Error("exchangerate-api v4: missing rates");
@@ -54,9 +48,7 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   }
 }
 
-async function fetchExternalRates(
-  base: string
-): Promise<{ rates: Record<string, number>; lastUpdated: Date }> {
+async function fetchExternalRates(base: string): Promise<{ rates: Record<string, number>; lastUpdated: Date }> {
   const errors: string[] = [];
   for (const provider of RATE_PROVIDERS) {
     let url: string;
@@ -90,11 +82,7 @@ function serializeCurrencyRates(
   };
 }
 
-/**
- * GET /api/settings/currency-rates
- * Returns cached rates. Auto-syncs from open.er-api.com if stale (>24h) or base changed.
- */
-export async function GET(request: Request) {
+export const GET = withLog("GET /api/settings/currency-rates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -103,9 +91,7 @@ export async function GET(request: Request) {
     const userId = (session.user as any).id as string;
     await connectDB();
 
-    // ?base= param from the client takes precedence — avoids stale cache when
-    // the user just changed their default currency (no race with settings save)
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const requestedBase = searchParams.get("base");
 
     const settings = await Settings.findOne({ user_id: userId })
@@ -130,7 +116,6 @@ export async function GET(request: Request) {
               "currencyRates.base": defaultCurrency,
               "currencyRates.rates": rates,
               "currencyRates.lastUpdated": fetchedAt,
-              // thresholds intentionally NOT overwritten — preserve user multipliers
             },
           },
           { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -141,12 +126,8 @@ export async function GET(request: Request) {
           data: serializeCurrencyRates(updated?.currencyRates, defaultCurrency),
         });
       } catch (syncErr: any) {
-        // Graceful degradation: return stale cache rather than erroring
         if (cached) {
-          return NextResponse.json({
-            success: true,
-            data: serializeCurrencyRates(cached, defaultCurrency),
-          });
+          return NextResponse.json({ success: true, data: serializeCurrencyRates(cached, defaultCurrency) });
         }
         return NextResponse.json(
           { success: false, error: `Failed to fetch initial rates: ${syncErr.message}` },
@@ -155,24 +136,16 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: serializeCurrencyRates(cached, defaultCurrency),
-    });
+    return NextResponse.json({ success: true, data: serializeCurrencyRates(cached, defaultCurrency) });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || "Failed to fetch currency rates" },
       { status: 500 }
     );
   }
-}
+});
 
-/**
- * POST /api/settings/currency-rates
- * Force-syncs rates from open.er-api.com regardless of cache age.
- * Used by the "Sync Now" button.
- */
-export async function POST() {
+export const POST = withLog("POST /api/settings/currency-rates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -181,9 +154,7 @@ export async function POST() {
     const userId = (session.user as any).id as string;
     await connectDB();
 
-    const settings = await Settings.findOne({ user_id: userId })
-      .select("default_currency")
-      .lean() as any;
+    const settings = await Settings.findOne({ user_id: userId }).select("default_currency").lean() as any;
     const base: string = settings?.default_currency ?? "PKR";
 
     const { rates } = await fetchExternalRates(base);
@@ -209,9 +180,6 @@ export async function POST() {
   } catch (err: any) {
     const cause = err?.cause?.message ?? err?.cause ?? "";
     const message = cause ? `${err.message} (${cause})` : (err.message || "Sync failed");
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 502 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 502 });
   }
-}
+});

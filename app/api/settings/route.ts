@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
+import { withLog } from "@/lib/logger";
 
 /** Flattens nested objects into dot-notation keys for MongoDB $set deep merge. */
 function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, any> {
@@ -18,7 +19,7 @@ function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, an
   return result;
 }
 
-export async function GET() {
+export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -32,9 +33,9 @@ export async function GET() {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to fetch settings" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(req: NextRequest) {
+export const PUT = withLog("PUT /api/settings", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -51,4 +52,4 @@ export async function PUT(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});

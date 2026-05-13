@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import { rateLimit, getClientIP } from "@/lib/rate-limit";
+import { withLog } from "@/lib/logger";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -11,17 +12,13 @@ const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").max(128),
 });
 
-export async function POST(req: Request) {
-  // 5 registration attempts per IP per 15 minutes
+export const POST = withLog("POST /api/auth/register", async (req: NextRequest) => {
   const ip = getClientIP(req);
   const rl = rateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
   if (!rl.success) {
     return NextResponse.json(
       { success: false, error: "Too many registration attempts. Please try again later." },
-      {
-        status: 429,
-        headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
-      }
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } }
     );
   }
 
@@ -43,7 +40,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Email already registered" }, { status: 409 });
     }
 
-    // First registered user becomes admin; all subsequent users are staff
     const userCount = await User.countDocuments();
     const role = userCount === 0 ? "admin" : "staff";
 
@@ -58,4 +54,4 @@ export async function POST(req: Request) {
     console.error("[register]", err);
     return NextResponse.json({ success: false, error: "Registration failed" }, { status: 500 });
   }
-}
+});

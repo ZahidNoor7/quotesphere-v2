@@ -464,6 +464,23 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length || uploadTargetId.current === null) return;
+    const MAX_MB = 10;
+    const oversized = files.filter(f => f.size > MAX_MB * 1024 * 1024);
+    if (oversized.length) {
+      toast.error(
+        oversized.length === 1
+          ? `"${oversized[0].name}" is too large (${(oversized[0].size / 1024 / 1024).toFixed(1)} MB). Max ${MAX_MB} MB per image.`
+          : `${oversized.length} images exceed ${MAX_MB} MB. Please choose smaller files.`
+      );
+      e.target.value = "";
+      return;
+    }
+    const nonImages = files.filter(f => !f.type.startsWith("image/"));
+    if (nonImages.length) {
+      toast.error(`"${nonImages[0].name}" is not an image. Only image files are allowed here.`);
+      e.target.value = "";
+      return;
+    }
     try {
       const compressed = await Promise.all(files.map(f => compressImage(f)));
       setItems(p => p.map(i => i.id === uploadTargetId.current

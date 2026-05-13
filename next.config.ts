@@ -8,8 +8,11 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
   },
+  serverExternalPackages: ["cloudinary"],
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
+    // Allow the proxy middleware to forward up to 25 MB so /api/upload receives full file bodies
+    proxyClientMaxBodySize: 26_214_400,
   },
   async headers() {
     return [

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -17,7 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceStatusBadge, PaymentStatusBadge, QuotationStatusBadge, ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, TABLE_STYLE, TH_STYLE, TD_STYLE, TABLE_WRAP, ICON_PILL, FIELD_INPUT, GLASS_INPUT } from "@/lib/ds";
-import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus } from "@/types";
+import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus, ProjectNote, ProjectAttachment } from "@/types";
+import { StickyNote, Paperclip, Plus, Trash2, Upload, FileText, Image as ImageIcon, Film } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 const cfetch = (url: string) => fetch(url).then(r => r.json()).then(d => d.data || d);
@@ -72,6 +73,7 @@ function ProjectEditForm({ initial, onSave, onClose }: { initial: Project; onSav
     budget: initial.budget ? String(initial.budget) : "",
     start_date: initial.start_date ? initial.start_date.split("T")[0] : "",
     due_date: initial.due_date ? initial.due_date.split("T")[0] : "",
+    expected_end_date: initial.expected_end_date ? initial.expected_end_date.split("T")[0] : "",
     description: initial.description ?? "",
     notes: initial.notes ?? "",
     tags: initial.tags ? initial.tags.join(", ") : "",
@@ -147,6 +149,10 @@ function ProjectEditForm({ initial, onSave, onClose }: { initial: Project; onSav
             <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />
           </div>
         </div>
+        <div className="space-y-1">
+          <Label className={lbl} style={{ color: T3 }}>Expected completion date</Label>
+          <Input type="date" value={form.expected_end_date} onChange={e => setForm(p => ({ ...p, expected_end_date: e.target.value }))} style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div className="space-y-1">
             <Label className={lbl} style={{ color: T3 }}>Budget</Label>
@@ -182,7 +188,106 @@ export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
+  const attachFileRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, mutate } = useSWR(`/api/projects/${id}`, fetcher);
+
+  async function addNote() {
+    if (!newNote.trim()) return;
+    setAddingNote(true);
+    try {
+      const res = await fetch(`/api/projects/${id}/notes`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newNote.trim() }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      setNewNote("");
+      mutate();
+      toast.success("Note added.");
+    } catch (err: any) { toast.error(err.message); }
+    finally { setAddingNote(false); }
+  }
+
+  async function deleteNote(noteId: string) {
+    setDeletingNoteId(noteId);
+    try {
+      const res = await fetch(`/api/projects/${id}/notes`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteId }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      mutate();
+    } catch (err: any) { toast.error(err.message); }
+    finally { setDeletingNoteId(null); }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const MAX_MB = 25;
+    const BLOCKED_EXTS = [".exe", ".bat", ".sh", ".cmd", ".msi", ".dmg", ".app"];
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (BLOCKED_EXTS.includes(ext)) {
+      toast.error(`File type "${ext}" is not allowed.`);
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast.error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed: ${MAX_MB} MB.`);
+      e.target.value = "";
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "quotesphere/attachments");
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.success) throw new Error(uploadData.error);
+      const res = await fetch(`/api/projects/${id}/attachments`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: uploadData.data.url, name: file.name, type: file.type, size: file.size }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      mutate();
+      toast.success("File attached.");
+    } catch (err: any) { toast.error(err.message || "Upload failed"); }
+    finally { setUploadingFile(false); e.target.value = ""; }
+  }
+
+  async function deleteAttachment(attId: string) {
+    setDeletingAttId(attId);
+    try {
+      const res = await fetch(`/api/projects/${id}/attachments`, {
+        method: "DELETE", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attachmentId: attId }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      mutate();
+    } catch (err: any) { toast.error(err.message); }
+    finally { setDeletingAttId(null); }
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function AttachIcon({ type }: { type: string }) {
+    if (type.startsWith("image/")) return <ImageIcon size={14} />;
+    if (type.startsWith("video/")) return <Film size={14} />;
+    return <FileText size={14} />;
+  }
 
   async function deleteProject() {
     await fetch(`/api/projects/${id}`, { method: "DELETE" });
@@ -328,7 +433,7 @@ export default function ProjectDetailPage() {
               )}
             </div>
 
-            {/* Financial stats card */}
+            {/* Financial stats + P&L card */}
             <div style={{ ...CARD, padding: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: T2, marginBottom: 12 }}>Financial Summary</div>
               <div className="flex flex-col gap-1.5">
@@ -349,19 +454,40 @@ export default function ProjectDetailPage() {
                   </div>
                 ))}
               </div>
+              {/* Profit & Loss */}
+              {(() => {
+                const grossProfit = stats.totalInvoiced - stats.totalExpenses;
+                const margin = stats.totalInvoiced > 0 ? (grossProfit / stats.totalInvoiced) * 100 : 0;
+                const profitable = grossProfit >= 0;
+                return (
+                  <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: profitable ? "rgba(52,211,153,0.06)" : "rgba(248,113,113,0.06)", border: `0.5px solid ${profitable ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T3, marginBottom: 6 }}>Profit & Loss</div>
+                    <div className="flex justify-between items-center">
+                      <span style={{ fontSize: 11, color: T3 }}>Gross profit</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: profitable ? "#34d399" : "#f87171" }} className="tabular-nums">{formatCurrency(grossProfit, project.currency)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span style={{ fontSize: 11, color: T3 }}>Margin</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: profitable ? "#34d399" : "#f87171" }}>{margin.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
           {/* Tabs */}
           <Tabs defaultValue="invoices">
             <TabsList
-              className="h-auto gap-1 rounded-full p-1"
+              className="h-auto gap-1 rounded-full p-1 flex-wrap"
               style={{ background: GLASS, border: `0.5px solid ${GLASS_BORDER}` }}
             >
               {([
                 { key: "invoices", label: "Invoices", count: stats.invoiceCount },
                 { key: "quotations", label: "Quotations", count: stats.quotationCount },
                 { key: "expenses", label: "Expenses", count: stats.expenseCount },
+                { key: "notes", label: "Notes", count: project.project_notes?.length ?? 0 },
+                { key: "attachments", label: "Files", count: project.attachments?.length ?? 0 },
               ] as { key: string; label: string; count: number }[]).map(t => (
                 <TabsTrigger
                   key={t.key}
@@ -452,6 +578,91 @@ export default function ProjectDetailPage() {
                   </table>
                 </div>
               )}
+            </TabsContent>
+
+            {/* ── Notes ── */}
+            <TabsContent value="notes" className="mt-3">
+              <div className="flex flex-col gap-3">
+                {/* Add note */}
+                <div style={{ ...CARD, padding: 12 }}>
+                  <Textarea
+                    value={newNote}
+                    onChange={e => setNewNote(e.target.value)}
+                    placeholder="Write a note about this project…"
+                    rows={3}
+                    onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) addNote(); }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                    <Button size="sm" loading={addingNote} onClick={addNote} disabled={!newNote.trim()}>
+                      <Plus size={12} className="mr-1.5" />Add note
+                    </Button>
+                  </div>
+                </div>
+                {/* Note list */}
+                {(project.project_notes ?? []).length === 0 ? (
+                  <div className="text-center py-8 flex flex-col items-center gap-2" style={{ color: T3 }}>
+                    <StickyNote size={28} opacity={0.3} />
+                    <span style={{ fontSize: 13 }}>No notes yet. Add the first one above.</span>
+                  </div>
+                ) : (
+                  [...(project.project_notes ?? [])].reverse().map((note: ProjectNote) => (
+                    <div key={note._id} style={{ ...CARD, padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                        <div style={{ fontSize: 12, color: T2, lineHeight: 1.65, flex: 1, whiteSpace: "pre-wrap" }}>{note.content}</div>
+                        <button
+                          onClick={() => deleteNote(note._id)}
+                          disabled={deletingNoteId === note._id}
+                          style={{ ...ICON_PILL, width: 24, height: 24, flexShrink: 0, color: "#f87171", background: "rgba(248,113,113,0.08)", border: "0.5px solid rgba(248,113,113,0.2)" }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 10, color: T3, marginTop: 6 }}>
+                        {new Date(note.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            {/* ── Attachments ── */}
+            <TabsContent value="attachments" className="mt-3">
+              <input ref={attachFileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar" style={{ display: "none" }} onChange={handleFileUpload} />
+              <div className="flex flex-col gap-3">
+                <Button variant="secondary" loading={uploadingFile} onClick={() => attachFileRef.current?.click()} className="self-start">
+                  <Upload size={13} className="mr-1.5" />Upload file
+                </Button>
+                {(project.attachments ?? []).length === 0 ? (
+                  <div className="text-center py-8 flex flex-col items-center gap-2" style={{ color: T3 }}>
+                    <Paperclip size={28} opacity={0.3} />
+                    <span style={{ fontSize: 13 }}>No files attached. Upload images, documents, or any file.</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {(project.attachments ?? []).map((att: ProjectAttachment) => (
+                      <div key={att._id} style={{ ...CARD, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 7, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: T3 }}>
+                          <AttachIcon type={att.type} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 500, color: "#818cf8", textDecoration: "none", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{att.name}</a>
+                          <div style={{ fontSize: 10, color: T3, marginTop: 1 }}>
+                            {formatFileSize(att.size)} · {new Date(att.uploadedAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteAttachment(att._id)}
+                          disabled={deletingAttId === att._id}
+                          style={{ ...ICON_PILL, width: 24, height: 24, flexShrink: 0, color: "#f87171", background: "rgba(248,113,113,0.08)", border: "0.5px solid rgba(248,113,113,0.2)" }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         </div>

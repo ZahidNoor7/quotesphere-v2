@@ -6,8 +6,9 @@ import Customer from "@/models/Customer";
 import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
+import { withLog } from "@/lib/logger";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withLog("GET /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -39,9 +40,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error("[customers/[id] GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch customer" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withLog("PUT /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -59,9 +60,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error("[customers/[id] PUT]", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withLog("DELETE /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -76,4 +77,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     console.error("[customers/[id] DELETE]", err);
     return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
   }
-}
+});

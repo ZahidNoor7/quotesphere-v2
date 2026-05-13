@@ -3,11 +3,9 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
+import { withLog } from "@/lib/logger";
 
-/** GET /api/settings/document-designs
- *  Returns built-in designs merged with user's saved designs.
- */
-export async function GET() {
+export const GET = withLog("GET /api/settings/document-designs", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -19,13 +17,9 @@ export async function GET() {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-/** POST /api/settings/document-designs
- *  Creates a new custom design and appends it to the user's documentDesigns array.
- *  Body: { name, type, config, isDefault? }
- */
-export async function POST(req: NextRequest) {
+export const POST = withLog("POST /api/settings/document-designs", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -41,9 +35,6 @@ export async function POST(req: NextRequest) {
 
     const newDesign = { id: crypto.randomUUID().slice(0, 10), name, type, isDefault: false, config };
 
-    // If this should be default, clear existing defaults first.
-    // "documentDesigns.0" guard prevents the "path must exist" error when
-    // the array is missing or empty (new user, first custom design).
     if (isDefault) {
       await Settings.updateOne(
         { user_id: userId, "documentDesigns.0": { $exists: true } },
@@ -53,7 +44,7 @@ export async function POST(req: NextRequest) {
       newDesign.isDefault = true;
     }
 
-    const updated = await Settings.findOneAndUpdate(
+    await Settings.findOneAndUpdate(
       { user_id: userId },
       { $push: { documentDesigns: newDesign } },
       { new: true, upsert: true }
@@ -63,4 +54,4 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});

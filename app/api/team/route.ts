@@ -4,10 +4,11 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { withLog } from "@/lib/logger";
 
 const ALLOWED_ROLES = ["manager", "staff", "viewer"] as const;
 
-export async function GET() {
+export const GET = withLog("GET /api/team", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -18,14 +19,13 @@ export async function GET() {
     console.error("[team GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch team" }, { status: 500 });
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withLog("POST /api/team", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
-    // Only admins can invite team members
     const callerRole = (session.user as any)?.role;
     if (callerRole !== "admin") {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
@@ -53,12 +53,7 @@ export async function POST(req: NextRequest) {
 
     const tempPassword = randomBytes(12).toString("base64url");
     const hashed = await bcrypt.hash(tempPassword, 10);
-    const user = await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashed,
-      role: normalizedRole,
-    });
+    const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role: normalizedRole });
 
     return NextResponse.json(
       { success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role } },
@@ -68,4 +63,4 @@ export async function POST(req: NextRequest) {
     console.error("[team POST]", err);
     return NextResponse.json({ success: false, error: err.message || "Failed to invite" }, { status: 500 });
   }
-}
+});

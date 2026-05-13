@@ -4,8 +4,9 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
 import Invoice from "@/models/Invoice";
+import { withLog } from "@/lib/logger";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withLog("POST /api/quotations/[id]/convert", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -23,7 +24,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!quotation) return NextResponse.json({ success: false, error: "Quotation not found" }, { status: 404 });
     if (quotation.status === "invoiced") return NextResponse.json({ success: false, error: "Already converted" }, { status: 400 });
 
-    // Filter items if partial conversion
     const items = selectedItemIds?.length
       ? quotation.items.filter((item: any) => selectedItemIds.includes(item.id))
       : quotation.items;
@@ -58,7 +58,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       converted_from: quotation._id,
     });
 
-    // Use a transaction so both writes succeed or both roll back
     const dbSession = await mongoose.startSession();
     try {
       await dbSession.withTransaction(async () => {
@@ -76,4 +75,4 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     console.error("[quotation convert]", err);
     return NextResponse.json({ success: false, error: err.message || "Conversion failed" }, { status: 500 });
   }
-}
+});

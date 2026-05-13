@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
+import { withLog } from "@/lib/logger";
 
-export async function GET(req: NextRequest) {
+export const GET = withLog("GET /api/invoices", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -48,9 +49,9 @@ export async function GET(req: NextRequest) {
     console.error("[invoices GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch invoices" }, { status: 500 });
   }
-}
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -64,4 +65,4 @@ export async function POST(req: NextRequest) {
     console.error("[invoices POST]", err);
     return NextResponse.json({ success: false, error: err.message || "Failed to create invoice" }, { status: 500 });
   }
-}
+});

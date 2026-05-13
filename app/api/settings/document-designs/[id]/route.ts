@@ -3,11 +3,8 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
+import { withLog } from "@/lib/logger";
 
-/** Helper: clears isDefault on user designs matching a doc type.
- *  Guards with "documentDesigns.0" existence check so MongoDB never
- *  throws "path must exist" when the array is missing or empty.
- */
 async function clearDefaultsForType(userId: string, docType: string) {
   await Settings.updateOne(
     { user_id: userId, "documentDesigns.0": { $exists: true } },
@@ -16,11 +13,7 @@ async function clearDefaultsForType(userId: string, docType: string) {
   );
 }
 
-/** PUT /api/settings/document-designs/[id]
- *  Updates a user design by id.
- *  Body: { name?, type?, config?, isDefault? }
- */
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -35,7 +28,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const body = await req.json();
     const { name, type, config, isDefault } = body;
 
-    // If setting as default, unset existing defaults for this type first
     if (isDefault === true) {
       const docType = type ?? (await Settings.findOne({ user_id: userId, "documentDesigns.id": id }).lean() as any)
         ?.documentDesigns?.find((d: any) => d.id === id)?.type ?? "all";
@@ -65,12 +57,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-/** DELETE /api/settings/document-designs/[id]
- *  Removes a user design by id. Built-in designs cannot be deleted.
- */
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withLog("DELETE /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -91,13 +80,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-/** PATCH /api/settings/document-designs/[id]
- *  Sets a design (built-in or user) as the default for a given document type.
- *  Body: { type: "invoice" | "quotation" | "receipt" }
- */
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withLog("PATCH /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -116,16 +101,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const isBuiltIn = BUILT_IN_DESIGNS.some(d => d.id === id);
 
     if (isBuiltIn) {
-      // Step 1: Upsert settings doc + record lastUsed. No arrayFilters here.
       await Settings.findOneAndUpdate(
         { user_id: userId },
         { $set: { [lastUsedKey]: id } },
         { upsert: true }
       );
-      // Step 2: Clear isDefault on user designs. Guarded — no-op if array missing.
       await clearDefaultsForType(userId, type);
     } else {
-      // Clear all defaults for this type, then set the chosen design as default.
       await clearDefaultsForType(userId, type);
 
       await Settings.updateOne(
@@ -144,4 +126,4 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});

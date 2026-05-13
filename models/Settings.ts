@@ -1,5 +1,16 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
+export interface ISocialLinks {
+  website?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
+  tiktok?: string;
+  whatsapp?: string;
+}
+
 export interface ISettings extends Document {
   user_id: mongoose.Types.ObjectId;
   company_name: string;
@@ -7,6 +18,9 @@ export interface ISettings extends Document {
   company_phone?: string;
   company_address?: string;
   company_logo?: string;
+  company_website?: string;
+  company_bio?: string;
+  social_links?: ISocialLinks;
   default_currency: string;
   enabledCurrencies: string[];
   invoice_prefix: string;
@@ -41,6 +55,12 @@ export interface ISettings extends Document {
     invoiceDesignId?: string;
     quotationDesignId?: string;
     receiptDesignId?: string;
+  };
+  integrations?: {
+    cloudinary?: { enabled: boolean; cloudName?: string; apiKey?: string; apiSecret?: string };
+    googleAuth?: { enabled: boolean; clientId?: string; clientSecret?: string };
+    currencyApi?: { enabled: boolean; apiKey?: string; provider?: string };
+    mongodb?: { enabled: boolean; uri?: string };
   };
   currencyRates?: {
     base: string;
@@ -98,6 +118,12 @@ const settingsSchema = new Schema<ISettings>(
     company_phone: String,
     company_address: String,
     company_logo: String,
+    company_website: String,
+    company_bio: String,
+    social_links: {
+      website: String, facebook: String, instagram: String, twitter: String,
+      linkedin: String, youtube: String, tiktok: String, whatsapp: String,
+    },
     default_currency: { type: String, default: "PKR" },
     enabledCurrencies: { type: [String], default: ["PKR", "USD", "EUR", "GBP", "AED"] },
     invoice_prefix: { type: String, default: "INV" },
@@ -128,6 +154,12 @@ const settingsSchema = new Schema<ISettings>(
       invoiceDesignId: String,
       quotationDesignId: String,
       receiptDesignId: String,
+    },
+    integrations: {
+      cloudinary: { enabled: { type: Boolean, default: false }, cloudName: String, apiKey: String, apiSecret: String },
+      googleAuth: { enabled: { type: Boolean, default: false }, clientId: String, clientSecret: String },
+      currencyApi: { enabled: { type: Boolean, default: false }, apiKey: String, provider: { type: String, default: "exchangerate-api" } },
+      mongodb: { enabled: { type: Boolean, default: false }, uri: String },
     },
     currencyRates: {
       type: currencyRatesSchema,

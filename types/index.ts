@@ -148,6 +148,21 @@ export interface Expense {
   updatedAt: string;
 }
 
+export interface ProjectNote {
+  _id: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ProjectAttachment {
+  _id: string;
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+}
+
 export interface Project {
   _id: string;
   project_no: string;
@@ -156,6 +171,7 @@ export interface Project {
   status: ProjectStatus;
   start_date?: string;
   due_date?: string;
+  expected_end_date?: string;
   completed_at?: string;
   budget: number;
   currency: Currency;
@@ -164,6 +180,8 @@ export interface Project {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  project_notes?: ProjectNote[];
+  attachments?: ProjectAttachment[];
   progress?: number;
   createdAt: string;
   updatedAt: string;
@@ -238,6 +256,35 @@ export interface CurrencyRates {
   lastUpdated: string | null;
 }
 
+export interface SocialLinks {
+  website?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
+  tiktok?: string;
+  whatsapp?: string;
+}
+
+export interface IntegrationConfig {
+  enabled: boolean;
+  cloudName?: string;
+  apiKey?: string;
+  apiSecret?: string;
+  clientId?: string;
+  clientSecret?: string;
+  provider?: string;
+  uri?: string;
+}
+
+export interface Integrations {
+  cloudinary?: IntegrationConfig;
+  googleAuth?: IntegrationConfig;
+  currencyApi?: IntegrationConfig;
+  mongodb?: IntegrationConfig;
+}
+
 export interface Settings {
   _id: string;
   user_id?: string;
@@ -246,6 +293,9 @@ export interface Settings {
   company_phone?: string;
   company_address?: string;
   company_logo?: string;
+  company_website?: string;
+  company_bio?: string;
+  social_links?: SocialLinks;
   default_currency: string;
   enabledCurrencies: string[];
   invoice_prefix: string;
@@ -259,6 +309,7 @@ export interface Settings {
   documentDesigns: DocumentDesign[];
   lastUsed: LastUsedSettings;
   currencyRates?: CurrencyRates;
+  integrations?: Integrations;
 }
 
 export interface DashboardStats {

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Service from "@/models/Service";
+import { withLog } from "@/lib/logger";
 
-export async function GET(req: NextRequest) {
+export const GET = withLog("GET /api/services", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -16,10 +17,12 @@ export async function GET(req: NextRequest) {
     if (category) query.category = category;
     const data = await Service.find(query).sort({ category: 1, name: 1 }).lean();
     return NextResponse.json({ success: true, data });
-  } catch { return NextResponse.json({ success: false, error: "Failed to fetch services" }, { status: 500 }); }
-}
+  } catch {
+    return NextResponse.json({ success: false, error: "Failed to fetch services" }, { status: 500 });
+  }
+});
 
-export async function POST(req: NextRequest) {
+export const POST = withLog("POST /api/services", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -30,4 +33,4 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to create service" }, { status: 500 });
   }
-}
+});

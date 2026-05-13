@@ -3,8 +3,9 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Service from "@/models/Service";
+import { withLog } from "@/lib/logger";
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withLog("PUT /api/services/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -19,9 +20,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error("[services/[id] PUT]", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withLog("DELETE /api/services/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -34,4 +35,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     console.error("[services/[id] DELETE]", err);
     return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
   }
-}
+});

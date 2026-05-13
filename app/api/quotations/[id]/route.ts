@@ -3,15 +3,15 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
+import { withLog } from "@/lib/logger";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const GET = withLog("GET /api/quotations/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
-    // Auto-expire if valid_until has passed and status is still pending
     await Quotation.updateOne(
       { _id: id, status: "pending", valid_until: { $lt: new Date() } },
       { $set: { status: "expired" } }
@@ -23,9 +23,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error("[quotations/[id] GET]", err);
     return NextResponse.json({ success: false, error: "Failed to fetch quotation" }, { status: 500 });
   }
-}
+});
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const PUT = withLog("PUT /api/quotations/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -40,9 +40,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     console.error("[quotations/[id] PUT]", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export const DELETE = withLog("DELETE /api/quotations/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -55,4 +55,4 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     console.error("[quotations/[id] DELETE]", err);
     return NextResponse.json({ success: false, error: "Failed to delete" }, { status: 500 });
   }
-}
+});

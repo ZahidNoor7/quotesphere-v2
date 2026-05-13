@@ -1,6 +1,21 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
 
+export interface IProjectNote {
+  _id: string;
+  content: string;
+  createdAt: Date;
+}
+
+export interface IProjectAttachment {
+  _id: string;
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: Date;
+}
+
 export interface IProject extends Document {
   project_no: string;
   name: string;
@@ -8,6 +23,7 @@ export interface IProject extends Document {
   status: "pending" | "in_progress" | "on_hold" | "cancelled" | "complete";
   start_date?: Date;
   due_date?: Date;
+  expected_end_date?: Date;
   completed_at?: Date;
   budget: number;
   currency: string;
@@ -16,10 +32,28 @@ export interface IProject extends Document {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  project_notes?: IProjectNote[];
+  attachments?: IProjectAttachment[];
   progress?: number;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const projectNoteSchema = new Schema(
+  { content: { type: String, required: true } },
+  { timestamps: true, _id: true }
+);
+
+const projectAttachmentSchema = new Schema(
+  {
+    url: { type: String, required: true },
+    name: { type: String, required: true },
+    type: { type: String, default: "application/octet-stream" },
+    size: { type: Number, default: 0 },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
 
 const projectSchema = new Schema<IProject>(
   {
@@ -33,6 +67,7 @@ const projectSchema = new Schema<IProject>(
     },
     start_date: Date,
     due_date: Date,
+    expected_end_date: Date,
     completed_at: Date,
     budget: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "PKR" },
@@ -41,6 +76,8 @@ const projectSchema = new Schema<IProject>(
     customer_phone: { type: String, required: true },
     tags: [String],
     notes: String,
+    project_notes: [projectNoteSchema],
+    attachments: [projectAttachmentSchema],
     progress: { type: Number, default: 0, min: 0, max: 100 },
   },
   { timestamps: true, versionKey: false }
