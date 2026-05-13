@@ -20,13 +20,6 @@ export function AppShell({
   // Initialized from the cookie read server-side — correct on first render, no flash.
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
-  // Sync with DB settings once loaded (handles cross-device changes).
-  useEffect(() => {
-    if (settings?.appearance?.sidebarCollapsed !== undefined) {
-      setCollapsed(settings.appearance.sidebarCollapsed);
-    }
-  }, [settings?.appearance?.sidebarCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Sync theme from DB when settings load (handles cross-device persistence)
   useEffect(() => {
     const themeId = settings?.appearance?.themeId;

@@ -240,16 +240,26 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const [paymentMode, setPaymentMode] = useState(initialData?.payment_mode ?? "cash");
   const [designId, setDesignId] = useState<string>(initialData?.designId ?? "");
 
-  // Apply lastUsed defaults once settings load (new documents only)
+  // Apply defaults once settings load (new documents only).
+  // Priority: lastUsed values → settings defaults → hardcoded fallbacks.
   const appliedLastUsed = useRef(false);
   useEffect(() => {
-    if (!initialData && settings?.lastUsed && !appliedLastUsed.current) {
+    if (!initialData && settings && !appliedLastUsed.current) {
       appliedLastUsed.current = true;
-      if (settings.lastUsed.currency) setCurrency(settings.lastUsed.currency);
-      if (settings.lastUsed.paymentMethod) setPaymentMode(settings.lastUsed.paymentMethod);
+      const currencyToApply = settings.lastUsed?.currency || settings.default_currency;
+      if (currencyToApply) setCurrency(currencyToApply);
+      if (settings.lastUsed?.paymentMethod) setPaymentMode(settings.lastUsed.paymentMethod);
+      if (settings.default_tax != null && settings.default_tax > 0) {
+        setTax(settings.default_tax.toString());
+      }
+      if (type === "invoice" && settings.default_payment_terms) {
+        const d = new Date();
+        d.setDate(d.getDate() + (settings.default_payment_terms as number));
+        setDueDate(d.toISOString().slice(0, 10));
+      }
       const lastDesignId = type === "invoice"
-        ? settings.lastUsed.invoiceDesignId
-        : settings.lastUsed.quotationDesignId;
+        ? settings.lastUsed?.invoiceDesignId
+        : settings.lastUsed?.quotationDesignId;
       if (lastDesignId) setDesignId(lastDesignId);
     }
   }, [settings, initialData, type]);
@@ -286,6 +296,35 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const [imgDragIdx, setImgDragIdx] = useState<number | null>(null);
   const [imgDragOverIdx, setImgDragOverIdx] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [leaveHref, setLeaveHref] = useState("");
+
+  const isDirty = useMemo(() => {
+    if (saved) return false;
+    if (!initialData) {
+      return !!(customerId || items.some(i => i.name.trim()));
+    }
+    const origItems = initialData.items ?? [];
+    return (
+      customerId !== (initialData.customer_id ?? "") ||
+      items.length !== origItems.length ||
+      items.some((item, i) => {
+        const orig = origItems[i];
+        return !orig || item.name !== orig.name || item.quantity !== orig.quantity || item.price !== orig.price;
+      }) ||
+      currency !== (initialData.currency ?? "PKR") ||
+      tax !== (initialData.tax?.toString() ?? "0") ||
+      remarks !== (initialData.remarks ?? "")
+    );
+  }, [saved, initialData, customerId, items, currency, tax, remarks]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   const customer = (customers as Customer[]).find(c => c._id === customerId);
   const subTotal = items.reduce((s, i) => s + i.quantity * i.price, 0);
@@ -487,6 +526,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       if (!data.success) throw new Error(data.error);
       toast.success(`${type === "invoice" ? "Invoice" : "Quotation"} ${initialData?._id ? "updated" : "created"} successfully.`);
       updateLastUsed({ currency, paymentMethod: paymentMode });
+      setSaved(true);
       router.push(type === "invoice" ? `/invoices/${data.data._id}` : `/quotations/${data.data._id}`);
     } catch (err: any) { toast.error(err.message || "Failed to save."); }
     finally { setLoading(false); }
@@ -513,7 +553,15 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
         {/* ── Left: back + title ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <Link href={type === "invoice" ? "/invoices" : "/quotations"}
-            style={{ display: "flex", alignItems: "center", gap: 5, padding: isMobile ? "0" : "5px 11px", width: isMobile ? 30 : undefined, height: isMobile ? 30 : undefined, justifyContent: isMobile ? "center" as const : undefined, borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, cursor: "pointer", textDecoration: "none", transition: "all 0.15s", flexShrink: 0 }}>
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: isMobile ? "0" : "5px 11px", width: isMobile ? 30 : undefined, height: isMobile ? 30 : undefined, justifyContent: isMobile ? "center" as const : undefined, borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, cursor: "pointer", textDecoration: "none", transition: "all 0.15s", flexShrink: 0 }}
+            onClick={(e) => {
+              if (isDirty) {
+                e.preventDefault();
+                setLeaveHref(type === "invoice" ? "/invoices" : "/quotations");
+                setShowLeaveDialog(true);
+              }
+            }}
+          >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M8 2L4 6l4 4" /></svg>
             {!isMobile && (type === "invoice" ? "Invoices" : "Quotations")}
           </Link>
@@ -539,7 +587,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 {!isMobile && <>Design: {activeDesign?.name ?? "Modern Gradient"}<svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.6, marginLeft: 2 }}><path d="M2 3.5L5 6.5l3-3" /></svg></>}
               </button>
               {showDesignPicker && (
-                <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 50, background: "rgba(12,16,32,0.97)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10, backdropFilter: "blur(24px)", padding: 8, width: 284, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10, backdropFilter: "blur(24px)", padding: 8, width: 284, boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
                   <div style={{ fontSize: 9.5, color: T3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", padding: "4px 6px 8px" }}>Select Design</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                     {allDesigns.map(d => {
@@ -596,7 +644,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                   </button>
                   {showMoreMenu && (
-                    <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, background: "rgba(12,16,32,0.97)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                       <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                         style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
                         onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -628,7 +676,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                 </button>
                 {showMoreMenu && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, background: "rgba(12,16,32,0.97)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                     <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
                       onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -655,7 +703,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       {/* Builder body */}
       <div ref={bodyRef} style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" as const : "row" }}>
         {/* Left: form */}
-        <div style={{ width: isMobile ? undefined : showPreview ? `${splitPct}%` : "100%", flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minHeight: 0, borderRight: (!isMobile && showPreview) ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: "auto", background: "rgba(10,14,28,0.6)" }}>
+        <div style={{ width: isMobile ? undefined : showPreview ? `${splitPct}%` : "100%", flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minHeight: 0, borderRight: (!isMobile && showPreview) ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: "auto", background: "var(--glass-surface-bg)" }}>
 
           {/* Client & dates */}
           <div style={{ padding: "14px 16px 0" }}>
@@ -699,7 +747,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   )}
                   {/* Dropdown */}
                   {showClientDrop && !customerId && (
-                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "rgba(12,16,32,0.97)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxHeight: 220, overflowY: "auto" }}>
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", maxHeight: 220, overflowY: "auto" }}>
                       {filteredCustomers.slice(0, 20).map(c => (
                         <button key={c._id}
                           onClick={() => { setCustomerId(c._id); setClientSearch(c.name); setShowClientDrop(false); setClientError(false); }}
@@ -1243,6 +1291,27 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
             <Button variant="secondary" onClick={() => setShowCreateClient(false)}>Cancel</Button>
             <Button loading={creatingClient} onClick={createAndSelectClient}>Create & select</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved-changes navigation guard */}
+      <Dialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <DialogContent style={{ maxWidth: 400 }}>
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. Leaving this page will discard them. Do you want to continue?
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <Button variant="secondary" onClick={() => setShowLeaveDialog(false)}>Stay</Button>
+            <Button
+              style={{ background: "rgba(248,113,113,0.15)", color: "#f87171", border: "0.5px solid rgba(248,113,113,0.3)" }}
+              onClick={() => { setSaved(true); setShowLeaveDialog(false); router.push(leaveHref); }}
+            >
+              Leave without saving
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

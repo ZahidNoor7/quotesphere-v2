@@ -131,7 +131,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             <div key={section}>
               {!collapsed ? (
                 <div style={{
-                  fontSize: 10, fontWeight: 500, letterSpacing: "0.09em",
+                  fontSize: 11, fontWeight: 500, letterSpacing: "0.09em",
                   textTransform: "uppercase", color: "var(--t3)",
                   padding: "12px 8px 5px",
                 }}>
@@ -161,7 +161,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                       padding: collapsed ? "9px 0" : "8px 10px",
                       borderRadius: 10,
                       cursor: "pointer",
-                      fontSize: 12.5,
+                      fontSize: 13.5,
                       marginBottom: collapsed ? 2 : 1,
                       transition: "background 0.15s, color 0.15s",
                       textDecoration: "none",
@@ -241,8 +241,8 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1">
-                  <div style={{ fontSize: 12, fontWeight: 500, color: "var(--t1)" }} className="truncate">{session?.user?.name || "User"}</div>
-                  <div style={{ fontSize: 10, color: "var(--t3)" }}>Admin</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--t1)" }} className="truncate">{session?.user?.name || "User"}</div>
+                  <div style={{ fontSize: 11, color: "var(--t3)" }}>Admin</div>
                 </div>
                 <button
                   onClick={() => signOut({ callbackUrl: "/auth/login" })}

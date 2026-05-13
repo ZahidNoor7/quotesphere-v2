@@ -122,7 +122,7 @@
 
 @layer base {
   * { @apply border-border; box-sizing: border-box; }
-  html { @apply scroll-smooth; }
+  html { @apply scroll-smooth; font-size: 17px; }
   body {
     background-color: var(--bg-primary);
     color: var(--t1);
@@ -334,6 +334,55 @@
   @keyframes qs-fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes qs-slide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 }
+
+/* ══ LIGHT / SOLARIZED — Tailwind compat token overrides ══ */
+/* These fix shadcn components (Input, Select, Button, Card, etc.) in light themes */
+[data-theme="light"],
+[data-theme="solarized"] {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 239 84% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 92%;
+  --secondary-foreground: 222 47% 18%;
+  --muted: 210 40% 93%;
+  --muted-foreground: 215 16% 44%;
+  --accent-tw: 210 40% 92%;
+  --accent-foreground: 222 47% 18%;
+  --destructive: 0 63% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 86%;
+  --input: 214 32% 86%;
+  --ring: 239 84% 58%;
+  --radius: 0.75rem;
+}
+
+[data-theme="solarized"] {
+  --background: 44 87% 94%;
+  --foreground: 194 100% 13%;
+  --card: 44 60% 96%;
+  --card-foreground: 194 100% 13%;
+  --popover: 44 60% 96%;
+  --popover-foreground: 194 100% 13%;
+  --primary: 205 69% 49%;
+  --secondary: 44 40% 88%;
+  --secondary-foreground: 194 100% 18%;
+  --muted: 44 40% 88%;
+  --muted-foreground: 194 60% 30%;
+  --border: 44 30% 80%;
+  --input: 44 30% 80%;
+  --ring: 205 69% 49%;
+}
+
+/* Light themes: fix scrollbar thumb colors */
+[data-theme="light"] ::-webkit-scrollbar-thumb,
+[data-theme="solarized"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover,
+[data-theme="solarized"] ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.28); }
 
 :root {
   --sidebar: hsl(0 0% 98%);

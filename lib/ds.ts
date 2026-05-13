@@ -11,6 +11,7 @@ export const GLASS_BORDER = "var(--glass-border)";
 export const GLASS_BORDER_STRONG = "var(--glass-border-strong)";
 
 export const TOPBAR_STYLE: React.CSSProperties = {
+  position: "relative", zIndex: 100,
   display: "flex", alignItems: "center", padding: "12px 20px", gap: 12,
   backdropFilter: "blur(24px) saturate(160%)", WebkitBackdropFilter: "blur(24px) saturate(160%)",
   background: "var(--glass-surface-bg)", borderBottom: "0.5px solid var(--glass-border)",
@@ -18,11 +19,11 @@ export const TOPBAR_STYLE: React.CSSProperties = {
 };
 
 export const TABLE_STYLE: React.CSSProperties = {
-  width: "100%", borderCollapse: "collapse", fontSize: 12,
+  width: "100%", borderCollapse: "collapse", fontSize: 13,
 };
 export const TH_STYLE: React.CSSProperties = {
   background: "var(--glass)", padding: "9px 12px", textAlign: "left",
-  fontSize: 10.5, fontWeight: 500, color: "var(--t3)", letterSpacing: "0.05em", textTransform: "uppercase",
+  fontSize: 11.5, fontWeight: 500, color: "var(--t3)", letterSpacing: "0.05em", textTransform: "uppercase",
 };
 export const TD_STYLE: React.CSSProperties = {
   padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: "var(--t2)",

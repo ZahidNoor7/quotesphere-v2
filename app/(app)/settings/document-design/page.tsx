@@ -871,7 +871,7 @@ export default function DocumentDesignPage() {
           gap: 2,
           padding: "8px 20px",
           borderBottom: `0.5px solid ${GLASS_BORDER}`,
-          background: "rgba(10,14,28,0.4)",
+          background: "var(--glass-surface-bg)",
           flexShrink: 0,
         }}
       >
