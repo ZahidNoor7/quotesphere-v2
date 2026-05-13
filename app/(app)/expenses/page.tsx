@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   Eye, Pencil, Trash2, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown,
-  SlidersHorizontal, ChevronDown, Search, Receipt,
+  SlidersHorizontal, ChevronDown, Search, Receipt, Download, FileText, FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -183,7 +183,26 @@ export default function ExpensesPage() {
       {/* Topbar */}
       <div style={TOPBAR_STYLE}>
         <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Expenses</span>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Download size={12} /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 188 }}>
+              <DropdownMenuLabel style={{ fontSize: 10.5, opacity: 0.6 }}>Quick export</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => { const a = document.createElement("a"); a.href = "/api/export?module=expenses&format=csv"; a.download = "expenses.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); toast.success("Downloading expenses CSV…"); }} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <FileText size={12} /> Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/reports" style={{ display: "flex", alignItems: "center", gap: 7, width: "100%" }}>
+                  <FileSpreadsheet size={12} /> Reports & Excel →
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button asChild size="sm">
             <Link href="/expenses/new">+ Add expense</Link>
           </Button>

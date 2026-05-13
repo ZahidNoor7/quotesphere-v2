@@ -6,13 +6,14 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
-import type { Customer, Service, Project } from "@/types";
+import type { Customer, Service, Product, Project, DocTemplate } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
 import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -156,6 +157,57 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
   );
 });
 
+function CatalogQuickAdd({
+  services, products, onAdd,
+}: {
+  services: Service[];
+  products: Product[];
+  onAdd: (name: string, price: number) => void;
+}) {
+  const [tab, setTab] = useState<"services" | "products">("services");
+  const activeServices = services.slice(0, 12);
+  const activeProducts = products.slice(0, 12);
+  const tabStyle = (active: boolean) => ({
+    fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 100, cursor: "pointer", border: "none",
+    background: active ? "rgba(99,102,241,0.18)" : "transparent",
+    color: active ? AC2 : T3,
+    transition: "all 0.15s",
+  } as const);
+
+  const btnStyle = {
+    display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px",
+    background: "rgba(99,102,241,0.11)", border: "0.5px solid rgba(99,102,241,0.22)",
+    color: AC2, borderRadius: 100, fontSize: 11, cursor: "pointer", transition: "all 0.15s", margin: 2,
+  } as const;
+
+  return (
+    <div style={{ padding: "10px 16px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T3 }}>Quick-add from catalog</span>
+        <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.04)", borderRadius: 100, padding: 2 }}>
+          {services.length > 0 && <button style={tabStyle(tab === "services")} onClick={() => setTab("services")}>Services</button>}
+          {products.length > 0 && <button style={tabStyle(tab === "products")} onClick={() => setTab("products")}>Products</button>}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginBottom: 4 }}>
+        {tab === "services" && activeServices.map(s => (
+          <button key={s._id} onClick={() => onAdd(s.name, s.default_price)} style={btnStyle}
+            onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
+            onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
+          >+ {s.name}</button>
+        ))}
+        {tab === "products" && activeProducts.map(p => (
+          <button key={p._id} onClick={() => onAdd(p.name, p.default_price)} style={btnStyle}
+            onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
+            onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
+            title={p.sku ? `SKU: ${p.sku} | Stock: ${p.stock_qty} ${p.unit}` : `Stock: ${p.stock_qty} ${p.unit}`}
+          >+ {p.name}{p.sku ? <span style={{ opacity: 0.6, fontSize: 9.5 }}>{p.sku}</span> : null}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -167,6 +219,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   );
   const { data: customers = [], mutate: mutateCustomers } = useSWR<Customer[]>("/api/customers?limit=200", fetcher);
   const { data: services = [] } = useSWR<Service[]>("/api/services", fetcher);
+  const { data: products = [] } = useSWR<Product[]>("/api/products", fetcher);
   const { data: projects = [] } = useSWR<Project[]>("/api/projects?limit=200&sort=name&order=asc", fetcher);
   const [showPreview, setShowPreview] = useState(true);
   const [showPreviewSheet, setShowPreviewSheet] = useState(false);
@@ -299,6 +352,8 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const [saved, setSaved] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [leaveHref, setLeaveHref] = useState("");
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
 
   const isDirty = useMemo(() => {
     if (saved) return false;
@@ -549,6 +604,20 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
     finally { setLoading(false); }
   }
 
+  function applyTemplate(tpl: DocTemplate) {
+    setItems(tpl.items.map((it, idx) => ({ id: Date.now() + idx, name: it.name, quantity: it.quantity, price: it.price })));
+    setTax(tpl.tax.toString());
+    setTaxType(tpl.tax_type);
+    setDiscount(tpl.discount.toString());
+    setDelivery(tpl.delivery_charges.toString());
+    if (tpl.currency) setCurrency(tpl.currency);
+    if (tpl.remarks) setRemarks(tpl.remarks);
+    if (tpl.payment_mode) setPaymentMode(tpl.payment_mode as typeof paymentMode);
+    if (tpl.designId) setDesignId(tpl.designId);
+    setShowTemplatePicker(false);
+    toast.success(`Template "${tpl.name}" applied.`);
+  }
+
   const typeLabel = type === "invoice" ? "Invoice" : "Quotation";
   const typeColor = type === "invoice" ? "#34d399" : "#818cf8";
   const lbl = { fontSize: 10.5, color: T3, fontWeight: 500, marginBottom: 3 } as const;
@@ -661,7 +730,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                   </button>
                   {showMoreMenu && (
-                    <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
+                    <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 168, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                       <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                         style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
                         onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -669,6 +738,14 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       >
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
                         Save as Draft
+                      </button>
+                      <button onClick={() => { setShowSaveTemplate(true); setShowMoreMenu(false); }}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
+                        Save as Template
                       </button>
                     </div>
                   )}
@@ -678,6 +755,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
               <>
                 <Button variant="secondary" loading={loading} onClick={() => handleSubmit("draft")}>Save as Draft</Button>
                 <Button loading={loading} onClick={() => handleSubmit("issued")}>Issue Invoice</Button>
+                <MoreMenuButton onSaveDraft={() => handleSubmit("draft")} onSaveTemplate={() => setShowSaveTemplate(true)} />
               </>
             )
           ) : initialData?._id && initialData?.status !== "draft" ? (
@@ -693,7 +771,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                 </button>
                 {showMoreMenu && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 140, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 168, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                     <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
                       onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
@@ -701,6 +779,14 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     >
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
                       Save as Draft
+                    </button>
+                    <button onClick={() => { setShowSaveTemplate(true); setShowMoreMenu(false); }}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
+                      Save as Template
                     </button>
                   </div>
                 )}
@@ -712,6 +798,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
               <Button loading={loading} onClick={() => handleSubmit("pending")}>
                 {initialData?._id ? "Update Quotation" : "Send Quotation"}
               </Button>
+              <MoreMenuButton onSaveDraft={() => handleSubmit("draft")} onSaveTemplate={() => setShowSaveTemplate(true)} />
             </>
           )}
         </div>
@@ -721,6 +808,22 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       <div ref={bodyRef} style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" as const : "row" }}>
         {/* Left: form */}
         <div style={{ width: isMobile ? undefined : showPreview ? `${splitPct}%` : "100%", flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minHeight: 0, borderRight: (!isMobile && showPreview) ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: "auto", background: "var(--glass-surface-bg)" }}>
+
+          {/* Template banner — shown only for new documents */}
+          {!initialData?._id && (
+            <div style={{ padding: "10px 16px 0" }}>
+              <button
+                onClick={() => setShowTemplatePicker(true)}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(99,102,241,0.08)", border: "0.5px solid rgba(99,102,241,0.22)", borderRadius: 8, color: AC2, fontSize: 11.5, cursor: "pointer", transition: "all 0.15s", textAlign: "left" as const }}
+                onMouseEnter={e => Object.assign(e.currentTarget.style, { background: "rgba(99,102,241,0.15)", borderColor: "rgba(99,102,241,0.38)" })}
+                onMouseLeave={e => Object.assign(e.currentTarget.style, { background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.22)" })}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ flexShrink: 0 }}><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/><path d="M5 9h6M5 12h4"/></svg>
+                <span style={{ flex: 1 }}>Start from a saved template</span>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M4 2l4 4-4 4" /></svg>
+              </button>
+            </div>
+          )}
 
           {/* Client & dates */}
           <div style={{ padding: "14px 16px 0" }}>
@@ -859,21 +962,13 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             </div>
           </div>
 
-          {/* Services quick-add */}
-          {(services as Service[]).length > 0 && (
-            <div style={{ padding: "10px 16px 0" }}>
-              <div style={secTitle}>Quick-add from catalog</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginBottom: 4 }}>
-                {(services as Service[]).slice(0, 12).map(s => (
-                  <button key={s._id}
-                    onClick={() => setItems(p => [...p, { id: Date.now(), name: s.name, quantity: 1, price: s.default_price }])}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px", background: "rgba(99,102,241,0.11)", border: "0.5px solid rgba(99,102,241,0.22)", color: AC2, borderRadius: 100, fontSize: 11, cursor: "pointer", transition: "all 0.15s", margin: 2 }}
-                    onMouseEnter={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
-                    onMouseLeave={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
-                  >+ {s.name}</button>
-                ))}
-              </div>
-            </div>
+          {/* Catalog quick-add: services + products */}
+          {((services as Service[]).length > 0 || (products as Product[]).length > 0) && (
+            <CatalogQuickAdd
+              services={services as Service[]}
+              products={products as Product[]}
+              onAdd={(name, price) => setItems(p => [...p, { id: Date.now(), name, quantity: 1, price }])}
+            />
           )}
 
           {/* Line items */}
@@ -1332,7 +1427,252 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Save as template dialog */}
+      <SaveTemplateDialog
+        open={showSaveTemplate}
+        docType={type}
+        items={items}
+        tax={parseFloat(tax) || 0}
+        taxType={taxType}
+        discount={parseFloat(discount) || 0}
+        deliveryCharges={parseFloat(delivery) || 0}
+        currency={currency}
+        remarks={remarks}
+        paymentMode={paymentMode}
+        designId={designId}
+        onClose={() => setShowSaveTemplate(false)}
+      />
+
+      {/* Template picker sheet */}
+      <TemplatePicker
+        open={showTemplatePicker}
+        docType={type}
+        onApply={applyTemplate}
+        onClose={() => setShowTemplatePicker(false)}
+      />
     </div>
+  );
+}
+
+// ─── Desktop more-menu (···) button ──────────────────────────────────────────
+function MoreMenuButton({ onSaveDraft, onSaveTemplate }: { onSaveDraft: () => void; onSaveTemplate: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const itemStyle: React.CSSProperties = { width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: "var(--t2)", fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" };
+  return (
+    <div style={{ position: "relative" }} ref={ref}>
+      <button onClick={() => setOpen(v => !v)} title="More actions"
+        style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: open ? "rgba(255,255,255,0.1)" : "var(--glass)", border: `0.5px solid ${open ? "rgba(255,255,255,0.2)" : "var(--glass-border)"}`, color: "var(--t2)", cursor: "pointer", transition: "all 0.15s" }}>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: "0.5px solid var(--glass-border)", borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 172, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
+          <button onClick={() => { onSaveDraft(); setOpen(false); }} style={itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
+            Save as Draft
+          </button>
+          <div style={{ height: "0.5px", background: "rgba(255,255,255,0.07)", margin: "3px 4px" }} />
+          <button onClick={() => { onSaveTemplate(); setOpen(false); }} style={itemStyle}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
+            Save as Template
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Save as template dialog ──────────────────────────────────────────────────
+function SaveTemplateDialog({
+  open, docType, items, tax, taxType, discount, deliveryCharges,
+  currency, remarks, paymentMode, designId, onClose,
+}: {
+  open: boolean;
+  docType: "invoice" | "quotation";
+  items: { id: number; name: string; quantity: number; price: number }[];
+  tax: number; taxType: "percentage" | "value"; discount: number; deliveryCharges: number;
+  currency: string; remarks: string; paymentMode: string; designId: string;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [templateType, setTemplateType] = useState<"invoice" | "quotation" | "both">("both");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (open) { setName(""); setTemplateType("both"); } }, [open]);
+
+  async function save() {
+    if (!name.trim()) { toast.error("Give the template a name."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/templates", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(), type: templateType,
+          items: items.filter(i => i.name.trim()).map(i => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
+          tax, tax_type: taxType, discount, delivery_charges: deliveryCharges,
+          currency, remarks, payment_mode: paymentMode, designId,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success(`Template "${name}" saved.`);
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save template.");
+    } finally { setSaving(false); }
+  }
+
+  const lbl = { fontSize: 11, color: "var(--t3)", fontWeight: 500, marginBottom: 4, display: "block" } as const;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent style={{ maxWidth: 380 }}>
+        <DialogHeader>
+          <DialogTitle>Save as template</DialogTitle>
+          <DialogDescription>Save the current line items and settings as a reusable template.</DialogDescription>
+        </DialogHeader>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
+          <div>
+            <label style={lbl}>Template name *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Monthly retainer" autoFocus />
+          </div>
+          <div>
+            <label style={lbl}>Available for</label>
+            <Select value={templateType} onValueChange={v => setTemplateType(v as typeof templateType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="both">Invoices & Quotations</SelectItem>
+                <SelectItem value="invoice">Invoices only</SelectItem>
+                <SelectItem value="quotation">Quotations only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--t3)", padding: "8px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6, border: "0.5px solid var(--glass-border)" }}>
+            Saves {items.filter(i => i.name.trim()).length} item(s) with current tax, discount, currency, and design settings. Client info is not stored.
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={save}>{saving ? "Saving…" : "Save template"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Template picker sheet ────────────────────────────────────────────────────
+function TemplatePicker({
+  open, docType, onApply, onClose,
+}: {
+  open: boolean;
+  docType: "invoice" | "quotation";
+  onApply: (tpl: DocTemplate) => void;
+  onClose: () => void;
+}) {
+  const { data: templates = [], isLoading, mutate } = useSWR<DocTemplate[]>(
+    open ? `/api/templates?type=${docType}` : null,
+    (url: string) => fetch(url).then(r => r.json()).then(d => d.data ?? [])
+  );
+  const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
+  const filtered = (templates as DocTemplate[]).filter(t =>
+    !search || t.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  async function del(id: string) {
+    setDeleting(id);
+    try {
+      await fetch(`/api/templates/${id}`, { method: "DELETE" });
+      toast.success("Template deleted.");
+      mutate();
+    } finally { setDeleting(null); }
+  }
+
+  const T1 = "var(--t1)", T2 = "var(--t2)", T3 = "var(--t3)";
+
+  return (
+    <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <SheetContent side={isMobile ? "bottom" : "right"}
+        className={isMobile ? "flex flex-col p-0 gap-0 h-[80vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[420px] sm:max-w-[420px]"}
+      >
+        <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: "0.5px solid var(--glass-border)", flexShrink: 0 }}>
+          <SheetTitle>Template library</SheetTitle>
+          <SheetDescription>Select a template to pre-fill items and settings.</SheetDescription>
+        </SheetHeader>
+
+        <div style={{ padding: "10px 18px 8px", borderBottom: "0.5px solid var(--glass-border)", flexShrink: 0 }}>
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search templates…"
+            style={{ borderRadius: 100 }}
+          />
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 18px" }}>
+          {isLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 40 }}>
+              <div style={{ width: 22, height: 22, border: "2px solid rgba(99,102,241,0.25)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: "center", paddingTop: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+              <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="var(--t3)" strokeWidth="1" style={{ opacity: 0.4 }}><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
+              <div style={{ fontSize: 13, color: T2 }}>{search ? "No matching templates" : "No templates yet"}</div>
+              <div style={{ fontSize: 11, color: T3 }}>Save any {docType} as a template using the ··· menu</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {filtered.map(tpl => (
+                <div key={tpl._id}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", background: "var(--glass)", border: "0.5px solid var(--glass-border)", borderRadius: 9, cursor: "pointer", transition: "all 0.15s" }}
+                  onClick={() => onApply(tpl)}
+                  onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { borderColor: "rgba(99,102,241,0.35)", background: "var(--glass-hover)" })}
+                  onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { borderColor: "var(--glass-border)", background: "var(--glass)" })}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{tpl.name}</div>
+                    <div style={{ fontSize: 11, color: T3 }}>
+                      {tpl.items.length} item{tpl.items.length !== 1 ? "s" : ""} · {tpl.currency}
+                      {tpl.tax > 0 && ` · Tax ${tpl.tax}${tpl.tax_type === "percentage" ? "%" : ""}`}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: T3, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>
+                      {tpl.items.slice(0, 3).map(i => i.name).join(", ")}{tpl.items.length > 3 ? "…" : ""}
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); del(tpl._id); }}
+                    disabled={deleting === tpl._id}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: T3, padding: 4, display: "flex", opacity: 0.6, flexShrink: 0 }}
+                    title="Delete template"
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#f87171"; (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = T3; (e.currentTarget as HTMLElement).style.opacity = "0.6"; }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13" /></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </SheetContent>
+    </Sheet>
   );
 }
 

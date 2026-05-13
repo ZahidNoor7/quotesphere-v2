@@ -8,7 +8,7 @@ import { type DateRange } from "react-day-picker";
 import {
   Eye, Pencil, Trash2, MoreVertical, ArrowUpDown, ArrowUp, ArrowDown,
   SlidersHorizontal, ChevronDown, Search, FileText, Download, MessageCircle, Mail,
-  CalendarIcon,
+  CalendarIcon, Copy, FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -212,7 +212,26 @@ export default function QuotationsPage() {
       {/* Topbar */}
       <div style={TOPBAR_STYLE}>
         <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Quotations</span>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Download size={12} /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 188 }}>
+              <DropdownMenuLabel style={{ fontSize: 10.5, opacity: 0.6 }}>Quick export</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => { const a = document.createElement("a"); a.href = "/api/export?module=quotations&format=csv"; a.download = "quotations.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); toast.success("Downloading quotations CSV…"); }} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <FileText size={12} /> Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/reports" style={{ display: "flex", alignItems: "center", gap: 7, width: "100%" }}>
+                  <FileSpreadsheet size={12} /> Reports & Excel →
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button asChild size="sm">
             <Link href="/quotations/new">+ New Quotation</Link>
           </Button>
@@ -513,6 +532,11 @@ export default function QuotationsPage() {
                           <Pencil size={13} /> Edit
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/quotations/new?from=${qt._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                          <Copy size={13} /> Duplicate
+                        </Link>
+                      </DropdownMenuItem>
                       {qt.status === "approved" && !qt.converted_to && (
                         <>
                           <DropdownMenuSeparator />
@@ -718,6 +742,11 @@ export default function QuotationsPage() {
                           <DropdownMenuItem asChild>
                             <Link href={`/quotations/${qt._id}/edit`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
                               <Pencil size={13} /> Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/quotations/new?from=${qt._id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                              <Copy size={13} /> Duplicate
                             </Link>
                           </DropdownMenuItem>
                           {qt.status === "approved" && !qt.converted_to && (

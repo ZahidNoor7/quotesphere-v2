@@ -200,6 +200,46 @@ export interface Service {
   updatedAt: string;
 }
 
+export interface DocTemplateItem {
+  id: number;
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface DocTemplate {
+  _id: string;
+  name: string;
+  type: "invoice" | "quotation" | "both";
+  items: DocTemplateItem[];
+  tax: number;
+  tax_type: "percentage" | "value";
+  discount: number;
+  delivery_charges: number;
+  currency: string;
+  remarks?: string;
+  payment_mode?: string;
+  designId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Product {
+  _id: string;
+  name: string;
+  sku?: string;
+  description?: string;
+  category: string;
+  unit: string;
+  default_price: number;
+  currency: Currency;
+  stock_qty: number;
+  low_stock_threshold: number;
+  is_active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppearanceSettings {
   themeId: string;
   sidebarCollapsed: boolean;

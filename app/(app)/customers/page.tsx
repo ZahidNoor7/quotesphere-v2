@@ -16,6 +16,9 @@ import {
   ChevronDown,
   Search,
   Users,
+  Download,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -361,7 +364,26 @@ export default function CustomersPage() {
         >
           Clients
         </span>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Download size={12} /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 188 }}>
+              <DropdownMenuLabel style={{ fontSize: 10.5, opacity: 0.6 }}>Quick export</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => { const a = document.createElement("a"); a.href = "/api/export?module=customers&format=csv"; a.download = "customers.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); toast.success("Downloading clients CSV…"); }} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <FileText size={12} /> Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/reports" style={{ display: "flex", alignItems: "center", gap: 7, width: "100%" }}>
+                  <FileSpreadsheet size={12} /> Reports & Excel →
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             size="sm"
             onClick={() => {

@@ -22,11 +22,17 @@ const NAV = [
   },
   {
     section: "Catalog",
-    items: [{ href: "/services", label: "Services", icon: "services" }],
+    items: [
+      { href: "/services", label: "Services", icon: "services" },
+      { href: "/products", label: "Products", icon: "products" },
+    ],
   },
   {
     section: "Admin",
-    items: [{ href: "/settings", label: "Settings", icon: "settings" }],
+    items: [
+      { href: "/reports", label: "Reports", icon: "reports" },
+      { href: "/settings", label: "Settings", icon: "settings" },
+    ],
   },
 ];
 
@@ -38,6 +44,8 @@ const ICONS: Record<string, React.ReactNode> = {
   quotations: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="3" y="4" width="10" height="10" rx="1.5"/><path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><path d="M5.5 8h5M5.5 10.5h3"/></svg>,
   expenses: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="8" cy="8" r="6"/><path d="M8 5v6M6 7h3.5a1 1 0 010 2H6"/></svg>,
   services: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><path d="M9 12h6M12 9v6"/></svg>,
+  products: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 5l6-3 6 3v6l-6 3-6-3V5z"/><path d="M8 2v12M2 5l6 3 6-3"/></svg>,
+  reports: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1" y="1" width="14" height="14" rx="1.5"/><path d="M4 11V8M7 11V5M10 11V7M13 11V9"/></svg>,
   settings: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.5 3.5l1.3 1.3M11.2 11.2l1.3 1.3M11.2 4.8l1.3-1.3M3.5 12.5l1.3-1.3"/></svg>,
 };
 

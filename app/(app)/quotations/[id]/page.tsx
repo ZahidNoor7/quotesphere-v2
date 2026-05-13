@@ -1,13 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import useSWR from "swr";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Download, MessageCircle, Mail } from "lucide-react";
+import { FileText, Download, MessageCircle, Mail, Copy, MoreHorizontal, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { QuotationStatusBadge } from "@/components/shared/status-badges";
@@ -32,6 +34,7 @@ export default function QuotationDetailPage() {
   const isMobile = useIsMobile();
   const [showConvert, setShowConvert] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [sharing, setSharing] = useState<"whatsapp" | "email" | "download" | null>(null);
   const [converting, setConverting] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
@@ -190,6 +193,24 @@ export default function QuotationDetailPage() {
           {quotation.converted_to && (
             <Button asChild variant="outline" size="sm"><Link href={`/invoices/${quotation.converted_to}`}>View invoice →</Link></Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" style={{ width: 32, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MoreHorizontal size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 180 }}>
+              <DropdownMenuItem asChild>
+                <Link href={`/quotations/new?from=${id}`} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
+                  <Copy size={13} /> Duplicate quotation
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowSaveTemplate(true)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <LayoutTemplate size={13} /> Save as template
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -498,6 +519,78 @@ export default function QuotationDetailPage() {
         </SheetContent>
       </Sheet>
 
+      {/* Save as template dialog */}
+      <SaveTemplateDialog
+        open={showSaveTemplate}
+        quotation={quotation}
+        onClose={() => setShowSaveTemplate(false)}
+      />
+
     </div>
+  );
+}
+
+// ─── Save as template dialog ──────────────────────────────────────────────────
+function SaveTemplateDialog({ open, quotation, onClose }: { open: boolean; quotation: Quotation; onClose: () => void }) {
+  const [name, setName] = useState("");
+  const [templateType, setTemplateType] = useState<"invoice" | "quotation" | "both">("both");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (open) { setName(""); setTemplateType("both"); } }, [open]);
+
+  async function save() {
+    if (!name.trim()) { toast.error("Give the template a name."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/templates", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(), type: templateType,
+          items: quotation.items.map(i => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })),
+          tax: quotation.tax, tax_type: quotation.tax_type, discount: quotation.discount,
+          delivery_charges: quotation.delivery_charges, currency: quotation.currency,
+          remarks: quotation.remarks ?? "", designId: quotation.designId ?? "",
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success(`Template "${name}" saved.`);
+      onClose();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save template.");
+    } finally { setSaving(false); }
+  }
+
+  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent style={{ maxWidth: 380 }}>
+        <DialogHeader>
+          <DialogTitle>Save as template</DialogTitle>
+          <DialogDescription>Saves items, tax, discount, and design. Client info is not stored.</DialogDescription>
+        </DialogHeader>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
+          <div>
+            <label style={lbl}>Template name *</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Website proposal" autoFocus />
+          </div>
+          <div>
+            <label style={lbl}>Available for</label>
+            <Select value={templateType} onValueChange={v => setTemplateType(v as typeof templateType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="both">Invoices & Quotations</SelectItem>
+                <SelectItem value="invoice">Invoices only</SelectItem>
+                <SelectItem value="quotation">Quotations only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save}>{saving ? "Saving…" : "Save template"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

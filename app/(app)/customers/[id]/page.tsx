@@ -3,11 +3,14 @@ import { useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
+import { FileText } from "lucide-react";
 import { PaymentStatusBadge, QuotationStatusBadge, ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD } from "@/lib/ds";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSettings } from "@/hooks/use-settings";
 import type { Customer, Invoice, Quotation, Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
@@ -18,7 +21,9 @@ const AV_COLORS = ["#818cf8","#2dd4bf","#fbbf24","#c4b5fd","#34d399","#f87171"];
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>("invoices");
+  const [stmtLoading, setStmtLoading] = useState(false);
   const { data, isLoading } = useSWR(`/api/customers/${id}`, fetcher);
+  const { settings } = useSettings();
   const isMobile = useIsMobile();
 
   if (isLoading) return (
@@ -42,6 +47,28 @@ export default function CustomerDetailPage() {
 
   const avColor = AV_COLORS[customer.name.charCodeAt(0) % AV_COLORS.length];
 
+  async function downloadStatement() {
+    setStmtLoading(true);
+    try {
+      const res = await fetch(`/api/export?format=json&customer_id=${id}`).then(r => r.json());
+      if (!res.success) throw new Error(res.error ?? "Fetch failed");
+      const { downloadClientStatement } = await import("@/lib/report-pdf");
+      await downloadClientStatement({
+        customer: res.data.customer,
+        invoices: res.data.invoices ?? [],
+        quotations: res.data.quotations ?? [],
+        expenses: res.data.expenses ?? [],
+        settings: settings ?? null,
+        currency: settings?.default_currency ?? "PKR",
+      });
+      toast.success("Client statement generated.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate statement.");
+    } finally {
+      setStmtLoading(false);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <style>{`.cust-detail-row:hover td { background: rgba(255,255,255,0.03); }`}</style>
@@ -54,6 +81,11 @@ export default function CustomerDetailPage() {
           <div style={{ fontSize: 14, fontWeight: 600, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{customer.name}</div>
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {!isMobile && (
+            <Button variant="outline" size="sm" onClick={downloadStatement} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <FileText size={12} />{stmtLoading ? "Generating…" : "Statement PDF"}
+            </Button>
+          )}
           <Button asChild variant="outline" size="sm"><Link href={`/quotations/new?customer_id=${id}`}>{isMobile ? "+ Quote" : "+ Quotation"}</Link></Button>
           <Button asChild size="sm"><Link href={`/invoices/new?customer_id=${id}`}>{isMobile ? "+ Invoice" : "+ Invoice"}</Link></Button>
         </div>
