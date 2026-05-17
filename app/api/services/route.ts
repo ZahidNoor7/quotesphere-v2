@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Service from "@/models/Service";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const serviceSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -47,6 +48,7 @@ export const POST = withLog("POST /api/services", async (req: NextRequest) => {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
     const service = await Service.create(parsed.data);
+    void recordAudit({ req, session, action: "create", resource: "service", resource_id: String(service._id), resource_label: service.name, after: service.toObject() });
     return NextResponse.json({ success: true, data: service }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to create service" }, { status: 500 });

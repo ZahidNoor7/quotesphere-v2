@@ -7,6 +7,7 @@ import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const;
 
@@ -84,6 +85,7 @@ export const POST = withLog("POST /api/expenses", async (req: NextRequest) => {
 
     const expense = new Expense({ ...parsed.data, expense_no });
     await expense.save();
+    void recordAudit({ req, session, action: "create", resource: "expense", resource_id: String(expense._id), resource_label: expense_no, after: expense.toObject() });
     return NextResponse.json({ success: true, data: expense }, { status: 201 });
   } catch (err: any) {
     console.error("[expenses POST]", err);

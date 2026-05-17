@@ -7,6 +7,7 @@ import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const;
 
@@ -105,6 +106,7 @@ export const POST = withLog("POST /api/quotations", async (req: NextRequest) => 
 
     const quotation = new Quotation({ ...parsed.data, quotation_no });
     await quotation.save();
+    void recordAudit({ req, session, action: "create", resource: "quotation", resource_id: String(quotation._id), resource_label: quotation_no, after: quotation.toObject() });
     return NextResponse.json({ success: true, data: quotation }, { status: 201 });
   } catch (err: any) {
     console.error("[quotations POST]", err);

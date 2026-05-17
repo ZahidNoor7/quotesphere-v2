@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import TimeEntry from "@/models/TimeEntry";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const timeEntrySchema = z.object({
   project_id:  z.string().min(1, "Project is required"),
@@ -58,6 +59,7 @@ export const POST = withLog("POST /api/time-entries", async (req: NextRequest) =
       user_id:   (session.user as any)?.id,
       user_name: session.user?.name ?? undefined,
     });
+    void recordAudit({ req, session, action: "create", resource: "project", resource_id: String(parsed.data.project_id), resource_label: `Time: ${parsed.data.hours}h – ${parsed.data.description.slice(0, 40)}` });
     return NextResponse.json({ success: true, data: entry }, { status: 201 });
   } catch (err: any) {
     console.error("[time-entries POST]", err);

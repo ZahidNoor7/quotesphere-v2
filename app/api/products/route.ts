@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Product from "@/models/Product";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const GET = withLog("GET /api/products", async (req: NextRequest) => {
   try {
@@ -31,6 +32,7 @@ export const POST = withLog("POST /api/products", async (req: NextRequest) => {
     await connectDB();
     const body = await req.json();
     const product = await Product.create(body);
+    void recordAudit({ req, session, action: "create", resource: "product", resource_id: String(product._id), resource_label: product.name, after: product.toObject() });
     return NextResponse.json({ success: true, data: product }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create product";

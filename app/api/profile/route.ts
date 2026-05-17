@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const GET = withLog("GET /api/profile", async (req: NextRequest) => {
   try {
@@ -64,6 +65,13 @@ export const PUT = withLog("PUT /api/profile", async (req: NextRequest) => {
     }
 
     const updated = await User.findByIdAndUpdate(resolvedId, { $set: updateFields }, { new: true }).select("-password").lean();
+    const changedFields = Object.keys(updateFields).filter(k => k !== "password");
+    if (changedFields.length) {
+      void recordAudit({ req, session, action: "update", resource: "settings", resource_id: String(resolvedId), resource_label: `Profile: ${userDoc.name}`, after: { updated_fields: changedFields } });
+    }
+    if (newPassword) {
+      void recordAudit({ req, session, action: "update", resource: "settings", resource_id: String(resolvedId), resource_label: `Profile: password changed` });
+    }
     return NextResponse.json({ success: true, data: updated });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

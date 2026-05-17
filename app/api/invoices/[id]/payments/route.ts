@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const POST = withLog("POST /api/invoices/[id]/payments", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -89,6 +90,14 @@ export const POST = withLog("POST /api/invoices/[id]/payments", async (req: Next
       );
     }
 
+    void recordAudit({
+      req, session,
+      action: "update",
+      resource: "invoice",
+      resource_id: id,
+      resource_label: (updated as any)?.invoice_no ?? id,
+      after: { payment_recorded: { amount, method, reference, note, date } },
+    });
     return NextResponse.json({ success: true, data: updated });
   } catch (err: any) {
     console.error("[payments POST]", err);
@@ -162,6 +171,14 @@ export const DELETE = withLog("DELETE /api/invoices/[id]/payments", async (req: 
       return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
     }
 
+    void recordAudit({
+      req, session,
+      action: "update",
+      resource: "invoice",
+      resource_id: id,
+      resource_label: (updated as any)?.invoice_no ?? id,
+      after: { payment_deleted: { paymentId } },
+    });
     return NextResponse.json({ success: true, data: updated });
   } catch (err: any) {
     console.error("[payments DELETE]", err);

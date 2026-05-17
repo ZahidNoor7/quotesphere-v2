@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 async function clearDefaultsForType(userId: string, docType: string) {
   await Settings.updateOne(
@@ -52,7 +53,7 @@ export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req
 
     const updated = await Settings.findOne({ user_id: userId }).lean() as any;
     const design = updated?.documentDesigns?.find((d: any) => d.id === id);
-
+    void recordAudit({ req, session, action: "update", resource: "settings", resource_id: (session.user as any).id, resource_label: `Document design updated: ${design?.name ?? id}` });
     return NextResponse.json({ success: true, data: design });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -76,6 +77,7 @@ export const DELETE = withLog("DELETE /api/settings/document-designs/[id]", asyn
       { $pull: { documentDesigns: { id } } }
     );
 
+    void recordAudit({ req, session, action: "delete", resource: "settings", resource_id: (session.user as any).id, resource_label: `Document design deleted: ${id}` });
     return NextResponse.json({ success: true, message: "Design deleted" });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

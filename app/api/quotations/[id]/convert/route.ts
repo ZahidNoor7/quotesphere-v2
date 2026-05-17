@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
 import Invoice from "@/models/Invoice";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const POST = withLog("POST /api/quotations/[id]/convert", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -70,6 +71,8 @@ export const POST = withLog("POST /api/quotations/[id]/convert", async (req: Nex
       await dbSession.endSession();
     }
 
+    void recordAudit({ req, session, action: "create", resource: "invoice", resource_id: String(invoice._id), resource_label: (invoice as any).invoice_no ?? "converted", after: { converted_from: (quotation as any).quotation_no } });
+    void recordAudit({ req, session, action: "update", resource: "quotation", resource_id: id, resource_label: (quotation as any).quotation_no, after: { status: "invoiced", converted_to: String(invoice._id) } });
     return NextResponse.json({ success: true, data: { invoice, quotation } });
   } catch (err: any) {
     console.error("[quotation convert]", err);

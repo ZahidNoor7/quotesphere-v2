@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const projectSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -65,6 +66,7 @@ export const POST = withLog("POST /api/projects", async (req: NextRequest) => {
     }
     const project = new Project(parsed.data);
     await project.save();
+    void recordAudit({ req, session, action: "create", resource: "project", resource_id: String(project._id), resource_label: project.name, after: project.toObject() });
     return NextResponse.json({ success: true, data: project }, { status: 201 });
   } catch (err: any) {
     console.error("[projects POST]", err);

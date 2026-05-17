@@ -3,6 +3,10 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
+
+// Keys that change silently on every interaction — skip audit logging for these-only updates
+const SILENT_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates"]);
 
 /** Flattens nested objects into dot-notation keys for MongoDB $set deep merge. */
 function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, any> {
@@ -42,12 +46,32 @@ export const PUT = withLog("PUT /api/settings", async (req: NextRequest) => {
     const userId = (session.user as any).id as string;
     await connectDB();
     const body = await req.json();
+
+    // Determine whether this update touches meaningful business fields
+    const touchedKeys = Object.keys(body);
+    const isSilentUpdate = touchedKeys.every(k => SILENT_KEYS.has(k));
+
+    const before = isSilentUpdate ? null : await Settings.findOne({ user_id: userId }).lean();
+
     const $set = flattenObject(body);
     const settings = await Settings.findOneAndUpdate(
       { user_id: userId },
       { $set },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).lean();
+
+    if (!isSilentUpdate) {
+      void recordAudit({
+        req, session,
+        action: "update",
+        resource: "settings",
+        resource_id: userId,
+        resource_label: "Company settings",
+        before,
+        after: settings,
+      });
+    }
+
     return NextResponse.json({ success: true, data: settings });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

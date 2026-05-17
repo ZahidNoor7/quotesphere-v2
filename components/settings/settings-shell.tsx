@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Building2, Paintbrush, FileText, Users, AlertTriangle, Plug, UserCircle } from "lucide-react";
+import { Building2, Paintbrush, FileText, Users, AlertTriangle, Plug, UserCircle, ClipboardList } from "lucide-react";
 import { T1, T2, T3, GLASS_BORDER } from "@/lib/ds";
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { label: "Integrations", href: "/settings/integrations", icon: Plug },
   { label: "Team", href: "/settings/team", icon: Users },
   { label: "Profile", href: "/settings/profile", icon: UserCircle },
+  { label: "Audit Log", href: "/settings/audit-log", icon: ClipboardList },
   { label: "Danger", href: "/settings/danger", icon: AlertTriangle, danger: true },
 ];
 

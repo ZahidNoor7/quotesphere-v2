@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Template from "@/models/Template";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const GET = withLog("GET /api/templates", async (req: NextRequest) => {
   try {
@@ -28,6 +29,7 @@ export const POST = withLog("POST /api/templates", async (req: NextRequest) => {
     const body = await req.json();
     if (!body.name?.trim()) return NextResponse.json({ success: false, error: "Template name is required" }, { status: 400 });
     const template = await Template.create(body);
+    void recordAudit({ req, session, action: "create", resource: "template", resource_id: String(template._id), resource_label: template.name });
     return NextResponse.json({ success: true, data: template }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to create template";

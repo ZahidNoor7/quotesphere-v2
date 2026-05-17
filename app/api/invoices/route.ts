@@ -8,6 +8,7 @@ import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const itemSchema = z.object({
   id: z.number(),
@@ -117,6 +118,7 @@ export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
 
     const invoice = new Invoice({ ...parsed.data, invoice_no });
     await invoice.save();
+    void recordAudit({ req, session, action: "create", resource: "invoice", resource_id: String(invoice._id), resource_label: invoice_no, after: invoice.toObject() });
 
     // Decrement stock for any items linked to a catalog product
     const stockOps = (parsed.data.items ?? [])

@@ -6,6 +6,7 @@ import Quotation from "@/models/Quotation";
 import Invoice from "@/models/Invoice";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 export const GET = withLog("GET /api/quotations/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -37,8 +38,11 @@ export const PUT = withLog("PUT /api/quotations/[id]", async (req: NextRequest, 
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
+    const before = await Quotation.findById(id).lean() as any;
     const data = await Quotation.findByIdAndUpdate(id, body, { new: true });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+
+    void recordAudit({ req, session, action: "update", resource: "quotation", resource_id: id, resource_label: before?.quotation_no ?? id, before, after: data.toObject() });
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     console.error("[quotations/[id] PUT]", err);
@@ -58,11 +62,11 @@ export const DELETE = withLog("DELETE /api/quotations/[id]", async (req: NextReq
 
     const quotation = await Quotation.findById(id).lean() as any;
     if (quotation?.converted_to) {
-      // Clear the back-reference on the derived invoice so it doesn't point to a deleted quotation
       await Invoice.findByIdAndUpdate(quotation.converted_to, { $unset: { converted_from: 1 } });
     }
 
     await Quotation.findByIdAndDelete(id);
+    void recordAudit({ req, session, action: "delete", resource: "quotation", resource_id: id, resource_label: quotation?.quotation_no ?? id, before: quotation });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[quotations/[id] DELETE]", err);

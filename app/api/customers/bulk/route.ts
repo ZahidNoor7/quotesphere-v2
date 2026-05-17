@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Customer from "@/models/Customer";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const rowSchema = z.object({
   name:     z.string().min(1, "Name is required").max(200),
@@ -88,6 +89,9 @@ export const POST = withLog("POST /api/customers/bulk", async (req: NextRequest)
       }
     }
 
+    if (created > 0) {
+      void recordAudit({ req, session, action: "create", resource: "customer", resource_id: "bulk", resource_label: `Bulk import: ${created} created, ${skipped} skipped, ${errors} errors` });
+    }
     return NextResponse.json({ success: true, data: { created, skipped, errors, total: rows.length, results } });
   } catch (err: any) {
     console.error("[customers/bulk POST]", err);

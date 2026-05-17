@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string; milestoneId: string }> };
 
@@ -43,6 +44,7 @@ export const PUT = withLog("PUT /api/projects/[id]/milestones/[milestoneId]", as
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     const milestone = (project.milestones ?? []).find((m: any) => String(m._id) === milestoneId);
+    void recordAudit({ req, session, action: "update", resource: "project", resource_id: id, resource_label: `Milestone updated: ${(milestone as any)?.name ?? milestoneId}` });
     return NextResponse.json({ success: true, data: milestone });
   } catch (err: any) {
     console.error("[projects/[id]/milestones/[milestoneId] PUT]", err);
@@ -70,6 +72,7 @@ export const DELETE = withLog("DELETE /api/projects/[id]/milestones/[milestoneId
       { new: true }
     );
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    void recordAudit({ req, session, action: "update", resource: "project", resource_id: id, resource_label: `Milestone deleted: ${milestoneId}` });
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("[projects/[id]/milestones/[milestoneId] DELETE]", err);

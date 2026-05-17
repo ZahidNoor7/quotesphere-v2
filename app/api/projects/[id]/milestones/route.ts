@@ -6,6 +6,7 @@ import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const milestoneSchema = z.object({
   name:        z.string().min(1, "Name is required").max(200),
@@ -39,6 +40,7 @@ export const POST = withLog("POST /api/projects/[id]/milestones", async (req: Ne
     if (!project) return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
 
     const milestone = project.milestones?.[project.milestones.length - 1];
+    void recordAudit({ req, session, action: "update", resource: "project", resource_id: id, resource_label: `Milestone added: ${parsed.data.name}` });
     return NextResponse.json({ success: true, data: milestone }, { status: 201 });
   } catch (err: any) {
     console.error("[projects/[id]/milestones POST]", err);

@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 export const GET = withLog("GET /api/settings/document-designs", async (req: NextRequest) => {
   try {
@@ -50,6 +51,7 @@ export const POST = withLog("POST /api/settings/document-designs", async (req: N
       { new: true, upsert: true }
     ).lean();
 
+    void recordAudit({ req, session, action: "create", resource: "settings", resource_id: (session.user as any).id, resource_label: `Document design created: ${newDesign.name}` });
     return NextResponse.json({ success: true, data: newDesign });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

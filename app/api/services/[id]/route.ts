@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Service from "@/models/Service";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 export const PUT = withLog("PUT /api/services/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -16,8 +17,10 @@ export const PUT = withLog("PUT /api/services/[id]", async (req: NextRequest, { 
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
+    const before = await Service.findById(id).lean() as any;
     const data = await Service.findByIdAndUpdate(id, body, { new: true });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    void recordAudit({ req, session, action: "update", resource: "service", resource_id: id, resource_label: before?.name ?? id, before, after: data.toObject() });
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
     console.error("[services/[id] PUT]", err);
@@ -34,7 +37,9 @@ export const DELETE = withLog("DELETE /api/services/[id]", async (req: NextReque
     await connectDB();
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
+    const service = await Service.findById(id).lean() as any;
     await Service.findByIdAndDelete(id);
+    void recordAudit({ req, session, action: "delete", resource: "service", resource_id: id, resource_label: service?.name ?? id, before: service });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[services/[id] DELETE]", err);

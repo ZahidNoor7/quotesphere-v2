@@ -10,6 +10,7 @@ import Service from "@/models/Service";
 import Settings from "@/models/Settings";
 import Counter from "@/models/Counter";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 const VALID_TYPES = ["invoices", "quotations", "expenses", "projects", "customers", "services", "all"] as const;
 type DeleteType = (typeof VALID_TYPES)[number];
@@ -69,6 +70,14 @@ export const DELETE = withLog("DELETE /api/settings/bulk-delete", async (req: Ne
       );
     }
 
+    void recordAudit({
+      req, session,
+      action: "delete",
+      resource: "settings",
+      resource_id: userId,
+      resource_label: `Bulk delete: ${type}`,
+      before: results,
+    });
     return NextResponse.json({ success: true, data: results });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

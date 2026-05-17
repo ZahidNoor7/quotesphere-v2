@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { withLog } from "@/lib/logger";
+import { recordAudit } from "@/lib/audit";
 
 const ALLOWED_ROLES = ["manager", "staff", "viewer"] as const;
 
@@ -54,7 +55,7 @@ export const POST = withLog("POST /api/team", async (req: NextRequest) => {
     const tempPassword = randomBytes(12).toString("base64url");
     const hashed = await bcrypt.hash(tempPassword, 10);
     const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role: normalizedRole });
-
+    void recordAudit({ req, session, action: "create", resource: "settings", resource_id: String(user._id), resource_label: `Team member invited: ${user.name} (${user.role})` });
     return NextResponse.json(
       { success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role } },
       { status: 201 }

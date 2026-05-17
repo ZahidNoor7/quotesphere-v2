@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Customer from "@/models/Customer";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -67,6 +68,7 @@ export const POST = withLog("POST /api/customers", async (req: NextRequest) => {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
     const customer = await Customer.create(parsed.data);
+    void recordAudit({ req, session, action: "create", resource: "customer", resource_id: String(customer._id), resource_label: customer.name, after: customer.toObject() });
     return NextResponse.json({ success: true, data: customer }, { status: 201 });
   } catch (err: any) {
     console.error("[customers POST]", err);

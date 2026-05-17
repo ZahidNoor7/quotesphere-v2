@@ -9,6 +9,7 @@ import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
+import { recordAudit } from "@/lib/audit";
 
 const customerUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -22,7 +23,7 @@ const customerUpdateSchema = z.object({
   currency: z.string().optional(),
 });
 
-export const GET = withLog("GET /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withLog("GET /api/customers/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -72,9 +73,11 @@ export const PUT = withLog("PUT /api/customers/[id]", async (req: NextRequest, {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
+    const before = await Customer.findById(id).lean() as any;
     const customer = await Customer.findByIdAndUpdate(id, parsed.data, { new: true });
     if (!customer) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
+    void recordAudit({ req, session, action: "update", resource: "customer", resource_id: id, resource_label: before?.name ?? id, before, after: customer.toObject() });
     return NextResponse.json({ success: true, data: customer });
   } catch (err: any) {
     console.error("[customers/[id] PUT]", err);
@@ -113,7 +116,9 @@ export const DELETE = withLog("DELETE /api/customers/[id]", async (req: NextRequ
       }
     }
 
+    const customer = await Customer.findById(id).lean() as any;
     await Customer.findByIdAndDelete(id);
+    void recordAudit({ req, session, action: "delete", resource: "customer", resource_id: id, resource_label: customer?.name ?? id, before: customer });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[customers/[id] DELETE]", err);
