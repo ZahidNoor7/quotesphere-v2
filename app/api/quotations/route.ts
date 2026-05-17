@@ -16,7 +16,7 @@ const quotationSchema = z.object({
   customer_name: z.string().min(1),
   customer_phone: z.string().optional(),
   customer_address: z.string().optional(),
-  issue_date: z.string().min(1),
+  issue_date: z.string().nullable().transform(v => v ?? new Date().toISOString().slice(0, 10)),
   valid_until: z.string().optional(),
   status: z.enum(["draft", "pending", "approved", "rejected", "cancelled", "invoiced", "expired"] as const).optional(),
   items: z.array(z.object({
@@ -25,6 +25,8 @@ const quotationSchema = z.object({
     quantity: z.number().min(0),
     price: z.number().min(0),
   })).min(1, "At least one item is required"),
+  sub_total: z.number().min(0),
+  total_amount: z.number().min(0),
   tax: z.number().min(0).optional(),
   tax_type: z.enum(["percentage", "value"] as const).optional(),
   discount: z.number().min(0).optional(),

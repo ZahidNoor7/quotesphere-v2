@@ -778,6 +778,11 @@ export function DocumentPDF({ design, data }: { design: DocumentDesign; data: Do
   );
 }
 
+// ─── Blob helper (used for WhatsApp PDF attachment) ────────────────────────────
+export async function generatePdfBlob(design: DocumentDesign, data: DocData): Promise<Blob> {
+  return pdf(<DocumentPDF design={design} data={data} />).toBlob();
+}
+
 // ─── Download helper ───────────────────────────────────────────────────────────
 export async function downloadAsPdf(
   design: DocumentDesign,

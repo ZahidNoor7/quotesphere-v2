@@ -15,10 +15,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { printAsPdf } from "@/lib/pdf-export";
-import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
+import { downloadAsPdf, generatePdfBlob, type DocData } from "@/lib/pdf-document";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import type { Invoice, PaymentMethod, PaymentEntry } from "@/types";
+import { WhatsAppSendModal, buildInvoiceMessage } from "@/components/shared/whatsapp-send-modal";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
@@ -43,6 +44,8 @@ export default function InvoiceDetailPage() {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState<PaymentEntry | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showWAModal, setShowWAModal] = useState(false);
+  const waConfigured = !!(settings?.integrations?.whatsapp?.enabled && settings?.integrations?.whatsapp?.apiKey);
 
   const isMobile = useIsMobile();
   const [downloading, setDownloading] = useState(false);
@@ -571,13 +574,56 @@ export default function InvoiceDetailPage() {
                 size="sm"
                 style={{ display: "flex", alignItems: "center", gap: 5, color: "#25D366", borderColor: "rgba(37,211,102,0.3)", background: "rgba(37,211,102,0.06)" }}
                 onClick={() => {
-                  const phone = invoice.customer_phone?.replace(/\D/g, "") ?? "";
-                  const msg = encodeURIComponent(`Hello ${invoice.customer_name},\n\nYour invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)} is ready.\n\nPlease let us know if you have any questions.`);
-                  window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
+                  if (waConfigured) {
+                    setShowWAModal(true);
+                  } else {
+                    toast.info("Configure WhatsApp in Settings → Integrations to send directly.");
+                    const phone = invoice.customer_phone?.replace(/\D/g, "") ?? "";
+                    const msg = encodeURIComponent(`Hello ${invoice.customer_name},\n\nYour invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)} is ready.`);
+                    window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
+                  }
                 }}
               >
                 <MessageCircle size={13} /> WhatsApp
               </Button>
+              {invoice && (
+                <WhatsAppSendModal
+                  open={showWAModal}
+                  onClose={() => setShowWAModal(false)}
+                  defaultPhone={invoice.customer_phone?.replace(/\D/g, "") ?? ""}
+                  defaultMessage={buildInvoiceMessage({
+                    customerName: invoice.customer_name,
+                    invoiceNo: invoice.invoice_no,
+                    amount: formatCurrency(invoice.total_amount, invoice.currency),
+                    companyName: settings?.company_name,
+                  })}
+                  docFilename={`Invoice-${invoice.invoice_no}.pdf`}
+                  isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+                  getPdfBlob={() => generatePdfBlob(invoiceDesign, {
+                    type: "invoice",
+                    docNo: invoice.invoice_no,
+                    issueDate: invoice.issue_date,
+                    dueDate: invoice.due_date,
+                    customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
+                    items: invoice.items,
+                    subTotal: invoice.sub_total,
+                    taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
+                    taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
+                    discount: invoice.discount,
+                    delivery: invoice.delivery_charges,
+                    total: invoice.total_amount,
+                    advance: invoice.advance,
+                    outstanding: invoice.outstanding,
+                    currency: invoice.currency,
+                    remarks: invoice.remarks,
+                    companyName: settings?.company_name ?? "Your Company",
+                    companyEmail: settings?.company_email,
+                    companyPhone: settings?.company_phone,
+                    companyAddress: settings?.company_address,
+                    termsText: settings?.terms_and_conditions,
+                  })}
+                />
+              )}
               <Button
                 variant="outline"
                 size="sm"

@@ -52,11 +52,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.role = (user as any).role;
+      if (user) {
+        token.role = (user as { role?: string }).role;
+        // Persist the user's DB id in the token so session can read it
+        if (user.id) token.sub = user.id;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) (session.user as any).role = token.role;
+      if (session.user) {
+        (session.user as { id?: string; role?: string }).id = token.sub;
+        (session.user as { id?: string; role?: string }).role = token.role as string | undefined;
+      }
       return session;
     },
   },

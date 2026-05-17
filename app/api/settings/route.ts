@@ -6,7 +6,7 @@ import { withLog } from "@/lib/logger";
 import { recordAudit } from "@/lib/audit";
 
 // Keys that change silently on every interaction — skip audit logging for these-only updates
-const SILENT_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates"]);
+const SILENT_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates", "integrations"]);
 
 /** Flattens nested objects into dot-notation keys for MongoDB $set deep merge. */
 function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, any> {

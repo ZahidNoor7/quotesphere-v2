@@ -337,11 +337,48 @@ export interface IntegrationConfig {
   uri?: string;
 }
 
+export interface WhatsAppConfig {
+  enabled: boolean;
+  mode: "sandbox" | "production";
+  apiKey?: string;
+  phoneNumber?: string;
+  webhookBaseUrl?: string;
+}
+
 export interface Integrations {
   cloudinary?: IntegrationConfig;
   googleAuth?: IntegrationConfig;
   currencyApi?: IntegrationConfig;
   mongodb?: IntegrationConfig;
+  whatsapp?: WhatsAppConfig;
+}
+
+export interface WhatsAppMessage {
+  _id: string;
+  direction: "in" | "out";
+  from: string;
+  to: string;
+  body: string;
+  type: "text" | "template";
+  messageId: string;
+  status: "sent" | "delivered" | "read" | "failed";
+  isRead: boolean;
+  errorCode?: string;
+  errorDetails?: string;
+  customer_id?: string;
+  customer_name?: string;
+  timestamp: string;
+  createdAt: string;
+}
+
+export interface WhatsAppConversation {
+  phone: string;
+  customer_id?: string;
+  customer_name?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+  direction: "in" | "out";
 }
 
 export interface Settings {

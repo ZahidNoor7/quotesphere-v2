@@ -17,12 +17,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { generatePdfFromElement, downloadFile } from "@/lib/pdf-export";
-import { downloadAsPdf, type DocData } from "@/lib/pdf-document";
+import { downloadAsPdf, generatePdfBlob, type DocData } from "@/lib/pdf-document";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
 import type { Quotation } from "@/types";
+import { WhatsAppSendModal, buildQuotationMessage } from "@/components/shared/whatsapp-send-modal";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
@@ -36,6 +37,8 @@ export default function QuotationDetailPage() {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [sharing, setSharing] = useState<"whatsapp" | "email" | "download" | null>(null);
+  const [showWAModal, setShowWAModal] = useState(false);
+  const waConfigured = !!(settings?.integrations?.whatsapp?.enabled && settings?.integrations?.whatsapp?.apiKey);
   const [converting, setConverting] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [convForm, setConvForm] = useState({ issue_date: new Date().toISOString().slice(0, 10), due_date: "", payment_mode: "cash" });
@@ -440,13 +443,17 @@ export default function QuotationDetailPage() {
                 loading={sharing === "whatsapp"}
                 style={{ display: "flex", alignItems: "center", gap: 5, color: "#25D366", borderColor: "rgba(37,211,102,0.3)", background: "rgba(37,211,102,0.06)" }}
                 onClick={async () => {
+                  if (waConfigured) {
+                    setShowWAModal(true);
+                    return;
+                  }
                   setSharing("whatsapp");
                   try {
                     const file = await generatePdfFromElement("quotation-print-area", `Quotation-${quotation.quotation_no}.pdf`);
                     const phone = quotation.customer_phone?.replace(/\D/g, "") ?? "";
                     const message = `Hello ${quotation.customer_name},\n\nYour quotation ${quotation.quotation_no} for ${formatCurrency(quotation.total_amount, quotation.currency)} is ready.\n\nPlease let us know if you have any questions.`;
                     if (file && navigator.canShare?.({ files: [file] })) {
-                      try { await navigator.share({ files: [file], text: message }); } catch (e: any) { if (e?.name !== "AbortError") throw e; }
+                      try { await navigator.share({ files: [file], text: message }); } catch (e: unknown) { if ((e as { name?: string })?.name !== "AbortError") throw e; }
                     } else {
                       if (file) downloadFile(file);
                       const msg = encodeURIComponent(message);
@@ -458,6 +465,42 @@ export default function QuotationDetailPage() {
               >
                 <MessageCircle size={13} /> WhatsApp
               </Button>
+              {quotation && (
+                <WhatsAppSendModal
+                  open={showWAModal}
+                  onClose={() => setShowWAModal(false)}
+                  defaultPhone={quotation.customer_phone?.replace(/\D/g, "") ?? ""}
+                  defaultMessage={buildQuotationMessage({
+                    customerName: quotation.customer_name,
+                    quotationNo: quotation.quotation_no,
+                    amount: formatCurrency(quotation.total_amount, quotation.currency),
+                    companyName: settings?.company_name,
+                  })}
+                  docFilename={`Quotation-${quotation.quotation_no}.pdf`}
+                  isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+                  getPdfBlob={() => generatePdfBlob(quotationDesign, {
+                    type: "quotation",
+                    docNo: quotation.quotation_no,
+                    issueDate: quotation.issue_date,
+                    dueDate: quotation.valid_until,
+                    customer: { name: quotation.customer_name, phone: quotation.customer_phone, address: quotation.customer_address },
+                    items: quotation.items,
+                    subTotal: quotation.sub_total,
+                    taxAmt: quotation.tax_type === "percentage" ? quotation.sub_total * quotation.tax / 100 : quotation.tax,
+                    taxLabel: quotation.tax_type === "percentage" ? `Tax (${quotation.tax}%)` : "Tax",
+                    discount: quotation.discount,
+                    delivery: quotation.delivery_charges,
+                    total: quotation.total_amount,
+                    currency: quotation.currency,
+                    remarks: quotation.remarks,
+                    companyName: settings?.company_name ?? "Your Company",
+                    companyEmail: settings?.company_email,
+                    companyPhone: settings?.company_phone,
+                    companyAddress: settings?.company_address,
+                    termsText: settings?.terms_and_conditions,
+                  })}
+                />
+              )}
               <Button
                 variant="outline"
                 size="sm"

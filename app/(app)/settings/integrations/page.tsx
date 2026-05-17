@@ -7,8 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
-import type { IntegrationConfig } from "@/types";
-import { Cloud, ShieldCheck, DollarSign, Database, Eye, EyeOff, Save } from "lucide-react";
+import type { IntegrationConfig, WhatsAppConfig } from "@/types";
+import {
+  Cloud, ShieldCheck, DollarSign, Database,
+  Eye, EyeOff, Save, MessageCircle, Zap, Link2,
+} from "lucide-react";
 
 type IntKey = "cloudinary" | "googleAuth" | "currencyApi" | "mongodb";
 
@@ -91,6 +94,308 @@ function SecretInput({ value, onChange, placeholder }: { value: string; onChange
   );
 }
 
+// ─── WhatsApp Card ────────────────────────────────────────────────────────────
+
+const WA_COLOR = "#25d366";
+
+function WhatsAppCard({ initialCfg, onSaved }: { initialCfg: WhatsAppConfig; onSaved: () => void }) {
+  const [cfg, setCfg] = useState<WhatsAppConfig>(initialCfg);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [settingWebhook, setSettingWebhook] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [registeredWebhookUrl, setRegisteredWebhookUrl] = useState<string | null>(null);
+
+  useEffect(() => { setCfg(initialCfg); }, [initialCfg]);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const baseUrl = cfg.webhookBaseUrl?.replace(/\/$/, "") || origin;
+  const webhookUrl = `${baseUrl}/api/webhooks/whatsapp`;
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrations: { whatsapp: cfg } }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("WhatsApp settings saved.");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrations: { whatsapp: cfg } }),
+      });
+      const res = await fetch("/api/whatsapp/test", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        const registered = data.webhookUrl ?? null;
+        setRegisteredWebhookUrl(registered);
+        if (registered) {
+          toast.success(`API key valid. 360dialog has webhook: ${registered}`);
+        } else {
+          toast.success("API key is valid. No webhook registered with 360dialog yet — click Register Webhook.");
+        }
+      } else {
+        toast.error(data.error ?? "Connection failed");
+      }
+    } catch {
+      toast.error("Network error — could not reach 360dialog");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function registerWebhook() {
+    setSettingWebhook(true);
+    try {
+      // Save settings first
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrations: { whatsapp: cfg } }),
+      });
+      const res = await fetch("/api/whatsapp/webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookUrl }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Webhook registered with 360dialog successfully.");
+      } else {
+        toast.error(data.error ?? "Failed to register webhook");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setSettingWebhook(false);
+    }
+  }
+
+  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+
+  return (
+    <div style={{
+      borderRadius: 12,
+      border: `0.5px solid ${cfg.enabled ? `color-mix(in srgb,${WA_COLOR} 35%,var(--glass-border))` : GLASS_BORDER}`,
+      background: GLASS,
+      overflow: "hidden",
+      transition: "border-color 0.2s",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: cfg.enabled ? `0.5px solid ${GLASS_BORDER}` : "none" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: `${WA_COLOR}18`, border: `0.5px solid ${WA_COLOR}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: WA_COLOR }}>
+          <MessageCircle size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T1 }}>WhatsApp (360dialog)</div>
+          <div style={{ fontSize: 11, color: T3, marginTop: 1 }}>
+            Send invoices, quotations, and chat with clients directly via WhatsApp Business API.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <Label htmlFor="toggle-whatsapp" style={{ fontSize: 11, color: cfg.enabled ? T2 : T3 }}>
+            {cfg.enabled ? "Enabled" : "Disabled"}
+          </Label>
+          <Switch
+            id="toggle-whatsapp"
+            checked={cfg.enabled}
+            onCheckedChange={v => setCfg(prev => ({ ...prev, enabled: v }))}
+          />
+        </div>
+      </div>
+
+      {/* Fields */}
+      {cfg.enabled && (
+        <div style={{ padding: "16px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Mode toggle */}
+          <div>
+            <label style={lbl}>Mode</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["sandbox", "production"] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setCfg(prev => ({ ...prev, mode: m }))}
+                  style={{
+                    flex: 1,
+                    padding: "7px 0",
+                    borderRadius: 8,
+                    border: `0.5px solid ${cfg.mode === m ? WA_COLOR : GLASS_BORDER}`,
+                    background: cfg.mode === m ? `${WA_COLOR}18` : "transparent",
+                    color: cfg.mode === m ? WA_COLOR : T3,
+                    fontSize: 12,
+                    fontWeight: cfg.mode === m ? 600 : 400,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {m === "sandbox" ? "Sandbox (test)" : "Production (live)"}
+                </button>
+              ))}
+            </div>
+            {cfg.mode === "sandbox" && (
+              <div style={{ fontSize: 11, color: T3, marginTop: 6, lineHeight: 1.5 }}>
+                Sandbox sends only to your registered test number. Get an API key by messaging{" "}
+                <span style={{ color: WA_COLOR, fontWeight: 500 }}>+55 11 4673-3492</span> with <code>START</code>.
+              </div>
+            )}
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label style={lbl}>API key (D360-API-KEY)</label>
+            <div style={{ position: "relative" }}>
+              <Input
+                type={showKey ? "text" : "password"}
+                value={cfg.apiKey ?? ""}
+                onChange={e => setCfg(prev => ({ ...prev, apiKey: e.target.value }))}
+                placeholder="your-360dialog-api-key"
+                style={{ paddingRight: 36 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(v => !v)}
+                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T3, padding: 0 }}
+              >
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Phone number */}
+          <div>
+            <label style={lbl}>Business phone number</label>
+            <Input
+              value={cfg.phoneNumber ?? ""}
+              onChange={e => setCfg(prev => ({ ...prev, phoneNumber: e.target.value }))}
+              placeholder="e.g. 923001234567"
+            />
+            <div style={{ fontSize: 11, color: T3, marginTop: 5, lineHeight: 1.6 }}>
+              International format — country code + number, <strong>no + or spaces</strong>.<br />
+              <span style={{ color: WA_COLOR, fontWeight: 500 }}>Pakistan example:</span>{" "}
+              <code style={{ background: "rgba(37,211,102,0.1)", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>
+                0300 123 4567
+              </code>{" "}
+              → remove leading <code>0</code>, add country code <code>92</code> →{" "}
+              <code style={{ background: "rgba(37,211,102,0.1)", padding: "1px 5px", borderRadius: 4, fontSize: 11, fontWeight: 700 }}>
+                923001234567
+              </code>
+            </div>
+          </div>
+
+          {/* Webhook base URL */}
+          <div>
+            <label style={lbl}>Webhook base URL</label>
+            <Input
+              value={cfg.webhookBaseUrl ?? ""}
+              onChange={e => setCfg(prev => ({ ...prev, webhookBaseUrl: e.target.value }))}
+              placeholder={`${origin} (defaults to this app's origin)`}
+            />
+            <div style={{ fontSize: 11, color: T3, marginTop: 5, lineHeight: 1.6 }}>
+              Set this to your <strong>ngrok</strong> or tunnel URL when testing locally.<br />
+              <span style={{ color: WA_COLOR, fontWeight: 500 }}>Example:</span>{" "}
+              <code style={{ background: "rgba(37,211,102,0.1)", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>
+                https://abc123.ngrok.io
+              </code>
+            </div>
+            {/* Computed full URL (read-only) */}
+            <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{
+                flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+                background: "rgba(37,211,102,0.06)", border: `0.5px solid rgba(37,211,102,0.25)`,
+                color: T2, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                <span style={{ color: T3 }}>Full URL → </span>
+                <span style={{ color: WA_COLOR, fontWeight: 600 }}>{webhookUrl}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("Copied!"); }}
+                style={{ flexShrink: 0, padding: "0 10px", height: 36, borderRadius: 8, border: `0.5px solid ${GLASS_BORDER}`, background: "transparent", color: T2, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}
+              >
+                <Link2 size={12} /> Copy
+              </button>
+            </div>
+          </div>
+
+          {/* 360dialog webhook status */}
+          {registeredWebhookUrl !== null && (
+            <div style={{
+              padding: "9px 12px", borderRadius: 9, fontSize: 11, lineHeight: 1.6,
+              background: registeredWebhookUrl === webhookUrl
+                ? "rgba(37,211,102,0.08)" : "rgba(251,191,36,0.08)",
+              border: `0.5px solid ${registeredWebhookUrl === webhookUrl
+                ? "rgba(37,211,102,0.3)" : "rgba(251,191,36,0.3)"}`,
+            }}>
+              {registeredWebhookUrl === webhookUrl ? (
+                <span style={{ color: WA_COLOR }}>
+                  ✓ 360dialog is sending messages to your webhook URL
+                </span>
+              ) : (
+                <span style={{ color: "#f59e0b" }}>
+                  ⚠ 360dialog has a different URL registered:{" "}
+                  <code style={{ wordBreak: "break-all" }}>{registeredWebhookUrl || "(none)"}</code>
+                  {" "}— click <strong>Register Webhook</strong> to update it.
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Actions row */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 4 }}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={testConnection}
+              disabled={testing || !cfg.apiKey}
+            >
+              <Zap size={12} className="mr-1.5" />
+              {testing ? "Testing…" : "Test Connection"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={registerWebhook}
+              disabled={settingWebhook || !cfg.apiKey}
+            >
+              <Link2 size={12} className="mr-1.5" />
+              {settingWebhook ? "Registering…" : "Register Webhook"}
+            </Button>
+            <div style={{ flex: 1 }} />
+            <Button
+              size="sm"
+              onClick={save}
+              disabled={saving}
+            >
+              <Save size={12} className="mr-1.5" />
+              {saving ? "Saving…" : "Save WhatsApp"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function IntegrationsPage() {
   const { settings, mutate } = useSettings();
   const [configs, setConfigs] = useState<Record<IntKey, IntegrationConfig>>({
@@ -99,6 +404,7 @@ export default function IntegrationsPage() {
     currencyApi: { enabled: false, provider: "exchangerate-api.com" },
     mongodb: { enabled: false },
   });
+  const [waCfg, setWaCfg] = useState<WhatsAppConfig>({ enabled: false, mode: "sandbox" });
   const [saving, setSaving] = useState<IntKey | null>(null);
 
   useEffect(() => {
@@ -106,10 +412,15 @@ export default function IntegrationsPage() {
       setConfigs(prev => {
         const next = { ...prev };
         (Object.keys(settings.integrations!) as IntKey[]).forEach(k => {
-          next[k] = { ...prev[k], ...(settings.integrations![k] ?? {}) };
+          if (k in prev) {
+            next[k] = { ...prev[k], ...(settings.integrations![k] ?? {}) };
+          }
         });
         return next;
       });
+      if (settings.integrations.whatsapp) {
+        setWaCfg(settings.integrations.whatsapp as WhatsAppConfig);
+      }
     }
   }, [settings]);
 
@@ -129,8 +440,8 @@ export default function IntegrationsPage() {
       if (!data.success) throw new Error(data.error);
       toast.success("Integration saved.");
       mutate();
-    } catch (err: any) {
-      toast.error(err.message || "Save failed");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(null);
     }
@@ -178,13 +489,13 @@ export default function IntegrationsPage() {
                     <label style={lbl}>{field.label}</label>
                     {field.secret ? (
                       <SecretInput
-                        value={(cfg as any)[field.key] ?? ""}
+                        value={(cfg as unknown as Record<string, string>)[field.key as string] ?? ""}
                         onChange={v => updateField(svc.key, field.key, v)}
                         placeholder={field.placeholder}
                       />
                     ) : (
                       <Input
-                        value={(cfg as any)[field.key] ?? ""}
+                        value={(cfg as unknown as Record<string, string>)[field.key as string] ?? ""}
                         onChange={e => updateField(svc.key, field.key, e.target.value)}
                         placeholder={field.placeholder}
                       />
@@ -194,10 +505,10 @@ export default function IntegrationsPage() {
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
                   <Button
                     size="sm"
-                    loading={saving === svc.key}
+                    disabled={saving === svc.key}
                     onClick={() => saveService(svc.key)}
                   >
-                    <Save size={12} className="mr-1.5" />Save {svc.label}
+                    <Save size={12} className="mr-1.5" />{saving === svc.key ? "Saving…" : `Save ${svc.label}`}
                   </Button>
                 </div>
               </div>
@@ -205,6 +516,9 @@ export default function IntegrationsPage() {
           </div>
         );
       })}
+
+      {/* WhatsApp card */}
+      <WhatsAppCard initialCfg={waCfg} onSaved={mutate} />
     </div>
   );
 }

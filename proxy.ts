@@ -8,6 +8,7 @@ export default auth;
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth).*)",
+    // Exclude static files, NextAuth routes, and public webhook endpoints from auth checks
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/webhooks).*)",
   ],
 };

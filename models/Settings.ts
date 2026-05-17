@@ -64,6 +64,7 @@ export interface ISettings extends Document {
     googleAuth?: { enabled: boolean; clientId?: string; clientSecret?: string };
     currencyApi?: { enabled: boolean; apiKey?: string; provider?: string };
     mongodb?: { enabled: boolean; uri?: string };
+    whatsapp?: { enabled: boolean; mode: "sandbox" | "production"; apiKey?: string; phoneNumber?: string; webhookBaseUrl?: string };
   };
   currencyRates?: {
     base: string;
@@ -166,6 +167,13 @@ const settingsSchema = new Schema<ISettings>(
       googleAuth: { enabled: { type: Boolean, default: false }, clientId: String, clientSecret: String },
       currencyApi: { enabled: { type: Boolean, default: false }, apiKey: String, provider: { type: String, default: "exchangerate-api" } },
       mongodb: { enabled: { type: Boolean, default: false }, uri: String },
+      whatsapp: {
+        enabled: { type: Boolean, default: false },
+        mode: { type: String, enum: ["sandbox", "production"], default: "sandbox" },
+        apiKey: String,
+        phoneNumber: String,
+        webhookBaseUrl: String,
+      },
     },
     currencyRates: {
       type: currencyRatesSchema,
