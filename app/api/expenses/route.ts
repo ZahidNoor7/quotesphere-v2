@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Expense from "@/models/Expense";
+import Settings from "@/models/Settings";
+import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
 
@@ -75,7 +77,12 @@ export const POST = withLog("POST /api/expenses", async (req: NextRequest) => {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
-    const expense = new Expense(parsed.data);
+    const userSettings = await Settings.findOne({ user_id: (session.user as any)?.id }).lean() as any;
+    const prefix  = userSettings?.expense_prefix ?? "EXP";
+    const pattern = userSettings?.expense_number_pattern ?? null;
+    const expense_no = await getNextNumberWithPattern("expense", prefix, pattern);
+
+    const expense = new Expense({ ...parsed.data, expense_no });
     await expense.save();
     return NextResponse.json({ success: true, data: expense }, { status: 201 });
   } catch (err: any) {

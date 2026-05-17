@@ -57,6 +57,13 @@ export interface IInvoice extends Document {
   designId?: string;
   // Exchange rates at time of creation
   rateSnapshot?: Record<string, number>;
+  // Recurring billing
+  recurrence?: {
+    frequency?: "weekly" | "monthly" | "quarterly" | "yearly";
+    next_date?: Date;
+    end_date?: Date;
+    enabled?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,6 +133,13 @@ const invoiceSchema = new Schema<IInvoice>(
     designId: String,
     // Exchange rates frozen at creation time
     rateSnapshot: { type: Schema.Types.Mixed, default: {} },
+    // Recurring billing
+    recurrence: {
+      frequency: { type: String, enum: ["weekly", "monthly", "quarterly", "yearly"] },
+      next_date:  Date,
+      end_date:   Date,
+      enabled:    { type: Boolean, default: false },
+    },
   },
   { timestamps: true, versionKey: false }
 );

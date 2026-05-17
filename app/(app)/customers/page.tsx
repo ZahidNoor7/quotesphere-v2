@@ -19,7 +19,9 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
+  Upload,
 } from "lucide-react";
+import { CustomerImportDialog } from "@/components/forms/customer-import";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -266,6 +268,7 @@ export default function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editClient, setEditClient] = useState<Customer | null>(null);
+  const [showImport, setShowImport] = useState(false);
   const isMobile = useIsMobile();
 
   const params = new URLSearchParams({ page: String(page), limit: "15" });
@@ -384,6 +387,9 @@ export default function CustomersPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(true)} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Upload size={12} /> Import
+          </Button>
           <Button
             size="sm"
             onClick={() => {
@@ -1025,6 +1031,12 @@ export default function CustomersPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <CustomerImportDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => mutate()}
+      />
     </div>
   );
 }

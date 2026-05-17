@@ -73,6 +73,12 @@ export interface Invoice {
   tracking_no?: string;
   designId?: string;
   rateSnapshot?: Record<string, number>;
+  recurrence?: {
+    frequency?: "weekly" | "monthly" | "quarterly" | "yearly";
+    next_date?: string;
+    end_date?: string;
+    enabled?: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -341,6 +347,9 @@ export interface Settings {
   invoice_prefix: string;
   quotation_prefix: string;
   expense_prefix: string;
+  invoice_number_pattern?: string;
+  quotation_number_pattern?: string;
+  expense_number_pattern?: string;
   default_tax: number;
   default_payment_terms: number;
   terms_and_conditions?: string;
@@ -350,6 +359,11 @@ export interface Settings {
   lastUsed: LastUsedSettings;
   currencyRates?: CurrencyRates;
   integrations?: Integrations;
+}
+
+export interface DashboardAlert {
+  type: "warning" | "danger" | "info";
+  message: string;
 }
 
 export interface DashboardStats {
@@ -365,6 +379,8 @@ export interface DashboardStats {
   topClients: { name: string; total: number; paid: number }[];
   recentInvoices: Invoice[];
   paymentStatusBreakdown: { status: string; count: number; amount: number }[];
+  expensesByCategory: { category: string; total: number; count: number }[];
+  alerts: DashboardAlert[];
 }
 
 export interface PaginatedResponse<T> {

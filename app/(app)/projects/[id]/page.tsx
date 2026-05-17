@@ -18,7 +18,7 @@ import { InvoiceStatusBadge, PaymentStatusBadge, QuotationStatusBadge, ExpenseSt
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, TABLE_STYLE, TH_STYLE, TD_STYLE, TABLE_WRAP, ICON_PILL, FIELD_INPUT, GLASS_INPUT } from "@/lib/ds";
 import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus, ProjectNote, ProjectAttachment } from "@/types";
-import { StickyNote, Paperclip, Plus, Trash2, Upload, FileText, Image as ImageIcon, Film } from "lucide-react";
+import { StickyNote, Paperclip, Plus, Trash2, Upload, FileText, Image as ImageIcon, Film, Clock } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 const cfetch = (url: string) => fetch(url).then(r => r.json()).then(d => d.data || d);
@@ -181,6 +181,140 @@ function ProjectEditForm({ initial, onSave, onClose }: { initial: Project; onSav
         <Button loading={loading} onClick={save}>Save changes</Button>
       </div>
     </>
+  );
+}
+
+// ─── Time Tracking Tab ────────────────────────────────────────────────────────
+function TimeTrackingTab({ projectId, currency }: { projectId: string; currency: string }) {
+  const { data, mutate } = useSWR<any>(
+    `/api/time-entries?project_id=${projectId}`,
+    (url: string) => fetch(url).then(r => r.json())
+  );
+  const entries: any[] = data?.data ?? [];
+  const summary = data?.summary ?? { totalHours: 0, totalAmount: 0 };
+
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), hours: "", description: "", hourly_rate: "" });
+  const [saving, setSaving] = useState(false);
+
+  async function addEntry() {
+    if (!form.description.trim() || !form.hours) { toast.error("Description and hours are required."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/time-entries", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: projectId, date: form.date, hours: parseFloat(form.hours), description: form.description, hourly_rate: parseFloat(form.hourly_rate) || 0, currency }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      setForm({ date: new Date().toISOString().slice(0, 10), hours: "", description: "", hourly_rate: "" });
+      mutate();
+      toast.success("Time entry added.");
+    } catch (err: any) { toast.error(err.message); }
+    finally { setSaving(false); }
+  }
+
+  async function deleteEntry(id: string) {
+    try {
+      await fetch(`/api/time-entries/${id}`, { method: "DELETE" });
+      mutate();
+      toast.success("Entry deleted.");
+    } catch { toast.error("Failed to delete."); }
+  }
+
+  async function toggleBilled(id: string, billed: boolean) {
+    await fetch(`/api/time-entries/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ billed: !billed }) });
+    mutate();
+  }
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+        <div style={{ ...CARD, padding: "12px 16px", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10 }}>
+          <div style={{ fontSize: 11, color: T3, marginBottom: 3 }}>TOTAL HOURS</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: "#818cf8", display: "flex", alignItems: "center", gap: 6 }}>
+            <Clock size={16} color="#818cf8" /> {summary.totalHours.toFixed(1)}h
+          </div>
+        </div>
+        <div style={{ ...CARD, padding: "12px 16px", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10 }}>
+          <div style={{ fontSize: 11, color: T3, marginBottom: 3 }}>BILLABLE AMOUNT</div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: "#34d399" }}>{formatCurrency(summary.totalAmount, currency)}</div>
+        </div>
+      </div>
+
+      {/* Add form */}
+      <div style={{ ...CARD, padding: 14, border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: T1, marginBottom: 10 }}>Log time</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 120px 130px auto", gap: 8, alignItems: "end" }}>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Description *</label>
+            <Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="What did you work on?" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Hours *</label>
+            <Input type="number" value={form.hours} onChange={e => setForm(p => ({ ...p, hours: e.target.value }))} placeholder="1.5" min="0.01" step="0.25" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Rate / hr</label>
+            <Input type="number" value={form.hourly_rate} onChange={e => setForm(p => ({ ...p, hourly_rate: e.target.value }))} placeholder="0" min="0" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Date</label>
+            <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} />
+          </div>
+          <Button onClick={addEntry} loading={saving} style={{ marginTop: 18 }}>
+            <Plus size={14} style={{ marginRight: 4 }} /> Add
+          </Button>
+        </div>
+      </div>
+
+      {/* Entries table */}
+      {entries.length > 0 ? (
+        <div style={TABLE_WRAP}>
+          <table style={TABLE_STYLE}>
+            <thead>
+              <tr>
+                {["Date", "Description", "Hours", "Rate", "Amount", "Billed", ""].map(h => (
+                  <th key={h} style={TH_STYLE}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e: any) => (
+                <tr key={e._id} className="table-row-hover">
+                  <td style={{ ...TD_STYLE, color: T3, whiteSpace: "nowrap" as const }}>{formatDate(e.date)}</td>
+                  <td style={{ ...TD_STYLE, color: T1 }}>{e.description}</td>
+                  <td style={{ ...TD_STYLE, color: "#818cf8", fontWeight: 600 }}>{e.hours}h</td>
+                  <td style={{ ...TD_STYLE, color: T2 }}>{e.hourly_rate > 0 ? formatCurrency(e.hourly_rate, e.currency) : "—"}</td>
+                  <td style={{ ...TD_STYLE, color: "#34d399", fontWeight: 500 }}>
+                    {e.hourly_rate > 0 ? formatCurrency(e.hours * e.hourly_rate, e.currency) : "—"}
+                  </td>
+                  <td style={TD_STYLE}>
+                    <button
+                      onClick={() => toggleBilled(e._id, e.billed)}
+                      style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, border: "none", cursor: "pointer", fontWeight: 600,
+                        background: e.billed ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                        color: e.billed ? "#34d399" : T3 }}
+                    >
+                      {e.billed ? "Billed" : "Unbilled"}
+                    </button>
+                  </td>
+                  <td style={TD_STYLE}>
+                    <button onClick={() => deleteEntry(e._id)} style={{ background: "none", border: "none", cursor: "pointer", color: T3, padding: 4 }}>
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={{ textAlign: "center", padding: "32px 0", color: T3, fontSize: 13 }}>
+          No time entries yet. Log your first entry above.
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -486,6 +620,7 @@ export default function ProjectDetailPage() {
                 { key: "invoices", label: "Invoices", count: stats.invoiceCount },
                 { key: "quotations", label: "Quotations", count: stats.quotationCount },
                 { key: "expenses", label: "Expenses", count: stats.expenseCount },
+                { key: "time", label: "Time", count: 0 },
                 { key: "notes", label: "Notes", count: project.project_notes?.length ?? 0 },
                 { key: "attachments", label: "Files", count: project.attachments?.length ?? 0 },
               ] as { key: string; label: string; count: number }[]).map(t => (
@@ -663,6 +798,10 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="time" className="mt-3">
+              <TimeTrackingTab projectId={project._id} currency={project.currency ?? "PKR"} />
             </TabsContent>
           </Tabs>
         </div>

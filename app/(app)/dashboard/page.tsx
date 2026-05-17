@@ -306,6 +306,29 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        {/* KPI alerts */}
+        {(s?.alerts ?? []).length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+            {(s.alerts).map((alert, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "9px 14px", borderRadius: 10,
+                fontSize: 12, fontWeight: 500,
+                background: alert.type === "danger"
+                  ? "rgba(239,68,68,0.12)"
+                  : alert.type === "warning"
+                  ? "rgba(251,191,36,0.12)"
+                  : "rgba(96,165,250,0.12)",
+                border: `0.5px solid ${alert.type === "danger" ? "rgba(239,68,68,0.3)" : alert.type === "warning" ? "rgba(251,191,36,0.3)" : "rgba(96,165,250,0.3)"}`,
+                color: alert.type === "danger" ? "#f87171" : alert.type === "warning" ? "#fbbf24" : "#60a5fa",
+              }}>
+                <span style={{ fontSize: 14 }}>{alert.type === "danger" ? "🔴" : alert.type === "warning" ? "⚠️" : "ℹ️"}</span>
+                {alert.message}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* KPI grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-[18px]">
           {[
@@ -721,6 +744,46 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
+
+            {/* Expense breakdown by category */}
+            {(s?.expensesByCategory ?? []).length > 0 && (
+              <Card className="md:col-span-2" style={{ padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 14 }}>
+                  Expenses by category
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={(s.expensesByCategory).map((d, i) => ({
+                        name: d.category,
+                        value: d.total,
+                        fill: [
+                          "#6366f1","#34d399","#fbbf24","#f87171",
+                          "#60a5fa","#a78bfa","#fb923c","#2dd4bf",
+                        ][i % 8],
+                      }))}
+                      cx="50%"
+                      cy="45%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      dataKey="value"
+                      nameKey="name"
+                      paddingAngle={3}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#1a2035",
+                        border: "0.5px solid rgba(255,255,255,0.11)",
+                        borderRadius: 10,
+                        fontSize: 11,
+                      }}
+                      formatter={(v) => [formatCurrency(typeof v === "number" ? v : 0), ""]}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: T2 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
           </div>
         )}
       </div>

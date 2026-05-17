@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
+import Settings from "@/models/Settings";
+import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
 
@@ -96,7 +98,12 @@ export const POST = withLog("POST /api/quotations", async (req: NextRequest) => 
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
-    const quotation = new Quotation(parsed.data);
+    const userSettings = await Settings.findOne({ user_id: (session.user as any)?.id }).lean() as any;
+    const prefix  = userSettings?.quotation_prefix ?? "QT";
+    const pattern = userSettings?.quotation_number_pattern ?? null;
+    const quotation_no = await getNextNumberWithPattern("quotation", prefix, pattern);
+
+    const quotation = new Quotation({ ...parsed.data, quotation_no });
     await quotation.save();
     return NextResponse.json({ success: true, data: quotation }, { status: 201 });
   } catch (err: any) {

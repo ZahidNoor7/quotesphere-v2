@@ -26,6 +26,9 @@ export interface ISettings extends Document {
   invoice_prefix: string;
   quotation_prefix: string;
   expense_prefix: string;
+  invoice_number_pattern?: string;
+  quotation_number_pattern?: string;
+  expense_number_pattern?: string;
   default_tax: number;
   default_payment_terms: number;
   terms_and_conditions?: string;
@@ -129,6 +132,9 @@ const settingsSchema = new Schema<ISettings>(
     invoice_prefix: { type: String, default: "INV" },
     quotation_prefix: { type: String, default: "QT" },
     expense_prefix: { type: String, default: "EXP" },
+    invoice_number_pattern: { type: String, default: null },
+    quotation_number_pattern: { type: String, default: null },
+    expense_number_pattern: { type: String, default: null },
     default_tax: { type: Number, default: 0 },
     default_payment_terms: { type: Number, default: 30 },
     terms_and_conditions: String,

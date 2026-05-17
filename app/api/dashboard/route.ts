@@ -38,6 +38,8 @@ export const GET = withLog("GET /api/dashboard", async (req: NextRequest) => {
       }
     }
 
+    const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     const [
       [revenueStat],
       overdueCount,
@@ -49,6 +51,9 @@ export const GET = withLog("GET /api/dashboard", async (req: NextRequest) => {
       quotationCount,
       customerCount,
       [expenseStat],
+      expensesByCategoryRaw,
+      dueSoonCount,
+      expiringQuotationsCount,
     ] = await Promise.all([
       Invoice.aggregate([
         { $match: invoiceMatch },
@@ -78,12 +83,56 @@ export const GET = withLog("GET /api/dashboard", async (req: NextRequest) => {
         { $match: { status: { $ne: "cancelled" } } },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
+      // Expense breakdown by category (from items sub-array)
+      Expense.aggregate([
+        { $match: { status: { $ne: "cancelled" } } },
+        { $unwind: { path: "$items", preserveNullAndEmptyArrays: true } },
+        { $group: { _id: { $ifNull: ["$items.category", "Uncategorized"] }, total: { $sum: "$items.total" }, count: { $sum: 1 } } },
+        { $sort: { total: -1 } },
+        { $limit: 8 },
+      ]),
+      // Invoices due in next 7 days (not yet complete)
+      Invoice.countDocuments({
+        status: { $ne: "cancelled" },
+        payment_status: { $ne: "complete" },
+        due_date: { $gte: now, $lte: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) },
+      }),
+      // Quotations expiring in next 3 days
+      Quotation.countDocuments({
+        status: { $in: ["draft", "pending"] },
+        valid_until: { $gte: now, $lte: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) },
+      }),
     ]);
+    void thirtyDaysOut;
 
     const totalRevenue     = revenueStat?.totalRevenue    ?? 0;
     const totalReceived    = revenueStat?.totalReceived   ?? 0;
     const totalOutstanding = revenueStat?.totalOutstanding ?? 0;
     const totalExpenses    = expenseStat?.total           ?? 0;
+
+    const expensesByCategory = (expensesByCategoryRaw as any[]).map(r => ({
+      category: r._id as string,
+      total: r.total as number,
+      count: r.count as number,
+    }));
+
+    // Build actionable KPI alerts
+    const alerts: { type: "warning" | "danger" | "info"; message: string }[] = [];
+    if (overdueCount > 0) {
+      alerts.push({ type: "danger", message: `${overdueCount} invoice${overdueCount > 1 ? "s" : ""} overdue — action needed` });
+    }
+    if (dueSoonCount > 0) {
+      alerts.push({ type: "warning", message: `${dueSoonCount} invoice${dueSoonCount > 1 ? "s" : ""} due within 7 days` });
+    }
+    if (expiringQuotationsCount > 0) {
+      alerts.push({ type: "warning", message: `${expiringQuotationsCount} quotation${expiringQuotationsCount > 1 ? "s" : ""} expiring in 3 days` });
+    }
+    if (totalRevenue > 0) {
+      const collectionRate = totalReceived / totalRevenue;
+      if (collectionRate < 0.5) {
+        alerts.push({ type: "warning", message: `Collection rate ${Math.round(collectionRate * 100)}% — below 50% threshold` });
+      }
+    }
 
     const spanYears = effectiveTo.getFullYear() !== effectiveFrom.getFullYear();
     const monthlyMap = new Map<string, { label: string; revenue: number; received: number }>();
@@ -110,7 +159,12 @@ export const GET = withLog("GET /api/dashboard", async (req: NextRequest) => {
 
     return NextResponse.json({
       success: true,
-      data: { totalRevenue, totalReceived, totalOutstanding, totalExpenses, invoiceCount, quotationCount, customerCount, overdueCount, revenueByMonth, topClients, recentInvoices, paymentStatusBreakdown },
+      data: {
+        totalRevenue, totalReceived, totalOutstanding, totalExpenses,
+        invoiceCount, quotationCount, customerCount, overdueCount,
+        revenueByMonth, topClients, recentInvoices, paymentStatusBreakdown,
+        expensesByCategory, alerts,
+      },
     });
   } catch (err) {
     console.error("[dashboard]", err);

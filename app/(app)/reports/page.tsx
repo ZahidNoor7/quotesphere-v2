@@ -2,9 +2,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
+import Link from "next/link";
 import {
   Download, FileText, FileSpreadsheet, Users, Receipt,
   FileBarChart, BarChart3, TrendingUp, ChevronRight, X,
+  AlertTriangle, LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -504,6 +506,49 @@ export default function ReportsPage() {
                 <FileText size={13} />
                 {stmtLoading ? "Generating…" : "Generate PDF"}
               </Button>
+            </div>
+          </SectionCard>
+
+          {/* Analytics Reports */}
+          <SectionCard
+            icon={<LineChart size={17} style={{ color: AC2 }} />}
+            title="Analytics Reports"
+            description="Interactive financial reports with charts and drill-down detail."
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                {
+                  href: "/reports/profit-loss",
+                  icon: <TrendingUp size={14} style={{ color: "#34d399" }} />,
+                  color: "#34d399",
+                  label: "Profit & Loss",
+                  sub: "Revenue vs. expenses, gross margin, monthly breakdown",
+                },
+                {
+                  href: "/reports/aging",
+                  icon: <AlertTriangle size={14} style={{ color: "#f87171" }} />,
+                  color: "#f87171",
+                  label: "Aging Receivables",
+                  sub: "Overdue invoices bucketed by 30 / 60 / 90+ days",
+                },
+              ].map(({ href, icon, color, label, sub }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `0.5px solid ${GLASS_BORDER}`, transition: "all 0.15s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = `${color}44`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = GLASS_BORDER; }}
+                >
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, border: `0.5px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: T1, marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 11, color: T3 }}>{sub}</div>
+                  </div>
+                  <ChevronRight size={14} style={{ color: T3, flexShrink: 0 }} />
+                </Link>
+              ))}
             </div>
           </SectionCard>
 

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
+import Settings from "@/models/Settings";
+import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
 import { requireRole } from "@/lib/rbac";
 
@@ -103,7 +105,15 @@ export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
-    const invoice = new Invoice(parsed.data);
+
+    // Fetch user settings to get prefix and pattern, then pre-generate the number
+    // so the model pre-save hook skips generation (it only generates when invoice_no is missing)
+    const userSettings = await Settings.findOne({ user_id: (session.user as any)?.id }).lean() as any;
+    const prefix  = userSettings?.invoice_prefix ?? "INV";
+    const pattern = userSettings?.invoice_number_pattern ?? null;
+    const invoice_no = await getNextNumberWithPattern("invoice", prefix, pattern);
+
+    const invoice = new Invoice({ ...parsed.data, invoice_no });
     await invoice.save();
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (err: any) {

@@ -229,11 +229,36 @@ export default function GeneralSettingsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div><label style={lbl}>Invoice prefix</label><Input {...f("invoice_prefix")} placeholder="INV-" /></div>
+          <div><label style={lbl}>Invoice prefix</label><Input {...f("invoice_prefix")} placeholder="INV" /></div>
         </div>
         <div style={col2}>
-          <div><label style={lbl}>Quotation prefix</label><Input {...f("quotation_prefix")} placeholder="QT-" /></div>
-          <div><label style={lbl}>Expense prefix</label><Input {...f("expense_prefix")} placeholder="EXP-" /></div>
+          <div><label style={lbl}>Quotation prefix</label><Input {...f("quotation_prefix")} placeholder="QT" /></div>
+          <div><label style={lbl}>Expense prefix</label><Input {...f("expense_prefix")} placeholder="EXP" /></div>
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={lbl}>Number patterns</label>
+          <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, lineHeight: 1.6 }}>
+            Tokens: <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}"}</code>{" "}
+            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{YYYY}"}</code>{" "}
+            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{YY}"}</code>{" "}
+            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{MM}"}</code>{" "}
+            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{seq:5}"}</code>{" "}
+            — leave blank for <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}-{seq:5}"}</code>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={{ ...lbl, color: "var(--t3)" }}>Invoice pattern</label>
+              <Input {...f("invoice_number_pattern")} placeholder="{prefix}-{YYYY}-{seq:5}" />
+            </div>
+            <div>
+              <label style={{ ...lbl, color: "var(--t3)" }}>Quotation pattern</label>
+              <Input {...f("quotation_number_pattern")} placeholder="{prefix}-{seq:5}" />
+            </div>
+            <div>
+              <label style={{ ...lbl, color: "var(--t3)" }}>Expense pattern</label>
+              <Input {...f("expense_number_pattern")} placeholder="{prefix}-{seq:5}" />
+            </div>
+          </div>
         </div>
         <div style={col2}>
           <div><label style={lbl}>Payment terms (days)</label><Input type="number" value={form.default_payment_terms ?? 30} onChange={(e: any) => setForm((p: any) => ({ ...p, default_payment_terms: parseInt(e.target.value) || 30 }))} /></div>

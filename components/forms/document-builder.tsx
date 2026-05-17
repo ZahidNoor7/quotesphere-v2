@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
@@ -351,6 +352,11 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(initialData?.recurrence?.enabled ?? false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<string>(initialData?.recurrence?.frequency ?? "monthly");
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState(
+    initialData?.recurrence?.end_date ? new Date(initialData.recurrence.end_date).toISOString().slice(0, 10) : ""
+  );
   const [leaveHref, setLeaveHref] = useState("");
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -586,6 +592,20 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       payload.payment_mode = paymentMode; payload.advance = parseFloat(advance || "0");
       payload.outstanding = outstanding; payload.total_paid = parseFloat(advance || "0");
       payload.status = status; if (dueDate) payload.due_date = new Date(dueDate);
+      // Recurrence
+      payload.recurrence = {
+        enabled: recurrenceEnabled,
+        frequency: recurrenceFrequency,
+        next_date: recurrenceEnabled && issueDate ? (() => {
+          const d = new Date(issueDate);
+          if (recurrenceFrequency === "weekly")    d.setDate(d.getDate() + 7);
+          else if (recurrenceFrequency === "monthly")   d.setMonth(d.getMonth() + 1);
+          else if (recurrenceFrequency === "quarterly") d.setMonth(d.getMonth() + 3);
+          else if (recurrenceFrequency === "yearly")    d.setFullYear(d.getFullYear() + 1);
+          return d;
+        })() : undefined,
+        end_date: recurrenceEndDate ? new Date(recurrenceEndDate) : undefined,
+      };
     } else {
       payload.status = status; if (dueDate) payload.valid_until = new Date(dueDate);
     }
@@ -1147,6 +1167,39 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             <div style={secTitle}>Remarks / notes</div>
             <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} rows={3} placeholder="Any additional notes..." className="resize-none text-[11px] min-h-[68px]" />
           </div>
+
+          {/* Recurring billing — invoice only */}
+          {type === "invoice" && (
+            <div style={{ padding: "0 16px 16px", borderTop: `0.5px solid ${GLASS_BORDER}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, marginBottom: recurrenceEnabled ? 12 : 0 }}>
+                <div>
+                  <div style={{ ...secTitle, marginBottom: 2 }}>Recurring invoice</div>
+                  <div style={{ fontSize: 10, color: T3 }}>Auto-generate this invoice on a schedule</div>
+                </div>
+                <Switch checked={recurrenceEnabled} onCheckedChange={setRecurrenceEnabled} />
+              </div>
+              {recurrenceEnabled && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>Frequency</div>
+                    <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>
+                      <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>End date (optional)</div>
+                    <Input type="date" value={recurrenceEndDate} onChange={e => setRecurrenceEndDate(e.target.value)} className="h-8 text-[11px]" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Draggable divider */}
