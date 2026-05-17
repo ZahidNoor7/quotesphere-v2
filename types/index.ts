@@ -38,6 +38,7 @@ export interface InvoiceItem {
   quantity: number;
   price: number;
   images?: string[];
+  product_id?: string;
 }
 
 export interface Invoice {
@@ -154,6 +155,17 @@ export interface Expense {
   updatedAt: string;
 }
 
+export interface ProjectMilestone {
+  _id: string;
+  name: string;
+  description?: string;
+  due_date?: string;
+  completed_at?: string;
+  invoice_id?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
 export interface ProjectNote {
   _id: string;
   content: string;
@@ -186,6 +198,7 @@ export interface Project {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  milestones?: ProjectMilestone[];
   project_notes?: ProjectNote[];
   attachments?: ProjectAttachment[];
   progress?: number;

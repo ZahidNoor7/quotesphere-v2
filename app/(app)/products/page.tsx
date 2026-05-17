@@ -213,7 +213,9 @@ export default function ProductsPage() {
     return acc;
   }, {});
 
-  const lowStockCount = (products as Product[]).filter(p => p.stock_qty <= p.low_stock_threshold).length;
+  const allProducts = products as Product[];
+  const lowStockCount  = allProducts.filter(p => p.stock_qty > 0 && p.stock_qty <= p.low_stock_threshold).length;
+  const outOfStockCount = allProducts.filter(p => p.stock_qty === 0).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -241,6 +243,27 @@ export default function ProductsPage() {
       </div>
 
       <div style={{ padding: "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* Stock summary strip */}
+        {!isLoading && allProducts.length > 0 && (
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {[
+              { label: "Total products", value: allProducts.length, color: "#818cf8", bg: "rgba(99,102,241,0.1)", border: "rgba(99,102,241,0.2)" },
+              { label: "Low stock",      value: lowStockCount,      color: "#fbbf24", bg: "rgba(251,191,36,0.1)",  border: "rgba(251,191,36,0.25)", onClick: () => setFilterLowStock(true) },
+              { label: "Out of stock",   value: outOfStockCount,    color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
+            ].map(({ label, value, color, bg, border, onClick }) => (
+              <div
+                key={label}
+                onClick={onClick}
+                style={{ padding: "8px 16px", borderRadius: 10, background: bg, border: `0.5px solid ${border}`, display: "flex", alignItems: "center", gap: 8, cursor: onClick ? "pointer" : "default" }}
+              >
+                <span style={{ fontSize: 18, fontWeight: 700, color }}>{value}</span>
+                <span style={{ fontSize: 11, color, opacity: 0.8 }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Input
           value={search}
           onChange={e => setSearch(e.target.value)}

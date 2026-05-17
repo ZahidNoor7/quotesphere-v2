@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceStatusBadge, PaymentStatusBadge, QuotationStatusBadge, ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, TABLE_STYLE, TH_STYLE, TD_STYLE, TABLE_WRAP, ICON_PILL, FIELD_INPUT, GLASS_INPUT } from "@/lib/ds";
-import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus, ProjectNote, ProjectAttachment } from "@/types";
+import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus, ProjectNote, ProjectAttachment, ProjectMilestone } from "@/types";
 import { StickyNote, Paperclip, Plus, Trash2, Upload, FileText, Image as ImageIcon, Film, Clock } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
@@ -181,6 +181,163 @@ function ProjectEditForm({ initial, onSave, onClose }: { initial: Project; onSav
         <Button loading={loading} onClick={save}>Save changes</Button>
       </div>
     </>
+  );
+}
+
+// ─── Milestones Tab ───────────────────────────────────────────────────────────
+function MilestonesTab({ project, onUpdate }: { project: Project; onUpdate: () => void }) {
+  const milestones: ProjectMilestone[] = project.milestones ?? [];
+  const [form, setForm] = useState({ name: "", due_date: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+  const [completing, setCompleting] = useState<string | null>(null);
+
+  const done  = milestones.filter(m => !!m.completed_at).length;
+  const total = milestones.length;
+
+  async function add() {
+    if (!form.name.trim()) { toast.error("Milestone name is required."); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/projects/${project._id}/milestones`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, due_date: form.due_date || undefined, notes: form.notes || undefined }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      setForm({ name: "", due_date: "", notes: "" });
+      onUpdate();
+      toast.success("Milestone added.");
+    } catch (err: any) { toast.error(err.message); }
+    finally { setSaving(false); }
+  }
+
+  async function toggleComplete(m: ProjectMilestone) {
+    setCompleting(m._id);
+    try {
+      const res = await fetch(`/api/projects/${project._id}/milestones/${m._id}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: !m.completed_at }),
+      });
+      const d = await res.json();
+      if (!d.success) throw new Error(d.error);
+      onUpdate();
+    } catch (err: any) { toast.error(err.message); }
+    finally { setCompleting(null); }
+  }
+
+  async function remove(milestoneId: string) {
+    try {
+      await fetch(`/api/projects/${project._id}/milestones/${milestoneId}`, { method: "DELETE" });
+      onUpdate();
+      toast.success("Milestone removed.");
+    } catch { toast.error("Failed to remove."); }
+  }
+
+  const isOverdue = (m: ProjectMilestone) =>
+    !m.completed_at && m.due_date && new Date(m.due_date) < new Date();
+
+  return (
+    <div>
+      {/* Progress summary */}
+      {total > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+            <span style={{ fontSize: 12, color: T2 }}>{done} of {total} complete</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: done === total ? "#34d399" : T3 }}>
+              {total > 0 ? Math.round((done / total) * 100) : 0}%
+            </span>
+          </div>
+          <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${total > 0 ? (done / total) * 100 : 0}%`, background: "linear-gradient(90deg,#6366f1,#34d399)", borderRadius: 10, transition: "width 0.4s" }} />
+          </div>
+        </div>
+      )}
+
+      {/* Add form */}
+      <div style={{ ...CARD, padding: 14, border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: T1, marginBottom: 10 }}>Add milestone</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 8, alignItems: "end" }}>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Name *</label>
+            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Design approval" />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: T3, display: "block", marginBottom: 3 }}>Due date</label>
+            <Input type="date" value={form.due_date} onChange={e => setForm(p => ({ ...p, due_date: e.target.value }))} />
+          </div>
+          <Button onClick={add} loading={saving} style={{ marginTop: 18 }}>
+            <Plus size={13} style={{ marginRight: 4 }} /> Add
+          </Button>
+        </div>
+      </div>
+
+      {/* Milestone list */}
+      {milestones.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "32px 0", color: T3, fontSize: 13 }}>
+          No milestones yet. Add one above to track project phases.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[...milestones].sort((a, b) => {
+            if (!!a.completed_at !== !!b.completed_at) return a.completed_at ? 1 : -1;
+            if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+            return 0;
+          }).map(m => {
+            const completed  = !!m.completed_at;
+            const overdue    = isOverdue(m);
+            const isCompleting = completing === m._id;
+
+            return (
+              <div key={m._id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: completed ? "rgba(52,211,153,0.05)" : "rgba(255,255,255,0.02)", border: `0.5px solid ${completed ? "rgba(52,211,153,0.2)" : overdue ? "rgba(248,113,113,0.25)" : GLASS_BORDER}`, transition: "all 0.2s" }}>
+                {/* Checkbox */}
+                <button
+                  onClick={() => toggleComplete(m)}
+                  disabled={isCompleting}
+                  style={{ width: 20, height: 20, borderRadius: 6, border: `1.5px solid ${completed ? "#34d399" : overdue ? "#f87171" : "rgba(255,255,255,0.2)"}`, background: completed ? "rgba(52,211,153,0.2)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
+                  title={completed ? "Mark incomplete" : "Mark complete"}
+                >
+                  {completed && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#34d399" strokeWidth="2"><path d="M2 6l3 3 5-5" /></svg>}
+                </button>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: completed ? T3 : T1, textDecoration: completed ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                    {m.name}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 2, flexWrap: "wrap" as const }}>
+                    {m.due_date && (
+                      <span style={{ fontSize: 10.5, color: overdue ? "#f87171" : completed ? T3 : T3 }}>
+                        {overdue ? "⚠ " : ""}{completed ? "Due " : "Due "}{formatDate(m.due_date)}
+                      </span>
+                    )}
+                    {m.completed_at && (
+                      <span style={{ fontSize: 10.5, color: "#34d399" }}>
+                        ✓ Completed {formatDate(m.completed_at)}
+                      </span>
+                    )}
+                    {m.notes && (
+                      <span style={{ fontSize: 10.5, color: T3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const, maxWidth: 200 }}>
+                        {m.notes}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Delete */}
+                <button
+                  onClick={() => remove(m._id)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: T3, padding: 4, flexShrink: 0, opacity: 0.6, transition: "opacity 0.15s" }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -620,6 +777,7 @@ export default function ProjectDetailPage() {
                 { key: "invoices", label: "Invoices", count: stats.invoiceCount },
                 { key: "quotations", label: "Quotations", count: stats.quotationCount },
                 { key: "expenses", label: "Expenses", count: stats.expenseCount },
+                { key: "milestones", label: "Milestones", count: project.milestones?.length ?? 0 },
                 { key: "time", label: "Time", count: 0 },
                 { key: "notes", label: "Notes", count: project.project_notes?.length ?? 0 },
                 { key: "attachments", label: "Files", count: project.attachments?.length ?? 0 },
@@ -798,6 +956,10 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="milestones" className="mt-3">
+              <MilestonesTab project={project} onUpdate={mutate} />
             </TabsContent>
 
             <TabsContent value="time" className="mt-3">

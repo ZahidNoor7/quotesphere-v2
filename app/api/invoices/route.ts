@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
+import Product from "@/models/Product";
 import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
 import { withLog } from "@/lib/logger";
@@ -14,6 +15,7 @@ const itemSchema = z.object({
   quantity: z.number().min(0),
   price: z.number().min(0),
   images: z.array(z.string()).optional(),
+  product_id: z.string().optional(),
 });
 
 const CURRENCIES = ["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const;
@@ -115,6 +117,17 @@ export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
 
     const invoice = new Invoice({ ...parsed.data, invoice_no });
     await invoice.save();
+
+    // Decrement stock for any items linked to a catalog product
+    const stockOps = (parsed.data.items ?? [])
+      .filter((item: any) => item.product_id && item.quantity > 0)
+      .map((item: any) =>
+        Product.findByIdAndUpdate(item.product_id, {
+          $inc: { stock_qty: -Math.abs(item.quantity) },
+        })
+      );
+    if (stockOps.length) await Promise.all(stockOps);
+
     return NextResponse.json({ success: true, data: invoice }, { status: 201 });
   } catch (err: any) {
     console.error("[invoices POST]", err);

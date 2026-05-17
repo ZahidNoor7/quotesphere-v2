@@ -17,6 +17,7 @@ export interface IInvoiceItem {
   quantity: number;
   price: number;
   images?: string[];
+  product_id?: string;
 }
 
 export interface IInvoice extends Document {
@@ -91,6 +92,7 @@ const itemSchema = new Schema<IInvoiceItem>(
     quantity: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
     images: [String],
+    product_id: { type: Schema.Types.ObjectId, ref: "Product" },
   },
   { _id: false }
 );

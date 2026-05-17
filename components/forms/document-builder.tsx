@@ -32,7 +32,7 @@ const PAGE_DIMS: Record<string, [number, number]> = {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
-interface LineItem { id: number; name: string; quantity: number; price: number; images?: string[]; }
+interface LineItem { id: number; name: string; quantity: number; price: number; images?: string[]; product_id?: string; }
 interface BuilderProps { type: "invoice" | "quotation"; initialData?: any; }
 
 async function compressImage(file: File, maxPx = 320, quality = 0.75): Promise<string> {
@@ -163,7 +163,7 @@ function CatalogQuickAdd({
 }: {
   services: Service[];
   products: Product[];
-  onAdd: (name: string, price: number) => void;
+  onAdd: (name: string, price: number, product_id?: string) => void;
 }) {
   const [tab, setTab] = useState<"services" | "products">("services");
   const activeServices = services.slice(0, 12);
@@ -198,7 +198,7 @@ function CatalogQuickAdd({
           >+ {s.name}</button>
         ))}
         {tab === "products" && activeProducts.map(p => (
-          <button key={p._id} onClick={() => onAdd(p.name, p.default_price)} style={btnStyle}
+          <button key={p._id} onClick={() => onAdd(p.name, p.default_price, p._id)} style={btnStyle}
             onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
             onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
             title={p.sku ? `SKU: ${p.sku} | Stock: ${p.stock_qty} ${p.unit}` : `Stock: ${p.stock_qty} ${p.unit}`}
@@ -987,7 +987,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             <CatalogQuickAdd
               services={services as Service[]}
               products={products as Product[]}
-              onAdd={(name, price) => setItems(p => [...p, { id: Date.now(), name, quantity: 1, price }])}
+              onAdd={(name, price, product_id) => setItems(p => [...p, { id: Date.now(), name, quantity: 1, price, product_id }])}
             />
           )}
 

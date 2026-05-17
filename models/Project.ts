@@ -1,6 +1,16 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
 
+export interface IProjectMilestone {
+  _id: string;
+  name: string;
+  description?: string;
+  due_date?: Date;
+  completed_at?: Date;
+  invoice_id?: string;
+  notes?: string;
+}
+
 export interface IProjectNote {
   _id: string;
   content: string;
@@ -32,12 +42,25 @@ export interface IProject extends Document {
   customer_phone: string;
   tags?: string[];
   notes?: string;
+  milestones?: IProjectMilestone[];
   project_notes?: IProjectNote[];
   attachments?: IProjectAttachment[];
   progress?: number;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const projectMilestoneSchema = new Schema(
+  {
+    name:         { type: String, required: true, maxlength: 200 },
+    description:  { type: String, maxlength: 1000 },
+    due_date:     Date,
+    completed_at: Date,
+    invoice_id:   { type: Schema.Types.ObjectId, ref: "Invoice" },
+    notes:        { type: String, maxlength: 1000 },
+  },
+  { timestamps: true, _id: true }
+);
 
 const projectNoteSchema = new Schema(
   { content: { type: String, required: true } },
@@ -76,6 +99,7 @@ const projectSchema = new Schema<IProject>(
     customer_phone: { type: String, required: true },
     tags: [String],
     notes: String,
+    milestones: [projectMilestoneSchema],
     project_notes: [projectNoteSchema],
     attachments: [projectAttachmentSchema],
     progress: { type: Number, default: 0, min: 0, max: 100 },
