@@ -2,7 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
+import Customer from "@/models/Customer";
 import { normalizePhone } from "@/lib/whatsapp";
+
+type ConversationRow = {
+  phone: string;
+  lastMessage: string;
+  lastMessageAt: Date;
+  direction: "in" | "out";
+  customer_id?: unknown;
+  customer_name?: string;
+  unreadCount: number;
+};
 
 export async function GET() {
   const session = await auth();
@@ -10,7 +21,7 @@ export async function GET() {
 
   await connectDB();
 
-  const conversations = await WhatsAppMessage.aggregate([
+  const conversations = await WhatsAppMessage.aggregate<ConversationRow>([
     {
       $addFields: {
         contactPhone: {
@@ -53,7 +64,28 @@ export async function GET() {
     },
   ]);
 
-  return NextResponse.json({ data: conversations });
+  // Resolve each conversation phone to a live customer (overrides any stale
+  // snapshot stored on the message). Match is on normalized digits, so stored
+  // formats like "+92 300 1234567" and webhook formats like "923001234567" align.
+  const customers = await Customer.find({}, { name: 1, phone_no: 1 }).lean();
+  const customerByPhone = new Map<string, { id: string; name: string }>();
+  for (const c of customers) {
+    if (!c.phone_no) continue;
+    const key = normalizePhone(c.phone_no);
+    if (!key) continue;
+    customerByPhone.set(key, { id: String(c._id), name: c.name });
+  }
+
+  const enriched = conversations.map(conv => {
+    const match = customerByPhone.get(normalizePhone(conv.phone));
+    return {
+      ...conv,
+      customer_id: match?.id ?? conv.customer_id,
+      customer_name: match?.name ?? conv.customer_name,
+    };
+  });
+
+  return NextResponse.json({ data: enriched });
 }
 
 export async function DELETE(req: NextRequest) {
