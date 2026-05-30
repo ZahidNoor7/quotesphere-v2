@@ -54,7 +54,7 @@ export function StatCard({
       {icon && (
         <div style={{
           width: 28, height: 28, borderRadius: 8,
-          background: "rgba(255,255,255,0.06)",
+          background: "var(--glass)",
           display: "flex", alignItems: "center", justifyContent: "center",
           marginBottom: 10, fontSize: 14, color: T2,
         }}>{icon}</div>

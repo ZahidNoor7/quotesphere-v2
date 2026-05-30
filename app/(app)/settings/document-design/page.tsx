@@ -153,8 +153,8 @@ const FONT_OPTIONS = [
 
 const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
-  background: "rgba(255,255,255,0.05)",
-  border: "0.5px solid rgba(255,255,255,0.12)",
+  background: "var(--glass)",
+  border: "0.5px solid var(--glass-border)",
   borderRadius: 6,
   color: "#e2e8f0",
   fontSize: 11,
@@ -232,7 +232,7 @@ function TermsEditor({
       height="12"
       viewBox="0 0 8 12"
       style={{ cursor: "grab", flexShrink: 0 }}
-      fill="rgba(255,255,255,0.2)"
+      fill="var(--t3)"
     >
       <circle cx="2" cy="2" r="1.2" />
       <circle cx="6" cy="2" r="1.2" />
@@ -272,7 +272,7 @@ function TermsEditor({
           <div
             style={{
               fontSize: 10,
-              color: "rgba(255,255,255,0.3)",
+              color: "var(--t3)",
               flexShrink: 0,
               minWidth: 16,
               textAlign: "right",
@@ -668,7 +668,7 @@ export default function DocumentDesignPage() {
             width: 30,
             height: 16,
             borderRadius: 100,
-            background: val ? "#6366f1" : "rgba(255,255,255,0.1)",
+            background: val ? "#6366f1" : "var(--glass-border-strong)",
             position: "relative",
             cursor: "pointer",
             transition: "background 0.2s",
@@ -1142,7 +1142,7 @@ export default function DocumentDesignPage() {
                                 border:
                                   effectiveConfig.headerBg === c.value
                                     ? "2px solid #818cf8"
-                                    : "1px solid rgba(255,255,255,0.2)",
+                                    : "1px solid var(--glass-border-strong)",
                               }}
                             />
                           ))}
@@ -1245,7 +1245,7 @@ export default function DocumentDesignPage() {
                                 border:
                                   effectiveConfig.headerTextColor === c
                                     ? "2px solid #818cf8"
-                                    : "1px solid rgba(255,255,255,0.2)",
+                                    : "1px solid var(--glass-border-strong)",
                               }}
                               title={c}
                             />
@@ -1431,7 +1431,7 @@ export default function DocumentDesignPage() {
                                 border:
                                   effectiveConfig.footerBg === c
                                     ? "2px solid #818cf8"
-                                    : "1px solid rgba(255,255,255,0.2)",
+                                    : "1px solid var(--glass-border-strong)",
                               }}
                               title={c}
                             />
@@ -1504,7 +1504,7 @@ export default function DocumentDesignPage() {
                                 border:
                                   effectiveConfig.footerTextColor === c
                                     ? "2px solid #818cf8"
-                                    : "1px solid rgba(255,255,255,0.2)",
+                                    : "1px solid var(--glass-border-strong)",
                               }}
                               title={c}
                             />

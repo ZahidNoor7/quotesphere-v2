@@ -247,7 +247,7 @@ function MilestonesTab({ project, onUpdate }: { project: Project; onUpdate: () =
               {total > 0 ? Math.round((done / total) * 100) : 0}%
             </span>
           </div>
-          <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ height: 5, background: "var(--glass)", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${total > 0 ? (done / total) * 100 : 0}%`, background: "linear-gradient(90deg,#6366f1,#34d399)", borderRadius: 10, transition: "width 0.4s" }} />
           </div>
         </div>
@@ -288,12 +288,12 @@ function MilestonesTab({ project, onUpdate }: { project: Project; onUpdate: () =
             const isCompleting = completing === m._id;
 
             return (
-              <div key={m._id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: completed ? "rgba(52,211,153,0.05)" : "rgba(255,255,255,0.02)", border: `0.5px solid ${completed ? "rgba(52,211,153,0.2)" : overdue ? "rgba(248,113,113,0.25)" : GLASS_BORDER}`, transition: "all 0.2s" }}>
+              <div key={m._id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: completed ? "rgba(52,211,153,0.05)" : "var(--glass)", border: `0.5px solid ${completed ? "rgba(52,211,153,0.2)" : overdue ? "rgba(248,113,113,0.25)" : GLASS_BORDER}`, transition: "all 0.2s" }}>
                 {/* Checkbox */}
                 <button
                   onClick={() => toggleComplete(m)}
                   disabled={isCompleting}
-                  style={{ width: 20, height: 20, borderRadius: 6, border: `1.5px solid ${completed ? "#34d399" : overdue ? "#f87171" : "rgba(255,255,255,0.2)"}`, background: completed ? "rgba(52,211,153,0.2)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
+                  style={{ width: 20, height: 20, borderRadius: 6, border: `1.5px solid ${completed ? "#34d399" : overdue ? "#f87171" : "var(--glass-border-strong)"}`, background: completed ? "rgba(52,211,153,0.2)" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}
                   title={completed ? "Mark incomplete" : "Mark complete"}
                 >
                   {completed && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#34d399" strokeWidth="2"><path d="M2 6l3 3 5-5" /></svg>}
@@ -450,7 +450,7 @@ function TimeTrackingTab({ projectId, currency }: { projectId: string; currency:
                     <button
                       onClick={() => toggleBilled(e._id, e.billed)}
                       style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, border: "none", cursor: "pointer", fontWeight: 600,
-                        background: e.billed ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.06)",
+                        background: e.billed ? "rgba(52,211,153,0.15)" : "var(--glass)",
                         color: e.billed ? "#34d399" : T3 }}
                     >
                       {e.billed ? "Billed" : "Unbilled"}
@@ -699,7 +699,7 @@ export default function ProjectDetailPage() {
                   <span style={{ fontSize: 11, color: T3 }}>Progress</span>
                   <span style={{ fontSize: 11, fontWeight: 600, color: progressColor }} className="tabular-nums">{progressPct}%</span>
                 </div>
-                <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: 6, background: "var(--glass)", borderRadius: 4, overflow: "hidden" }}>
                   <div style={{ height: "100%", background: progressColor, borderRadius: 4, width: `${progressPct}%`, transition: "width 0.4s ease" }} />
                 </div>
               </div>

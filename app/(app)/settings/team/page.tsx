@@ -38,7 +38,7 @@ export default function TeamSettingsPage() {
         <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+              <tr style={{ background: "var(--glass)" }}>
                 {["Member", "Email", "Role", ""].map(h => (
                   <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 10.5, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                 ))}
@@ -47,12 +47,12 @@ export default function TeamSettingsPage() {
             <tbody>
               {MEMBERS.map(u => (
                 <tr key={u.e}>
-                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 500 }}>{u.n}</td>
-                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{u.e}</td>
-                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
+                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{u.n}</td>
+                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3 }}>{u.e}</td>
+                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
                     <span style={{ fontSize: 10.5, padding: "2px 9px", borderRadius: 100, background: "rgba(99,102,241,0.15)", color: u.rc, border: "0.5px solid rgba(99,102,241,0.25)" }}>{u.r}</span>
                   </td>
-                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3, fontSize: 11 }}>—</td>
+                  <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3, fontSize: 11 }}>—</td>
                 </tr>
               ))}
             </tbody>

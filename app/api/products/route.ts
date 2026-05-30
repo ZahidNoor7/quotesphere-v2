@@ -14,7 +14,12 @@ export const GET = withLog("GET /api/products", async (req: NextRequest) => {
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category") || "";
     const lowStock = searchParams.get("low_stock") === "true";
-    const query: Record<string, unknown> = { is_active: true };
+    const status = searchParams.get("status") || "active";
+    const query: Record<string, unknown> = {};
+    // `status` is compared against fixed literals — never interpolated into the query.
+    if (status === "active") query.is_active = true;
+    else if (status === "inactive") query.is_active = false;
+    // status === "all" → no is_active constraint
     if (search) query.$text = { $search: search };
     if (category) query.category = category;
     if (lowStock) query.$expr = { $lte: ["$stock_qty", "$low_stock_threshold"] };

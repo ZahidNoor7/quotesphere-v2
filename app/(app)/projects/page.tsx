@@ -475,7 +475,7 @@ export default function ProjectsPage() {
                         ))}
                       </div>
                     )}
-                    <div style={{ height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 4, marginTop: 10, overflow: "hidden" }}>
+                    <div style={{ height: 3, background: "var(--glass)", borderRadius: 4, marginTop: 10, overflow: "hidden" }}>
                       <div style={{ height: "100%", background: STATUS_COLORS[p.status] || "#6366f1", borderRadius: 4, width: progressWidth, transition: "width 0.3s ease" }} />
                     </div>
                   </div>

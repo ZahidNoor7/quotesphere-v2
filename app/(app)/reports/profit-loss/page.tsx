@@ -126,11 +126,11 @@ export default function ProfitLossPage() {
                 </div>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={data.monthly} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: T3 }} />
                     <YAxis tick={{ fontSize: 10, fill: T3 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                     <Tooltip
-                      contentStyle={{ background: "#1a2035", border: "0.5px solid rgba(255,255,255,0.11)", borderRadius: 10, fontSize: 11 }}
+                      contentStyle={{ background: "var(--modal-bg)", color: "var(--t1)", border: "0.5px solid var(--glass-border)", borderRadius: 10, fontSize: 11 }}
                       formatter={(v) => [formatCurrency(typeof v === "number" ? v : 0, currency), ""]}
                     />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: T2 }} />
@@ -161,7 +161,7 @@ export default function ProfitLossPage() {
                             {formatCurrency(cat.total, currency)} <span style={{ color: T3, fontWeight: 400 }}>({pct.toFixed(1)}%)</span>
                           </span>
                         </div>
-                        <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 10, overflow: "hidden" }}>
+                        <div style={{ height: 5, background: "var(--glass)", borderRadius: 10, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 10, transition: "width 0.4s" }} />
                         </div>
                       </div>

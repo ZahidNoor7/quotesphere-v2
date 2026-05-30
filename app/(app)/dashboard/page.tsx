@@ -367,7 +367,7 @@ export default function DashboardPage() {
                   width: 28,
                   height: 28,
                   borderRadius: 8,
-                  background: "rgba(255,255,255,0.05)",
+                  background: "var(--glass)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -427,7 +427,7 @@ export default function DashboardPage() {
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: T3 }} />
                   <YAxis
                     tick={{ fontSize: 10, fill: T3 }}
@@ -435,8 +435,9 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "#1a2035",
-                      border: "0.5px solid rgba(255,255,255,0.11)",
+                      background: "var(--modal-bg)",
+                      color: "var(--t1)",
+                      border: "0.5px solid var(--glass-border)",
                       borderRadius: 10,
                       fontSize: 11,
                     }}
@@ -496,7 +497,7 @@ export default function DashboardPage() {
                     <div
                       style={{
                         height: 3,
-                        background: "rgba(255,255,255,0.08)",
+                        background: "var(--glass)",
                         borderRadius: 4,
                       }}
                     >
@@ -541,7 +542,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                    <tr style={{ background: "var(--glass)" }}>
                       {["Invoice", "Client", "Amount", "Status"].map((h) => (
                         <th
                           key={h}
@@ -633,8 +634,9 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "#1a2035",
-                      border: "0.5px solid rgba(255,255,255,0.11)",
+                      background: "var(--modal-bg)",
+                      color: "var(--t1)",
+                      border: "0.5px solid var(--glass-border)",
                       borderRadius: 10,
                       fontSize: 11,
                     }}
@@ -665,7 +667,7 @@ export default function DashboardPage() {
                   data={s?.revenueByMonth ?? []}
                   margin={{ top: 4, right: 4, left: -24, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--glass-border)" />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: T3 }} />
                   <YAxis
                     tick={{ fontSize: 10, fill: T3 }}
@@ -673,8 +675,9 @@ export default function DashboardPage() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "#1a2035",
-                      border: "0.5px solid rgba(255,255,255,0.11)",
+                      background: "var(--modal-bg)",
+                      color: "var(--t1)",
+                      border: "0.5px solid var(--glass-border)",
                       borderRadius: 10,
                       fontSize: 11,
                     }}
@@ -772,8 +775,9 @@ export default function DashboardPage() {
                     />
                     <Tooltip
                       contentStyle={{
-                        background: "#1a2035",
-                        border: "0.5px solid rgba(255,255,255,0.11)",
+                        background: "var(--modal-bg)",
+                      color: "var(--t1)",
+                        border: "0.5px solid var(--glass-border)",
                         borderRadius: 10,
                         fontSize: 11,
                       }}

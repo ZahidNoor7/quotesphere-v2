@@ -238,12 +238,12 @@ export default function GeneralSettingsPage() {
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={lbl}>Number patterns</label>
           <div style={{ fontSize: 11, color: "var(--t3)", marginBottom: 8, lineHeight: 1.6 }}>
-            Tokens: <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}"}</code>{" "}
-            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{YYYY}"}</code>{" "}
-            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{YY}"}</code>{" "}
-            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{MM}"}</code>{" "}
-            <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{seq:5}"}</code>{" "}
-            — leave blank for <code style={{ background: "rgba(255,255,255,0.06)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}-{seq:5}"}</code>
+            Tokens: <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}"}</code>{" "}
+            <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{YYYY}"}</code>{" "}
+            <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{YY}"}</code>{" "}
+            <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{MM}"}</code>{" "}
+            <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{seq:5}"}</code>{" "}
+            — leave blank for <code style={{ background: "var(--glass)", padding: "1px 5px", borderRadius: 4 }}>{"{prefix}-{seq:5}"}</code>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <div>

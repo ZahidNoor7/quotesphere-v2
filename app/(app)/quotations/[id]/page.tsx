@@ -53,7 +53,7 @@ export default function QuotationDetailPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <style>{`
         @keyframes shimmer { from { background-position: -600px 0 } to { background-position: 600px 0 } }
-        .sk { border-radius: 5px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; }
+        .sk { border-radius: 5px; background: linear-gradient(90deg, var(--glass) 25%, var(--glass-hover) 50%, var(--glass) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; }
       `}</style>
       {/* Topbar skeleton */}
       <div style={{ ...TOPBAR_STYLE }}>
@@ -78,12 +78,12 @@ export default function QuotationDetailPage() {
               <div className="sk" style={{ width: 80, height: 14 }} />
             </div>
             {/* Table header */}
-            <div style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "7px 12px", background: "rgba(255,255,255,0.025)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "7px 12px", background: "var(--glass)" }}>
               {[140, 40, 50, 50].map((w, i) => <div key={i} className="sk" style={{ width: w, height: 10, justifySelf: i === 0 ? "start" : "end" }} />)}
             </div>
             {/* Rows */}
             {[75, 55, 90, 60].map((w, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", alignItems: "center" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", alignItems: "center" }}>
                 <div className="sk" style={{ width: w + "%", height: 12 }} />
                 <div className="sk" style={{ width: 28, height: 12, justifySelf: "end" }} />
                 <div className="sk" style={{ width: 52, height: 12, justifySelf: "end" }} />
@@ -258,7 +258,7 @@ export default function QuotationDetailPage() {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 360 }}>
                   <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <tr style={{ background: "var(--glass)" }}>
                       {["Description", "Qty", "Rate", "Total"].map(h => (
                         <th key={h} style={{ padding: "7px 12px", textAlign: h !== "Description" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                       ))}
@@ -267,10 +267,10 @@ export default function QuotationDetailPage() {
                   <tbody>
                     {quotation.items.map((item, i) => (
                       <tr key={i}>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 500 }}>{item.name}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T2, textAlign: "right" }}>{item.quantity}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, quotation.currency)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, quotation.currency)}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, quotation.currency)}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, quotation.currency)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -384,7 +384,7 @@ export default function QuotationDetailPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: `0.5px solid ${GLASS_BORDER}`, fontSize: 11.5, color: T3, display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, fontSize: 11.5, color: T3, display: "flex", flexDirection: "column", gap: 3 }}>
               <div>✓ Client info and all line items will be carried over</div>
               <div>✓ Quotation will be marked as <strong style={{ color: AC2 }}>Invoiced</strong></div>
               <div>✓ Bidirectional link stored between both documents</div>

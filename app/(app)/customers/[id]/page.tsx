@@ -71,7 +71,7 @@ export default function CustomerDetailPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <style>{`.cust-detail-row:hover td { background: rgba(255,255,255,0.03); }`}</style>
+      <style>{`.cust-detail-row:hover td { background: var(--glass-hover); }`}</style>
       <div style={TOPBAR_STYLE}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <Link href="/customers" style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 100, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 11.5, textDecoration: "none", flexShrink: 0 }}>
@@ -166,7 +166,7 @@ export default function CustomerDetailPage() {
             ) : isMobile ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {invoices.map((inv: Invoice, i) => (
-                  <div key={inv._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div key={inv._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid var(--glass-border)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{inv.invoice_no}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(inv.total_amount, inv.currency)}</span>
@@ -187,7 +187,7 @@ export default function CustomerDetailPage() {
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <tr style={{ background: "var(--glass)" }}>
                     {["Invoice","Date","Amount","Outstanding","Status",""].map(h => (
                       <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 10.5, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                     ))}
@@ -198,14 +198,14 @@ export default function CustomerDetailPage() {
                     <tr key={inv._id}
                       className="cust-detail-row"
                     >
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: AC2, fontWeight: 500 }}>{inv.invoice_no}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{formatDate(inv.issue_date)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 600 }}>{formatCurrency(inv.total_amount, inv.currency)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: inv.outstanding > 0 ? "#fbbf24" : "#34d399", fontWeight: 500 }}>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: AC2, fontWeight: 500 }}>{inv.invoice_no}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3 }}>{formatDate(inv.issue_date)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600 }}>{formatCurrency(inv.total_amount, inv.currency)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: inv.outstanding > 0 ? "#fbbf24" : "#34d399", fontWeight: 500 }}>
                         {inv.outstanding > 0 ? formatCurrency(inv.outstanding, inv.currency) : "—"}
                       </td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}><PaymentStatusBadge status={inv.payment_status} /></td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}><PaymentStatusBadge status={inv.payment_status} /></td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
                         <Link href={`/invoices/${inv._id}`} style={{ fontSize: 11.5, color: AC2, textDecoration: "none" }}>View →</Link>
                       </td>
                     </tr>
@@ -225,7 +225,7 @@ export default function CustomerDetailPage() {
             ) : isMobile ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {quotations.map((qt: Quotation, i) => (
-                  <div key={qt._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div key={qt._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid var(--glass-border)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{qt.quotation_no}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(qt.total_amount, qt.currency)}</span>
@@ -244,7 +244,7 @@ export default function CustomerDetailPage() {
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <tr style={{ background: "var(--glass)" }}>
                     {["Quotation","Date","Valid until","Amount","Status",""].map(h => (
                       <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 10.5, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                     ))}
@@ -253,12 +253,12 @@ export default function CustomerDetailPage() {
                 <tbody>
                   {quotations.map((qt: Quotation) => (
                     <tr key={qt._id}>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: AC2, fontWeight: 500 }}>{qt.quotation_no}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{formatDate(qt.issue_date)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{qt.valid_until ? formatDate(qt.valid_until) : "—"}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 600 }}>{formatCurrency(qt.total_amount, qt.currency)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}><QuotationStatusBadge status={qt.status} /></td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: AC2, fontWeight: 500 }}>{qt.quotation_no}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3 }}>{formatDate(qt.issue_date)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3 }}>{qt.valid_until ? formatDate(qt.valid_until) : "—"}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600 }}>{formatCurrency(qt.total_amount, qt.currency)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}><QuotationStatusBadge status={qt.status} /></td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
                         <Link href={`/quotations/${qt._id}`} style={{ fontSize: 11.5, color: AC2, textDecoration: "none" }}>View →</Link>
                       </td>
                     </tr>
@@ -278,7 +278,7 @@ export default function CustomerDetailPage() {
             ) : isMobile ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {expenses.map((exp: Expense, i) => (
-                  <div key={exp._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.05)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div key={exp._id} style={{ padding: "12px 14px", borderTop: i > 0 ? `0.5px solid var(--glass-border)` : "none", display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ color: AC2, fontWeight: 600, fontSize: 13, flex: 1 }}>{exp.expense_no}</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: T1 }}>{formatCurrency(exp.total_amount, exp.currency)}</span>
@@ -294,7 +294,7 @@ export default function CustomerDetailPage() {
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <tr style={{ background: "var(--glass)" }}>
                     {["Expense","Date","Vendor","Amount","Status"].map(h => (
                       <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontSize: 10.5, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                     ))}
@@ -303,11 +303,11 @@ export default function CustomerDetailPage() {
                 <tbody>
                   {expenses.map((exp: Expense) => (
                     <tr key={exp._id}>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: AC2, fontWeight: 500 }}>{exp.expense_no}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3 }}>{formatDate(exp.bill_date)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T2 }}>{exp.vendor_name || "—"}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 600 }}>{formatCurrency(exp.total_amount, exp.currency)}</td>
-                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}><ExpenseStatusBadge status={exp.status} /></td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: AC2, fontWeight: 500 }}>{exp.expense_no}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3 }}>{formatDate(exp.bill_date)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2 }}>{exp.vendor_name || "—"}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600 }}>{formatCurrency(exp.total_amount, exp.currency)}</td>
+                      <td style={{ padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)" }}><ExpenseStatusBadge status={exp.status} /></td>
                     </tr>
                   ))}
                 </tbody>

@@ -84,7 +84,7 @@ function CurrencyRow({
     <div
       style={{
         padding: "12px 14px",
-        background: isEnabled ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+        background: isEnabled ? "var(--glass)" : "transparent",
         transition: "background 0.15s",
         opacity: isEnabled ? 1 : 0.55,
       }}
@@ -114,7 +114,7 @@ function CurrencyRow({
         {/* Rate pill */}
         <div style={{
           fontSize: 11, color: T2,
-          background: "rgba(255,255,255,0.05)",
+          background: "var(--glass)",
           border: `0.5px solid ${GLASS_BORDER}`,
           borderRadius: 100, padding: "3px 10px",
           flexShrink: 0,
@@ -139,7 +139,7 @@ function CurrencyRow({
           title={isBase ? "Base currency cannot be toggled" : !canDisable && isEnabled ? "At least one currency must remain enabled" : ""}
           style={{
             width: 34, height: 19, borderRadius: 100,
-            background: isEnabled ? "#6366f1" : "rgba(255,255,255,0.1)",
+            background: isEnabled ? "var(--accent)" : "var(--glass-border-strong)",
             position: "relative",
             cursor: isBase || (!canDisable && isEnabled) ? "not-allowed" : "pointer",
             transition: "background 0.2s",
@@ -177,7 +177,7 @@ function CurrencyRow({
                   style={{
                     fontSize: 10, padding: "2px 7px", borderRadius: 100,
                     border: `0.5px solid ${isActive ? "rgba(99,102,241,0.6)" : GLASS_BORDER}`,
-                    background: isActive ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
+                    background: isActive ? "rgba(99,102,241,0.2)" : "var(--glass)",
                     color: isActive ? "#818cf8" : T3,
                     cursor: "pointer", fontWeight: isActive ? 600 : 400,
                   }}

@@ -105,7 +105,7 @@ function AuditRow({ entry }: { entry: any }) {
       {/* Expandable diff / snapshot */}
       {expanded && (hasDiff || hasSnapshot) && (
         <tr>
-          <td colSpan={6} style={{ padding: "10px 16px 14px", background: "rgba(255,255,255,0.015)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
+          <td colSpan={6} style={{ padding: "10px 16px 14px", background: "var(--glass)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
             {hasDiff ? (
               <DiffView before={entry.before} after={entry.after} />
             ) : entry.action === "create" ? (

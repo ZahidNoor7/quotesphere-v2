@@ -166,7 +166,7 @@ export default function ExpenseViewPage() {
                       key={i}
                       style={{
                         padding: "10px 12px",
-                        borderTop: i > 0 ? `0.5px solid rgba(255,255,255,0.04)` : "none",
+                        borderTop: i > 0 ? `0.5px solid var(--glass-border)` : "none",
                         display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10,
                       }}
                     >
@@ -191,7 +191,7 @@ export default function ExpenseViewPage() {
                     gap: 5, padding: "6px 10px",
                     fontSize: 9.5, fontWeight: 500, letterSpacing: "0.05em",
                     textTransform: "uppercase", color: T3,
-                    background: "rgba(255,255,255,0.025)",
+                    background: "var(--glass)",
                   }}>
                     <span>Description</span>
                     <span style={{ textAlign: "center" }}>Qty</span>
@@ -204,7 +204,7 @@ export default function ExpenseViewPage() {
                       style={{
                         display: "grid", gridTemplateColumns: "3fr 52px 85px 75px",
                         gap: 5, padding: "8px 10px",
-                        borderTop: `0.5px solid rgba(255,255,255,0.04)`,
+                        borderTop: `0.5px solid var(--glass-border)`,
                         alignItems: "center",
                       }}
                     >
@@ -223,7 +223,7 @@ export default function ExpenseViewPage() {
               )}
 
               {/* Totals */}
-              <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "rgba(255,255,255,0.015)", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "var(--glass)", display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: T2 }}>
                   <span>Subtotal</span>
                   <span>{formatCurrency(expense.sub_total, expense.currency)}</span>

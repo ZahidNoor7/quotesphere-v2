@@ -64,7 +64,7 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "bg-[rgba(99,102,241,0.2)] text-[var(--accent2)] border border-[rgba(99,102,241,0.3)] px-[9px] py-[3px] text-[10.5px]",
-        secondary: "bg-[rgba(180,190,255,0.08)] text-[rgba(180,190,255,0.55)] border border-[rgba(180,190,255,0.12)] px-[9px] py-[3px] text-[10.5px]",
+        secondary: "bg-[var(--glass)] text-[var(--t2)] border border-[var(--glass-border)] px-[9px] py-[3px] text-[10.5px]",
         destructive: "bg-[rgba(248,113,113,0.15)] text-[#fca5a5] border border-[rgba(248,113,113,0.25)] px-[9px] py-[3px] text-[10.5px]",
         outline: "bg-transparent border border-[var(--glass-border)] text-[var(--t2)] px-[9px] py-[3px] text-[10.5px]",
         success: "bg-[rgba(52,211,153,0.15)] text-[#6ee7b7] border border-[rgba(52,211,153,0.25)] px-[9px] py-[3px] text-[10.5px]",
@@ -72,7 +72,7 @@ const badgeVariants = cva(
         info: "bg-[rgba(96,165,250,0.15)] text-[#93c5fd] border border-[rgba(96,165,250,0.25)] px-[9px] py-[3px] text-[10.5px]",
         purple: "bg-[rgba(167,139,250,0.15)] text-[#c4b5fd] border border-[rgba(167,139,250,0.25)] px-[9px] py-[3px] text-[10.5px]",
         teal: "bg-[rgba(45,212,191,0.15)] text-[#5eead4] border border-[rgba(45,212,191,0.25)] px-[9px] py-[3px] text-[10.5px]",
-        muted: "bg-[rgba(180,190,255,0.07)] text-[var(--t3)] border border-[rgba(180,190,255,0.1)] px-[9px] py-[3px] text-[10.5px]",
+        muted: "bg-[var(--glass)] text-[var(--t3)] border border-[var(--glass-border)] px-[9px] py-[3px] text-[10.5px]",
       },
     },
     defaultVariants: { variant: "default" },

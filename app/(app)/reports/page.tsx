@@ -54,7 +54,7 @@ function DateRangeRow({
 }) {
   const hasValue = from || to;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "10px 12px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "0.5px solid var(--glass-border)" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "10px 12px", background: "var(--glass)", borderRadius: 8, border: "0.5px solid var(--glass-border)" }}>
       <span style={{ fontSize: 11.5, color: T3, fontWeight: 500, flexShrink: 0, minWidth: 72 }}>{label}</span>
       <DatePickerInput value={from} onChange={onFromChange} placeholder="From" />
       <span style={{ color: T3, fontSize: 12, flexShrink: 0 }}>—</span>
@@ -97,13 +97,13 @@ function PresetPills({
             style={{
               padding: "6px 12px", borderRadius: 100, fontSize: 11.5, cursor: "pointer",
               minHeight: 32, transition: "all 0.15s",
-              background: isActive ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.04)",
+              background: isActive ? "rgba(99,102,241,0.2)" : "var(--glass)",
               color: isActive ? AC2 : T3,
               border: `0.5px solid ${isActive ? "rgba(99,102,241,0.4)" : "var(--glass-border)"}`,
               fontWeight: isActive ? 600 : 400,
             }}
-            onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = T2; } }}
-            onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; (e.currentTarget as HTMLElement).style.color = T3; } }}
+            onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--glass-hover)"; (e.currentTarget as HTMLElement).style.color = T2; } }}
+            onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.background = "var(--glass)"; (e.currentTarget as HTMLElement).style.color = T3; } }}
           >
             {label}
           </button>
@@ -126,7 +126,7 @@ function ExportRow({ label, sub, icon, accentColor, onCsv, isLast }: ExportRowPr
         display: "flex", alignItems: "center", gap: 10, padding: "11px 10px",
         borderBottom: isLast ? "none" : "0.5px solid var(--glass-border)",
         borderRadius: isLast ? "0 0 6px 6px" : 0,
-        background: hover ? "rgba(255,255,255,0.02)" : "transparent",
+        background: hover ? "var(--glass-hover)" : "transparent",
         transition: "background 0.15s",
         cursor: "default",
       }}
@@ -252,7 +252,7 @@ function ClientPicker({ customers, value, onChange }: {
               key={c._id}
               type="button"
               onClick={() => { onChange(c._id); setSearch(""); setOpen(false); }}
-              style={{ width: "100%", padding: "9px 14px", textAlign: "left", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 1, borderBottom: `0.5px solid rgba(255,255,255,0.04)` }}
+              style={{ width: "100%", padding: "9px 14px", textAlign: "left", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 1, borderBottom: `0.5px solid var(--glass-border)` }}
               onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.1)")}
               onMouseLeave={e => (e.currentTarget.style.background = "none")}
             >
@@ -490,7 +490,7 @@ export default function ReportsPage() {
                 />
               </div>
             ) : (
-              <div style={{ marginTop: 12, padding: "12px 14px", background: "rgba(255,255,255,0.02)", border: "0.5px dashed var(--glass-border)", borderRadius: 8, textAlign: "center" }}>
+              <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--glass)", border: "0.5px dashed var(--glass-border)", borderRadius: 8, textAlign: "center" }}>
                 <div style={{ fontSize: 12, color: T3 }}>Search and select a client above to generate their account statement.</div>
               </div>
             )}
@@ -535,9 +535,9 @@ export default function ReportsPage() {
                 <Link
                   key={href}
                   href={href}
-                  style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `0.5px solid ${GLASS_BORDER}`, transition: "all 0.15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = `${color}44`; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = GLASS_BORDER; }}
+                  style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 12, padding: "11px 14px", borderRadius: 10, background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, transition: "all 0.15s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--glass-hover)"; (e.currentTarget as HTMLElement).style.borderColor = `${color}44`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "var(--glass)"; (e.currentTarget as HTMLElement).style.borderColor = GLASS_BORDER; }}
                 >
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, border: `0.5px solid ${color}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {icon}

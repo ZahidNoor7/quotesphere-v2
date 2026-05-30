@@ -113,7 +113,7 @@ const MobileExpItemCard = memo(function MobileExpItemCard({
               ? "none"
               : "0.5px solid rgba(248,113,113,0.25)",
             cursor: disableRemove ? "default" : "pointer",
-            color: disableRemove ? "rgba(255,255,255,0.15)" : "#f87171",
+            color: disableRemove ? "var(--glass-border-strong)" : "#f87171",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -215,7 +215,7 @@ const MobileExpItemCard = memo(function MobileExpItemCard({
           alignItems: "center",
           marginTop: 10,
           paddingTop: 8,
-          borderTop: "0.5px solid rgba(255,255,255,0.06)",
+          borderTop: "0.5px solid var(--glass-border)",
         }}
       >
         <span
@@ -642,7 +642,7 @@ export default function NewExpensePage() {
                     letterSpacing: "0.05em",
                     textTransform: "uppercase",
                     color: T3,
-                    background: "rgba(255,255,255,0.025)",
+                    background: "var(--glass)",
                   }}
                 >
                   <span>Description</span>
@@ -659,7 +659,7 @@ export default function NewExpensePage() {
                       gridTemplateColumns: "3fr 52px 85px 75px 26px",
                       gap: 5,
                       padding: "6px 10px",
-                      borderTop: `0.5px solid rgba(255,255,255,0.04)`,
+                      borderTop: `0.5px solid var(--glass-border)`,
                       alignItems: "center",
                     }}
                   >
@@ -738,7 +738,7 @@ export default function NewExpensePage() {
                         border: "none",
                         cursor: "pointer",
                         color:
-                          items.length === 1 ? "rgba(255,255,255,0.1)" : T3,
+                          items.length === 1 ? "var(--glass-border-strong)" : T3,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -767,7 +767,7 @@ export default function NewExpensePage() {
                 borderRadius: 10,
                 border: `0.5px solid ${GLASS_BORDER}`,
                 padding: "10px 14px",
-                background: "rgba(255,255,255,0.015)",
+                background: "var(--glass)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 6,

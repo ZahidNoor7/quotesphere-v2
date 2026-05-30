@@ -25,7 +25,12 @@ export const GET = withLog("GET /api/services", async (req: NextRequest) => {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category") || "";
-    const query: any = { is_active: true };
+    const status = searchParams.get("status") || "active";
+    const query: any = {};
+    // `status` is compared against fixed literals — never interpolated into the query.
+    if (status === "active") query.is_active = true;
+    else if (status === "inactive") query.is_active = false;
+    // status === "all" → no is_active constraint
     if (search) query.$text = { $search: search };
     if (category) query.category = category;
     const data = await Service.find(query).sort({ category: 1, name: 1 }).lean();

@@ -60,7 +60,7 @@ export default function InvoiceDetailPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <style>{`
         @keyframes shimmer { from { background-position: -600px 0 } to { background-position: 600px 0 } }
-        .sk { border-radius: 5px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; }
+        .sk { border-radius: 5px; background: linear-gradient(90deg, var(--glass) 25%, var(--glass-hover) 50%, var(--glass) 75%); background-size: 600px 100%; animation: shimmer 1.4s infinite linear; }
       `}</style>
       {/* Topbar skeleton */}
       <div style={{ ...TOPBAR_STYLE }}>
@@ -101,11 +101,11 @@ export default function InvoiceDetailPage() {
             <div style={{ padding: "12px 16px 10px" }}>
               <div className="sk" style={{ width: 72, height: 14 }} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "7px 12px", background: "rgba(255,255,255,0.025)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "7px 12px", background: "var(--glass)" }}>
               {[140, 40, 50, 50].map((w, i) => <div key={i} className="sk" style={{ width: w, height: 10, justifySelf: i === 0 ? "start" : "end" }} />)}
             </div>
             {[70, 50, 85, 60].map((w, i) => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", alignItems: "center" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 60px 90px 90px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", alignItems: "center" }}>
                 <div className="sk" style={{ width: w + "%", height: 12 }} />
                 <div className="sk" style={{ width: 28, height: 12, justifySelf: "end" }} />
                 <div className="sk" style={{ width: 52, height: 12, justifySelf: "end" }} />
@@ -131,11 +131,11 @@ export default function InvoiceDetailPage() {
               <div className="sk" style={{ width: 110, height: 14 }} />
               <div className="sk" style={{ width: 68, height: 20, borderRadius: 100 }} />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "7px 12px", background: "rgba(255,255,255,0.025)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "7px 12px", background: "var(--glass)" }}>
               {[50, 70, 50, 50, 0].map((w, i) => w ? <div key={i} className="sk" style={{ width: w, height: 10 }} /> : <span key={i} />)}
             </div>
             {[1, 2].map(i => (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", alignItems: "center" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 1fr 80px 80px 40px", gap: 8, padding: "10px 12px", borderTop: "0.5px solid var(--glass-border)", alignItems: "center" }}>
                 <div className="sk" style={{ width: 60, height: 11 }} />
                 <div className="sk" style={{ width: "60%", height: 11 }} />
                 <div className="sk" style={{ width: 56, height: 18, borderRadius: 100 }} />
@@ -268,7 +268,7 @@ export default function InvoiceDetailPage() {
               <span style={{ fontSize: 12, color: T3 }}>Collection progress</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: T1 }}>{Math.round(paidPct)}%</span>
             </div>
-            <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden", marginBottom: 14 }}>
+            <div style={{ height: 4, background: "var(--glass)", borderRadius: 4, overflow: "hidden", marginBottom: 14 }}>
               <div style={{ height: "100%", borderRadius: 4, transition: "width 0.5s", width: `${paidPct}%`, background: paidPct === 100 ? "#34d399" : paidPct > 50 ? "#6366f1" : "#fbbf24" }} />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", textAlign: "center" }}>
@@ -290,7 +290,7 @@ export default function InvoiceDetailPage() {
             <div style={{ padding: "12px 16px 8px", fontSize: 12, fontWeight: 500, color: T1 }}>Line items</div>
             <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 360 }}>
               <thead>
-                <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                <tr style={{ background: "var(--glass)" }}>
                   {["Description", "Qty", "Rate", "Total"].map(h => (
                     <th key={h} style={{ padding: "7px 12px", textAlign: h === "Qty" || h === "Rate" || h === "Total" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                   ))}
@@ -299,10 +299,10 @@ export default function InvoiceDetailPage() {
               <tbody>
                 {invoice.items.map((item, i) => (
                   <tr key={i}>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T2, textAlign: "right" }}>{item.quantity}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, invoice.currency)}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, invoice.currency)}</td>
+                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
+                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
+                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, invoice.currency)}</td>
+                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, invoice.currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -321,7 +321,7 @@ export default function InvoiceDetailPage() {
           <div style={CARD}>
             <div style={{ padding: "12px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: 12, fontWeight: 500, color: T1 }}>Payment ledger</span>
-              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: invoice.payments.length === 0 ? "rgba(255,255,255,0.05)" : "rgba(99,102,241,0.15)", color: invoice.payments.length === 0 ? T3 : AC2, border: `0.5px solid ${invoice.payments.length === 0 ? GLASS_BORDER : "rgba(99,102,241,0.3)"}` }}>
+              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: invoice.payments.length === 0 ? "var(--glass)" : "rgba(99,102,241,0.15)", color: invoice.payments.length === 0 ? T3 : AC2, border: `0.5px solid ${invoice.payments.length === 0 ? GLASS_BORDER : "rgba(99,102,241,0.3)"}` }}>
                 {invoice.payments.length} payment{invoice.payments.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -337,7 +337,7 @@ export default function InvoiceDetailPage() {
               <>
                 <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 500 }}>
                   <thead>
-                    <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                    <tr style={{ background: "var(--glass)" }}>
                       {["Date", "Description / Ref", "Method", "Amount", ""].map(h => (
                         <th key={h} style={{ padding: "7px 12px", textAlign: h === "Amount" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                       ))}
@@ -346,19 +346,19 @@ export default function InvoiceDetailPage() {
                   <tbody>
                     {invoice.payments.map((p, i) => (
                       <tr key={p._id || i}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = "rgba(255,255,255,0.02)"))}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = "var(--glass-hover)"))}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = ""))}
                       >
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: T3, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
                           <div style={{ fontSize: 12, fontWeight: 500, color: T2 }}>{p.note || "Payment received"}</div>
                           {p.reference && <div style={{ fontSize: 10.5, color: T3 }}>Ref: {p.reference}</div>}
                         </td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
-                          <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 100, background: "rgba(255,255,255,0.06)", color: T2, border: `0.5px solid ${GLASS_BORDER}`, textTransform: "capitalize" }}>{p.method.replace("_", " ")}</span>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
+                          <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 100, background: "var(--glass)", color: T2, border: `0.5px solid ${GLASS_BORDER}`, textTransform: "capitalize" }}>{p.method.replace("_", " ")}</span>
                         </td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)", color: "#34d399", fontWeight: 600, textAlign: "right" }}>+{formatCurrency(p.amount, invoice.currency)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid rgba(255,255,255,0.05)" }}>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: "#34d399", fontWeight: 600, textAlign: "right" }}>+{formatCurrency(p.amount, invoice.currency)}</td>
+                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
                           <div style={{ display: "flex", gap: 4 }}>
                             <button onClick={() => setReceiptPayment(p)} style={{ ...ICON_PILL, width: 22, height: 22 }}
                               title="Print receipt"
@@ -379,7 +379,7 @@ export default function InvoiceDetailPage() {
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                    <tr style={{ background: "var(--glass)" }}>
                       <td colSpan={3} style={{ padding: "8px 12px", fontSize: 11, fontWeight: 500, color: T2 }}>Remaining balance</td>
                       <td colSpan={2} style={{ padding: "8px 12px", textAlign: "right", fontSize: 13, fontWeight: 700, color: invoice.outstanding === 0 ? "#34d399" : "#fbbf24" }}>
                         {invoice.outstanding === 0 ? "✓ Paid in full" : formatCurrency(invoice.outstanding, invoice.currency)}

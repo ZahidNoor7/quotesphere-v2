@@ -100,7 +100,7 @@ export function DashboardSkeleton() {
             <div style={{ padding: "0 16px 14px" }}>
               <div
                 className="grid grid-cols-4 gap-2 mb-2 pb-2"
-                style={{ borderBottom: "0.5px solid rgba(255,255,255,0.05)" }}
+                style={{ borderBottom: "0.5px solid var(--glass-border)" }}
               >
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-3" />
@@ -111,7 +111,7 @@ export function DashboardSkeleton() {
                   key={i}
                   className="grid grid-cols-4 gap-2 items-center"
                   style={{
-                    borderTop: "0.5px solid rgba(255,255,255,0.05)",
+                    borderTop: "0.5px solid var(--glass-border)",
                     paddingTop: 8,
                     marginTop: 2,
                   }}

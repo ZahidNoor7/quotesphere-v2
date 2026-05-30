@@ -65,7 +65,7 @@ export default function DocumentSettingsPage() {
                 <span style={{ fontSize: 7, fontWeight: 700, color: p.text }}>Company</span>
                 <span style={{ fontSize: 9, fontWeight: 800, color: p.text }}>INV</span>
               </div>
-              <div style={{ padding: "5px 8px 7px", background: "rgba(255,255,255,0.025)" }}>
+              <div style={{ padding: "5px 8px 7px", background: "var(--glass)" }}>
                 <div style={{ fontSize: isMobile ? 9.5 : 10.5, fontWeight: 500, color: T1 }}>{p.name}</div>
                 <div style={{ fontSize: 9, color: T3 }}>{p.tag}</div>
               </div>

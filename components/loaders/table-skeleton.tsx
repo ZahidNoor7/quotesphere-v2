@@ -21,8 +21,8 @@ export function TableSkeleton({ rows = 7, cols = 5 }: TableSkeletonProps) {
           display: "flex",
           gap: 8,
           padding: "10px 12px",
-          background: "rgba(255,255,255,0.03)",
-          borderBottom: "0.5px solid rgba(255,255,255,0.05)",
+          background: "var(--glass)",
+          borderBottom: "0.5px solid var(--glass-border)",
         }}
       >
         {Array.from({ length: cols }).map((_, i) => (
@@ -42,7 +42,7 @@ export function TableSkeleton({ rows = 7, cols = 5 }: TableSkeletonProps) {
             display: "flex",
             gap: 8,
             padding: "11px 12px",
-            borderTop: "0.5px solid rgba(255,255,255,0.04)",
+            borderTop: "0.5px solid var(--glass-border)",
           }}
         >
           {Array.from({ length: cols }).map((_, c) => (

@@ -107,7 +107,7 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="5" y="5" width="8" height="8" rx="1.5" /><path d="M3 11V3h8" /></svg>
         </button>
         <button onClick={() => onRemove(item.id)} disabled={disableRemove}
-          style={{ width: 26, height: 26, borderRadius: 7, background: disableRemove ? "none" : "rgba(248,113,113,0.1)", border: disableRemove ? "none" : "0.5px solid rgba(248,113,113,0.25)", cursor: disableRemove ? "default" : "pointer", color: disableRemove ? "rgba(255,255,255,0.15)" : "#f87171", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+          style={{ width: 26, height: 26, borderRadius: 7, background: disableRemove ? "none" : "rgba(248,113,113,0.1)", border: disableRemove ? "none" : "0.5px solid rgba(248,113,113,0.25)", cursor: disableRemove ? "default" : "pointer", color: disableRemove ? "var(--glass-border-strong)" : "#f87171", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
           <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 3l10 10M13 3L3 13" /></svg>
         </button>
       </div>
@@ -150,7 +150,7 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
         </div>
       </div>
       {/* Total row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: "0.5px solid rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, paddingTop: 8, borderTop: "0.5px solid var(--glass-border)" }}>
         <span style={{ fontSize: 10, color: T3, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>Total</span>
         <span style={{ fontSize: 15, fontWeight: 700, color: T1 }}>{formatCurrency(localTotal, currency)}</span>
       </div>
@@ -185,7 +185,7 @@ function CatalogQuickAdd({
     <div style={{ padding: "10px 16px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T3 }}>Quick-add from catalog</span>
-        <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.04)", borderRadius: 100, padding: 2 }}>
+        <div style={{ display: "flex", gap: 2, background: "var(--glass)", borderRadius: 100, padding: 2 }}>
           {services.length > 0 && <button style={tabStyle(tab === "services")} onClick={() => setTab("services")}>Services</button>}
           {products.length > 0 && <button style={tabStyle(tab === "products")} onClick={() => setTab("products")}>Products</button>}
         </div>
@@ -702,7 +702,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       const isActive = activeDesign?.id === d.id;
                       return (
                         <button key={d.id} onClick={() => selectDesign(d.id)}
-                          style={{ border: `1px solid ${isActive ? "#818cf8" : GLASS_BORDER}`, borderRadius: 6, overflow: "hidden", cursor: "pointer", background: isActive ? "rgba(99,102,241,0.1)" : "rgba(255,255,255,0.03)", transition: "all 0.15s", padding: 0, textAlign: "left" }}
+                          style={{ border: `1px solid ${isActive ? "#818cf8" : GLASS_BORDER}`, borderRadius: 6, overflow: "hidden", cursor: "pointer", background: isActive ? "rgba(99,102,241,0.1)" : "var(--glass)", transition: "all 0.15s", padding: 0, textAlign: "left" }}
                         >
                           <div style={{ height: 32, background: meta.bg, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 7px" }}>
                             <span style={{ fontSize: 7, fontWeight: 700, color: meta.text }}>Co.</span>
@@ -746,14 +746,14 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 {/* ··· more menu */}
                 <div style={{ position: "relative" }} ref={moreMenuRef}>
                   <button onClick={() => setShowMoreMenu(v => !v)} title="More actions"
-                    style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: showMoreMenu ? "rgba(255,255,255,0.1)" : GLASS, border: `0.5px solid ${showMoreMenu ? "rgba(255,255,255,0.2)" : GLASS_BORDER}`, color: T2, cursor: "pointer", transition: "all 0.15s", flexShrink: 0 }}>
+                    style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: showMoreMenu ? "var(--glass-hover)" : GLASS, border: `0.5px solid ${showMoreMenu ? "var(--glass-border-strong)" : GLASS_BORDER}`, color: T2, cursor: "pointer", transition: "all 0.15s", flexShrink: 0 }}>
                     <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                   </button>
                   {showMoreMenu && (
                     <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 168, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                       <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                         style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
@@ -761,7 +761,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       </button>
                       <button onClick={() => { setShowSaveTemplate(true); setShowMoreMenu(false); }}
                         style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                        onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                       >
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
@@ -787,14 +787,14 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
               </Button>
               <div style={{ position: "relative" }} ref={moreMenuRef}>
                 <button onClick={() => setShowMoreMenu(v => !v)} title="More actions"
-                  style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: showMoreMenu ? "rgba(255,255,255,0.1)" : GLASS, border: `0.5px solid ${showMoreMenu ? "rgba(255,255,255,0.2)" : GLASS_BORDER}`, color: T2, cursor: "pointer", transition: "all 0.15s", flexShrink: 0 }}>
+                  style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: showMoreMenu ? "var(--glass-hover)" : GLASS, border: `0.5px solid ${showMoreMenu ? "var(--glass-border-strong)" : GLASS_BORDER}`, color: T2, cursor: "pointer", transition: "all 0.15s", flexShrink: 0 }}>
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
                 </button>
                 {showMoreMenu && (
                   <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 168, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
                     <button onClick={() => { handleSubmit("draft"); setShowMoreMenu(false); }}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                      onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
                       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
@@ -802,7 +802,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     </button>
                     <button onClick={() => { setShowSaveTemplate(true); setShowMoreMenu(false); }}
                       style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 5, background: "transparent", border: "none", color: T2, fontSize: 12, cursor: "pointer", transition: "background 0.15s", textAlign: "left" as const }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                      onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
                       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                     >
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
@@ -854,7 +854,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 <div style={{ position: "relative" }} ref={clientDropRef}>
                   {customerId && (customers as Customer[]).find(c => c._id === customerId) ? (
                     /* Selected state: show chip */
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(255,255,255,0.06)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 7 }} onClick={() => setClientError(false)}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 7 }} onClick={() => setClientError(false)}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 500, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {(customers as Customer[]).find(c => c._id === customerId)?.name}
@@ -891,7 +891,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       {filteredCustomers.slice(0, 20).map(c => (
                         <button key={c._id}
                           onClick={() => { setCustomerId(c._id); setClientSearch(c.name); setShowClientDrop(false); setClientError(false); }}
-                          style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 1, borderBottom: `0.5px solid rgba(255,255,255,0.04)` }}
+                          style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 1, borderBottom: `0.5px solid var(--glass-border)` }}
                           onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.1)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "none")}
                         >
@@ -904,7 +904,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       )}
                       <button
                         onClick={() => { setShowClientDrop(false); setCreateForm(p => ({ ...p, name: clientSearch })); setShowCreateClient(true); }}
-                        style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "rgba(52,211,153,0.06)", border: "none", borderTop: filteredCustomers.length > 0 ? `0.5px solid rgba(255,255,255,0.06)` : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#34d399", fontSize: 11 }}
+                        style={{ width: "100%", padding: "8px 12px", textAlign: "left", background: "rgba(52,211,153,0.06)", border: "none", borderTop: filteredCustomers.length > 0 ? `0.5px solid var(--glass-border)` : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, color: "#34d399", fontSize: 11 }}
                         onMouseEnter={e => (e.currentTarget.style.background = "rgba(52,211,153,0.14)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "rgba(52,211,153,0.06)")}
                       >
@@ -1021,7 +1021,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             ) : (
               /* ── Desktop: table header + rows ── */
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "5px 10px", fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "rgba(255,255,255,0.025)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "5px 10px", fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "var(--glass)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
                   <span /><span>Description</span>
                   <span style={{ textAlign: "center" }}>Qty</span>
                   <span style={{ textAlign: "right" }}>Price</span>
@@ -1038,7 +1038,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     style={{
                       display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "6px 10px",
-                      borderBottom: `0.5px solid rgba(255,255,255,0.04)`, alignItems: "center",
+                      borderBottom: `0.5px solid var(--glass-border)`, alignItems: "center",
                       background: dragOverIdx === idx && dragIdx !== idx ? "rgba(99,102,241,0.12)" : dragIdx === idx ? "rgba(99,102,241,0.06)" : "transparent",
                       opacity: dragIdx === idx ? 0.55 : 1, transition: "background 0.1s",
                     }}
@@ -1081,7 +1081,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                         <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="5" y="5" width="8" height="8" rx="1.5" /><path d="M3 11V3h8" /></svg>
                       </button>
                       <button onClick={() => removeItem(item.id)} disabled={items.length === 1} title="Remove"
-                        style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: items.length === 1 ? "default" : "pointer", color: items.length === 1 ? "rgba(255,255,255,0.12)" : T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                        style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: items.length === 1 ? "default" : "pointer", color: items.length === 1 ? "var(--glass-border-strong)" : T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
                         <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3l10 10M13 3L3 13" /></svg>
                       </button>
                     </div>
@@ -1101,7 +1101,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
               </button>
             </div>
             {/* Totals */}
-            <div style={{ padding: "12px 16px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ padding: "12px 16px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "var(--glass)", display: "flex", flexDirection: "column", gap: 4 }}>
               {/* Adjustment inputs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8, paddingBottom: 10, borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
                 <div>
@@ -1303,7 +1303,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           }}>
             {/* Drag handle */}
             <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 6px", flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--glass-border-strong)" }} />
             </div>
             {/* Header */}
             <div style={{ padding: "0 16px 12px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1523,21 +1523,21 @@ function MoreMenuButton({ onSaveDraft, onSaveTemplate }: { onSaveDraft: () => vo
   return (
     <div style={{ position: "relative" }} ref={ref}>
       <button onClick={() => setOpen(v => !v)} title="More actions"
-        style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: open ? "rgba(255,255,255,0.1)" : "var(--glass)", border: `0.5px solid ${open ? "rgba(255,255,255,0.2)" : "var(--glass-border)"}`, color: "var(--t2)", cursor: "pointer", transition: "all 0.15s" }}>
+        style={{ width: 30, height: 30, borderRadius: 100, display: "flex", alignItems: "center", justifyContent: "center", background: open ? "var(--glass-hover)" : "var(--glass)", border: `0.5px solid ${open ? "var(--glass-border-strong)" : "var(--glass-border)"}`, color: "var(--t2)", cursor: "pointer", transition: "all 0.15s" }}>
         <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.3" /><circle cx="8" cy="8" r="1.3" /><circle cx="13" cy="8" r="1.3" /></svg>
       </button>
       {open && (
         <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 200, background: "var(--glass-surface-bg)", border: "0.5px solid var(--glass-border)", borderRadius: 8, backdropFilter: "blur(24px)", padding: 4, minWidth: 172, boxShadow: "0 8px 32px rgba(0,0,0,0.45)" }}>
           <button onClick={() => { onSaveDraft(); setOpen(false); }} style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 10V13h3l7-7-3-3-7 7z" /><path d="M11 3l2 2" /></svg>
             Save as Draft
           </button>
-          <div style={{ height: "0.5px", background: "rgba(255,255,255,0.07)", margin: "3px 4px" }} />
+          <div style={{ height: "0.5px", background: "var(--glass-border)", margin: "3px 4px" }} />
           <button onClick={() => { onSaveTemplate(); setOpen(false); }} style={itemStyle}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--glass-hover)")}
             onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M7 2v4h5"/></svg>
@@ -1614,7 +1614,7 @@ function SaveTemplateDialog({
               </SelectContent>
             </Select>
           </div>
-          <div style={{ fontSize: 11, color: "var(--t3)", padding: "8px 10px", background: "rgba(255,255,255,0.04)", borderRadius: 6, border: "0.5px solid var(--glass-border)" }}>
+          <div style={{ fontSize: 11, color: "var(--t3)", padding: "8px 10px", background: "var(--glass)", borderRadius: 6, border: "0.5px solid var(--glass-border)" }}>
             Saves {items.filter(i => i.name.trim()).length} item(s) with current tax, discount, currency, and design settings. Client info is not stored.
           </div>
         </div>

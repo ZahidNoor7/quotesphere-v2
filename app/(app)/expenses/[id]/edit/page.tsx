@@ -238,7 +238,7 @@ export default function EditExpensePage() {
                 gap: 5, padding: "6px 10px",
                 fontSize: 9.5, fontWeight: 500, letterSpacing: "0.05em",
                 textTransform: "uppercase", color: T3,
-                background: "rgba(255,255,255,0.025)",
+                background: "var(--glass)",
               }}>
                 <span>Description</span>
                 <span style={{ textAlign: "center" }}>Qty</span>
@@ -252,7 +252,7 @@ export default function EditExpensePage() {
                   style={{
                     display: "grid", gridTemplateColumns: "3fr 52px 85px 75px 26px",
                     gap: 5, padding: "6px 10px",
-                    borderTop: `0.5px solid rgba(255,255,255,0.04)`,
+                    borderTop: `0.5px solid var(--glass-border)`,
                     alignItems: "center",
                   }}
                 >
@@ -290,7 +290,7 @@ export default function EditExpensePage() {
                   <button
                     onClick={() => removeItem(item.id)}
                     disabled={items.length === 1}
-                    style={{ width: 22, height: 22, borderRadius: 5, background: "none", border: "none", cursor: "pointer", color: items.length === 1 ? "rgba(255,255,255,0.1)" : T3, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    style={{ width: 22, height: 22, borderRadius: 5, background: "none", border: "none", cursor: "pointer", color: items.length === 1 ? "var(--glass-border-strong)" : T3, display: "flex", alignItems: "center", justifyContent: "center" }}
                   >
                     <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                       <path d="M3 3l10 10M13 3L3 13"/>
@@ -298,7 +298,7 @@ export default function EditExpensePage() {
                   </button>
                 </div>
               ))}
-              <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "rgba(255,255,255,0.015)", display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "var(--glass)", display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: T2 }}>
                   <span>Subtotal</span><span>{formatCurrency(subTotal, currency)}</span>
                 </div>

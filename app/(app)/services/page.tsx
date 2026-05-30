@@ -1,87 +1,138 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
-import { formatCurrency } from "@/lib/utils";
-import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, GLASS_INPUT, ICON_PILL, FIELD_INPUT, CARD } from "@/lib/ds";
-import type { Service } from "@/types";
-import { ErrorState } from "@/components/shared/error-state";
+import { Plus, Pencil, Trash2, Package, FilterX } from "lucide-react";
 
-const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/dialog";
+import { SearchFilterBar, FilterSelect, SelectItem } from "@/components/custom-ui/search-filter-bar";
+import { IconAction } from "@/components/custom-ui/icon-action";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ErrorState } from "@/components/shared/error-state";
+import { ServiceSheet } from "@/components/services/service-sheet";
+
+import { formatCurrency } from "@/lib/utils";
+import { T1, T2, T3, AC2, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
+import type { Service } from "@/types";
+
+const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data as Service[]);
+
 const CATEGORIES = ["General", "Consultation", "Installation", "Repair", "Cleaning", "Inspection", "Design", "Delivery", "Other"];
 const UNITS = ["job", "hr", "day", "item", "sq ft", "m²", "kg", "piece"];
 
-function ServiceForm({ initial, onSave, onClose }: { initial?: Service; onSave: () => void; onClose: () => void }) {
-  const [form, setForm] = useState({ name: initial?.name ?? "", category: initial?.category ?? "General", description: initial?.description ?? "", default_price: initial?.default_price?.toString() ?? "", unit: initial?.unit ?? "job" });
-  const [loading, setLoading] = useState(false);
-  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+type StatusFilter = "active" | "inactive" | "all";
+type SortKey = "name-asc" | "price-desc" | "price-asc";
 
-  async function save() {
-    if (!form.name) { toast.error("Service name required."); return; }
-    setLoading(true);
-    try {
-      const res = await fetch(initial ? `/api/services/${initial._id}` : "/api/services", {
-        method: initial ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, default_price: parseFloat(form.default_price) || 0 }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      toast.success(initial ? "Updated." : "Service added."); onSave();
-    } catch (err: any) { toast.error(err.message); }
-    finally { setLoading(false); }
-  }
-
-  return (
-    <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
-        <div><label style={lbl}>Service name *</label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Site visit & assessment" /></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div><label style={lbl}>Category</label><Select value={form.category} onValueChange={v => setForm(p => ({ ...p, category: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
-          <div><label style={lbl}>Unit</label><Select value={form.unit} onValueChange={v => setForm(p => ({ ...p, unit: v }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
-        </div>
-        <div><label style={lbl}>Default price (PKR)</label><Input type="number" value={form.default_price} onChange={e => setForm(p => ({ ...p, default_price: e.target.value }))} placeholder="0" /></div>
-        <div><label style={lbl}>Description</label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description" /></div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button loading={loading} onClick={save}>{initial ? "Save changes" : "Add service"}</Button>
-      </div>
-    </>
-  );
-}
+const SORTERS: Record<SortKey, (a: Service, b: Service) => number> = {
+  "name-asc": (a, b) => a.name.localeCompare(b.name),
+  "price-desc": (a, b) => b.default_price - a.default_price,
+  "price-asc": (a, b) => a.default_price - b.default_price,
+};
 
 export default function ServicesPage() {
   const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editSvc, setEditSvc] = useState<Service | null>(null);
-  const { data: services = [], mutate, isLoading, error } = useSWR<Service[]>(`/api/services?${search ? `search=${search}` : ""}`, fetcher);
+  const [debounced, setDebounced] = useState("");
+  const [category, setCategory] = useState("all");
+  const [unit, setUnit] = useState("all");
+  const [status, setStatus] = useState<StatusFilter>("active");
+  const [sort, setSort] = useState<SortKey>("name-asc");
 
-  async function del(id: string) {
-    await fetch(`/api/services/${id}`, { method: "DELETE" });
-    toast.success("Deleted."); mutate();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editSvc, setEditSvc] = useState<Service | null>(null);
+
+  // Debounce the (server-side) text search so we don't hit $text on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const key = `/api/services?status=${status}${debounced ? `&search=${encodeURIComponent(debounced)}` : ""}`;
+  const { data: services = [], mutate, isLoading, error } = useSWR<Service[]>(key, fetcher);
+
+  const filtersActive = Boolean(debounced) || category !== "all" || unit !== "all" || status !== "active" || sort !== "name-asc";
+
+  function clearFilters() {
+    setSearch(""); setDebounced(""); setCategory("all"); setUnit("all"); setStatus("active"); setSort("name-asc");
   }
 
-  const grouped = (services as Service[]).reduce((acc: Record<string, Service[]>, s) => {
-    if (!acc[s.category]) acc[s.category] = [];
-    acc[s.category].push(s); return acc;
-  }, {});
+  // Category & unit are filtered client-side; results are grouped by category with the chosen sort applied within each group.
+  const grouped = useMemo(() => {
+    const filtered = services.filter(s =>
+      (category === "all" || s.category === category) &&
+      (unit === "all" || s.unit === unit)
+    );
+    const map = new Map<string, Service[]>();
+    for (const s of filtered) {
+      const arr = map.get(s.category) ?? [];
+      arr.push(s);
+      map.set(s.category, arr);
+    }
+    for (const arr of map.values()) arr.sort(SORTERS[sort]);
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [services, category, unit, sort]);
+
+  const visibleCount = grouped.reduce((n, [, arr]) => n + arr.length, 0);
+
+  async function del(id: string) {
+    try {
+      const res = await fetch(`/api/services/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(typeof data.error === "string" ? data.error : "Could not delete service");
+      toast.success("Service deleted.");
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete service");
+    }
+  }
+
+  function openNew() { setEditSvc(null); setSheetOpen(true); }
+  function openEdit(s: Service) { setEditSvc(s); setSheetOpen(true); }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={TOPBAR_STYLE}>
         <div style={{ fontSize: 15, fontWeight: 600, color: T1 }}>Services catalog</div>
         <div style={{ marginLeft: "auto" }}>
-          <Button onClick={() => { setEditSvc(null); setShowForm(true); }} size="sm">+ Add service</Button>
+          <Button onClick={openNew} size="sm"><Plus className="size-4" />Add service</Button>
         </div>
       </div>
 
       <div style={{ padding: "18px 20px", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 14 }}>
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search services..." style={{ maxWidth: 320, borderRadius: 100 }} />
+        {/* Filters */}
+        <SearchFilterBar search={search} onSearch={setSearch} searchPlaceholder="Search services...">
+          <FilterSelect value={category} onValueChange={setCategory} placeholder="Category">
+            <SelectItem value="all">All categories</SelectItem>
+            {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </FilterSelect>
+          <FilterSelect value={unit} onValueChange={setUnit} placeholder="Unit">
+            <SelectItem value="all">All units</SelectItem>
+            {UNITS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+          </FilterSelect>
+          <FilterSelect value={status} onValueChange={v => setStatus(v as StatusFilter)} placeholder="Status">
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
+          </FilterSelect>
+          <FilterSelect value={sort} onValueChange={v => setSort(v as SortKey)} placeholder="Sort">
+            <SelectItem value="name-asc">Name (A–Z)</SelectItem>
+            <SelectItem value="price-desc">Price (high → low)</SelectItem>
+            <SelectItem value="price-asc">Price (low → high)</SelectItem>
+          </FilterSelect>
+          {filtersActive && (
+            <Button variant="outline" size="sm" onClick={clearFilters}><FilterX className="size-3.5" />Clear</Button>
+          )}
+        </SearchFilterBar>
+
+        {/* Results count */}
+        {!isLoading && !error && (
+          <div style={{ fontSize: 11.5, color: T3 }}>
+            {visibleCount} {visibleCount === 1 ? "service" : "services"}{filtersActive ? " match your filters" : ""}
+          </div>
+        )}
 
         {isLoading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
@@ -89,42 +140,70 @@ export default function ServicesPage() {
           </div>
         ) : error ? (
           <div style={{ flex: 1 }}><ErrorState message="Failed to load services." onRetry={() => mutate()} /></div>
-        ) : (services as Service[]).length === 0 ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={{ fontSize: 13, color: T2 }}>No services yet</div>
-            <div style={{ fontSize: 12, color: T3 }}>Add predefined services for quick-add when creating invoices</div>
-            <Button onClick={() => setShowForm(true)} size="sm" style={{ marginTop: 4 }}>+ Add first service</Button>
+        ) : visibleCount === 0 ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {filtersActive ? (
+              <EmptyState
+                icon={Package}
+                title="No matching services"
+                description="No services match the current filters. Try clearing them to see everything."
+                action={<Button variant="outline" size="sm" onClick={clearFilters}><FilterX className="size-3.5" />Clear filters</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon={Package}
+                title="No services yet"
+                description="Add predefined services for quick-add when creating invoices and quotations."
+                action={<Button size="sm" onClick={openNew}><Plus className="size-4" />Add first service</Button>}
+              />
+            )}
           </div>
         ) : (
           <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
-            {Object.entries(grouped).map(([cat, svcs]) => (
+            {grouped.map(([cat, svcs]) => (
               <div key={cat}>
-                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: T3, marginBottom: 10 }}>{cat}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: T3, marginBottom: 10 }}>
+                  {cat} <span style={{ color: "var(--glass-border-strong)" }}>·</span> {svcs.length}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 12 }}>
                   {svcs.map(s => (
-                    <div key={s._id} className="glass-card" style={{ padding: "14px 16px", cursor: "pointer", transition: "all 0.2s", position: "relative" }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(99,102,241,0.3)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = GLASS_BORDER; (e.currentTarget as HTMLElement).style.transform = "none"; }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: T1, flex: 1, marginRight: 8 }}>{s.name}</div>
-                        <span style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 100, background: "rgba(99,102,241,0.12)", color: AC2, border: `0.5px solid rgba(99,102,241,0.22)`, flexShrink: 0 }}>{s.unit}</span>
+                    <div key={s._id} className="glass-card" style={{ padding: "18px 20px", position: "relative", opacity: s.is_active ? 1 : 0.62 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 8 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: T1, flex: 1 }}>{s.name}</div>
+                        {s.unit && (
+                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(99,102,241,0.12)", color: AC2, border: "0.5px solid rgba(99,102,241,0.22)", flexShrink: 0 }}>{s.unit}</span>
+                        )}
                       </div>
-                      {s.description && <div style={{ fontSize: 11, color: T3, marginBottom: 10, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{s.description}</div>}
-                      <div style={{ fontSize: 16, fontWeight: 700, color: AC2 }}>{formatCurrency(s.default_price)}</div>
-                      <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 4, opacity: 0, transition: "opacity 0.15s" }} className="svc-actions">
-                        <button style={{ ...ICON_PILL, width: 22, height: 22 }} onClick={() => { setEditSvc(s); setShowForm(true); }}>
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.5 2.5l2 2L5 13l-3 1 1-3z"/></svg>
-                        </button>
+                      {s.description && (
+                        <div style={{ fontSize: 11.5, color: T3, marginBottom: 12, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{s.description}</div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: AC2 }}>{formatCurrency(s.default_price, s.currency)}</div>
+                        {!s.is_active && (
+                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 100, background: "var(--glass)", color: T3, border: `0.5px solid ${GLASS_BORDER}` }}>Inactive</span>
+                        )}
+                      </div>
+                      <div className="svc-actions" style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 4, opacity: 0, transition: "opacity 0.15s" }}>
+                        <IconAction tooltip="Edit" onClick={() => openEdit(s)} style={{ width: 24, height: 24 }}>
+                          <Pencil className="size-3" />
+                        </IconAction>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <button style={{ ...ICON_PILL, width: 22, height: 22 }}>
-                              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 3l10 10M13 3L3 13"/></svg>
-                            </button>
+                            <IconAction variant="danger" tooltip="Delete" style={{ width: 24, height: 24 }}>
+                              <Trash2 className="size-3" />
+                            </IconAction>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
-                            <AlertDialogHeader><AlertDialogTitle>Delete service?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => del(s._id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete service?</AlertDialogTitle>
+                              <AlertDialogDescription style={{ color: T2 }}>
+                                &ldquo;{s.name}&rdquo; will be permanently removed. This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => del(s._id)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>
@@ -137,10 +216,15 @@ export default function ServicesPage() {
         )}
       </div>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent><DialogHeader><DialogTitle>{editSvc ? "Edit service" : "Add service"}</DialogTitle></DialogHeader>
-          <ServiceForm initial={editSvc ?? undefined} onSave={() => { setShowForm(false); setEditSvc(null); mutate(); }} onClose={() => { setShowForm(false); setEditSvc(null); }} /></DialogContent>
-      </Dialog>
+      <ServiceSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        service={editSvc}
+        categories={CATEGORIES}
+        units={UNITS}
+        onSaved={() => mutate()}
+      />
+
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} .glass-card:hover .svc-actions{opacity:1!important}`}</style>
     </div>
   );

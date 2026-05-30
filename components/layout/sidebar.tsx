@@ -383,7 +383,7 @@ export function MobileNav() {
                 </div>
               ))}
             </nav>
-            <div style={{ padding: 12, borderTop: "0.5px solid rgba(255,255,255,0.11)" }}>
+            <div style={{ padding: 12, borderTop: "0.5px solid var(--glass-border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px" }}>
                 <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#a78bfa)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600, color: "#fff" }}>
                   {getInitials(session?.user?.name || "U")}
