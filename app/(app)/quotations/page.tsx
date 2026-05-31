@@ -28,8 +28,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QuotationStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { generatePdfFromElement, downloadFile } from "@/lib/pdf-export";
-import type { DocData } from "@/lib/pdf-document";
+import { downloadFile } from "@/lib/pdf-export";
+import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
+import { buildDocumentData } from "@/lib/doc-data";
 import { applyPeriodParams } from "@/lib/date-utils";
 import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
@@ -856,27 +857,7 @@ function QuotationPdfPreviewDialog({ quotationId, settings, onClose }: { quotati
               <DocumentRenderer
                 design={quotationDesign}
                 width={isMobile ? 320 : 580}
-                data={{
-                  type: "quotation",
-                  docNo: quotation.quotation_no,
-                  issueDate: quotation.issue_date,
-                  dueDate: quotation.valid_until,
-                  customer: { name: quotation.customer_name, phone: quotation.customer_phone, address: quotation.customer_address },
-                  items: quotation.items,
-                  subTotal: quotation.sub_total,
-                  taxAmt: quotation.tax_type === "percentage" ? quotation.sub_total * quotation.tax / 100 : quotation.tax,
-                  taxLabel: quotation.tax_type === "percentage" ? `Tax (${quotation.tax}%)` : "Tax",
-                  discount: quotation.discount,
-                  delivery: quotation.delivery_charges,
-                  total: quotation.total_amount,
-                  currency: quotation.currency,
-                  remarks: quotation.remarks,
-                  companyName: settings?.company_name ?? "Your Company",
-                  companyEmail: settings?.company_email,
-                  companyPhone: settings?.company_phone,
-                  companyAddress: settings?.company_address,
-                  termsText: settings?.terms_and_conditions,
-                }}
+                data={buildDocumentData("quotation", quotation, settings)}
               />
             </div>
           )}
@@ -893,17 +874,20 @@ function QuotationPdfPreviewDialog({ quotationId, settings, onClose }: { quotati
                 if (!quotation) return;
                 setSharing("whatsapp");
                 try {
-                  const file = await generatePdfFromElement(`quotation-print-area-${quotationId}`, `Quotation-${quotation.quotation_no}.pdf`);
+                  const blob = await fetchServerPdfBlob("quotation", quotation._id);
+                  const file = new File([blob], `Quotation-${quotation.quotation_no}.pdf`, { type: "application/pdf" });
                   const phone = quotation.customer_phone?.replace(/\D/g, "") ?? "";
                   const message = `Hello ${quotation.customer_name},\n\nYour quotation ${quotation.quotation_no} for ${formatCurrency(quotation.total_amount, quotation.currency)} is ready.\n\nPlease let us know if you have any questions.`;
-                  if (file && navigator.canShare?.({ files: [file] })) {
+                  if (navigator.canShare?.({ files: [file] })) {
                     try { await navigator.share({ files: [file], text: message }); } catch (e: any) { if (e?.name !== "AbortError") throw e; }
                   } else {
-                    if (file) downloadFile(file);
+                    downloadFile(file);
                     const msg = encodeURIComponent(message);
                     window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
-                    if (file) toast.info("PDF downloaded — attach it in WhatsApp.");
+                    toast.info("PDF downloaded — attach it in WhatsApp.");
                   }
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
                 } finally { setSharing(null); }
               }}
             >
@@ -919,12 +903,15 @@ function QuotationPdfPreviewDialog({ quotationId, settings, onClose }: { quotati
                 if (!quotation) return;
                 setSharing("email");
                 try {
-                  const file = await generatePdfFromElement(`quotation-print-area-${quotationId}`, `Quotation-${quotation.quotation_no}.pdf`);
+                  const blob = await fetchServerPdfBlob("quotation", quotation._id);
+                  const file = new File([blob], `Quotation-${quotation.quotation_no}.pdf`, { type: "application/pdf" });
                   const subject = encodeURIComponent(`Quotation ${quotation.quotation_no}`);
                   const body = encodeURIComponent(`Hello ${quotation.customer_name},\n\nPlease find your quotation ${quotation.quotation_no} for ${formatCurrency(quotation.total_amount, quotation.currency)} attached.\n\nThank you!`);
-                  if (file) downloadFile(file);
+                  downloadFile(file);
                   window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                  if (file) toast.info("PDF downloaded — attach it to your email.");
+                  toast.info("PDF downloaded — attach it to your email.");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
                 } finally { setSharing(null); }
               }}
             >
@@ -941,29 +928,9 @@ function QuotationPdfPreviewDialog({ quotationId, settings, onClose }: { quotati
                 if (!quotation) return;
                 setSharing("download");
                 try {
-                  const data: DocData = {
-                    type: "quotation",
-                    docNo: quotation.quotation_no,
-                    issueDate: quotation.issue_date,
-                    dueDate: quotation.valid_until,
-                    customer: { name: quotation.customer_name, phone: quotation.customer_phone, address: quotation.customer_address },
-                    items: quotation.items,
-                    subTotal: quotation.sub_total,
-                    taxAmt: quotation.tax_type === "percentage" ? quotation.sub_total * quotation.tax / 100 : quotation.tax,
-                    taxLabel: quotation.tax_type === "percentage" ? `Tax (${quotation.tax}%)` : "Tax",
-                    discount: quotation.discount,
-                    delivery: quotation.delivery_charges,
-                    total: quotation.total_amount,
-                    currency: quotation.currency,
-                    remarks: quotation.remarks,
-                    companyName: settings?.company_name ?? "Your Company",
-                    companyEmail: settings?.company_email,
-                    companyPhone: settings?.company_phone,
-                    companyAddress: settings?.company_address,
-                    termsText: settings?.terms_and_conditions,
-                  };
-                  const { downloadAsPdf } = await import("@/lib/pdf-document");
-                  await downloadAsPdf(quotationDesign, data, `Quotation-${quotation.quotation_no}.pdf`);
+                  await downloadServerPdf("quotation", quotation._id, `Quotation-${quotation.quotation_no}.pdf`);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
                 } finally { setSharing(null); }
               }}
             >

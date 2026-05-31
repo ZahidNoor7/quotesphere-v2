@@ -29,7 +29,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PaymentStatusBadge, InvoiceStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER } from "@/lib/ds";
-import type { DocData } from "@/lib/pdf-document";
+import { downloadServerPdf } from "@/lib/pdf/client";
+import { buildDocumentData } from "@/lib/doc-data";
 import { applyPeriodParams } from "@/lib/date-utils";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
 import { TableSkeleton } from "@/components/loaders";
@@ -819,29 +820,7 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
               <DocumentRenderer
                 design={invoiceDesign}
                 width={isMobile ? 320 : 580}
-                data={{
-                  type: "invoice",
-                  docNo: invoice.invoice_no,
-                  issueDate: invoice.issue_date,
-                  dueDate: invoice.due_date,
-                  customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
-                  items: invoice.items,
-                  subTotal: invoice.sub_total,
-                  taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
-                  taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
-                  discount: invoice.discount,
-                  delivery: invoice.delivery_charges,
-                  total: invoice.total_amount,
-                  advance: invoice.advance,
-                  outstanding: invoice.outstanding,
-                  currency: invoice.currency,
-                  remarks: invoice.remarks,
-                  companyName: settings?.company_name ?? "Your Company",
-                  companyEmail: settings?.company_email,
-                  companyPhone: settings?.company_phone,
-                  companyAddress: settings?.company_address,
-                  termsText: settings?.terms_and_conditions,
-                }}
+                data={buildDocumentData("invoice", invoice, settings)}
               />
             </div>
           )}
@@ -887,31 +866,9 @@ function InvoicePdfPreviewDialog({ invoiceId, settings, onClose }: { invoiceId: 
                 if (!invoice) return;
                 setDownloading(true);
                 try {
-                  const data: DocData = {
-                    type: "invoice",
-                    docNo: invoice.invoice_no,
-                    issueDate: invoice.issue_date,
-                    dueDate: invoice.due_date,
-                    customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
-                    items: invoice.items,
-                    subTotal: invoice.sub_total,
-                    taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
-                    taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
-                    discount: invoice.discount,
-                    delivery: invoice.delivery_charges,
-                    total: invoice.total_amount,
-                    advance: invoice.advance,
-                    outstanding: invoice.outstanding,
-                    currency: invoice.currency,
-                    remarks: invoice.remarks,
-                    companyName: settings?.company_name ?? "Your Company",
-                    companyEmail: settings?.company_email,
-                    companyPhone: settings?.company_phone,
-                    companyAddress: settings?.company_address,
-                    termsText: settings?.terms_and_conditions,
-                  };
-                  const { downloadAsPdf } = await import("@/lib/pdf-document");
-                  await downloadAsPdf(invoiceDesign, data, `Invoice-${invoice.invoice_no}.pdf`);
+                  await downloadServerPdf("invoice", invoice._id, `Invoice-${invoice.invoice_no}.pdf`);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
                 } finally { setDownloading(false); }
               }}
             >

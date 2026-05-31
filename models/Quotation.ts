@@ -6,6 +6,7 @@ export interface IQuotationItem {
   name: string;
   quantity: number;
   price: number;
+  images?: string[];
 }
 
 export interface IQuotation extends Document {
@@ -45,6 +46,7 @@ const itemSchema = new Schema<IQuotationItem>(
     name: { type: String, required: true },
     quantity: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
+    images: [String],
   },
   { _id: false }
 );

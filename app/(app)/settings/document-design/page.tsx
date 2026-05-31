@@ -359,7 +359,7 @@ export default function DocumentDesignPage() {
   const [savingChanges, setSavingChanges] = useState(false);
   const [customName, setCustomName] = useState("");
   const [showSaveAs, setShowSaveAs] = useState(false);
-  const [showMultiPage, setShowMultiPage] = useState(false);
+  const [showMultiPage, setShowMultiPage] = useState(true);
   const [mockRowCount, setMockRowCount] = useState(3);
 
   // Track which doc types have had their selection initialized from saved settings.
@@ -554,7 +554,14 @@ export default function DocumentDesignPage() {
 
   // Build preview sample data with variable row count
   const allMockItems = [...SAMPLE_DATA.items, ...EXTRA_MOCK_ITEMS];
-  const effectiveMockItems = allMockItems.slice(0, Math.max(1, mockRowCount));
+  const rowCount = Math.max(1, mockRowCount);
+  // Cycle through the base items (with a suffix on repeats) so the slider can
+  // demo many pages even past the base list length.
+  const effectiveMockItems = Array.from({ length: rowCount }, (_, idx) => {
+    const base = allMockItems[idx % allMockItems.length];
+    const cycle = Math.floor(idx / allMockItems.length);
+    return cycle === 0 ? base : { ...base, name: `${base.name} (${cycle + 1})` };
+  });
   const effectiveSampleData =
     activeDocType === "receipt"
       ? SAMPLE_RECEIPT_DATA
@@ -1391,6 +1398,11 @@ export default function DocumentDesignPage() {
                   <Toggle configKey="footerEnabled" label="Enable footer" />
                   {effectiveConfig.footerEnabled !== false && (
                     <>
+                      <SegmentButtons
+                        configKey="footerVisibility"
+                        options={HEADER_VISIBILITIES}
+                        label="Show footer on (print)"
+                      />
                       <div>
                         <label style={lbl}>Footer text</label>
                         <Input
@@ -1950,7 +1962,7 @@ export default function DocumentDesignPage() {
         <div
           style={{
             flex: 1,
-            background: "#111827",
+            background: "#4b5566",
             overflowY: "auto",
             display: "flex",
             flexDirection: "column",
@@ -1981,7 +1993,7 @@ export default function DocumentDesignPage() {
               <span
                 style={{
                   fontSize: 11,
-                  color: T3,
+                  color: "rgba(255,255,255,0.75)",
                   textTransform: "uppercase",
                   letterSpacing: "0.07em",
                   whiteSpace: "nowrap",
@@ -2033,9 +2045,9 @@ export default function DocumentDesignPage() {
                   borderRadius: 6,
                   fontSize: 10,
                   cursor: "pointer",
-                  border: `0.5px solid ${showMultiPage ? "rgba(99,102,241,0.5)" : GLASS_BORDER}`,
-                  background: showMultiPage ? "rgba(99,102,241,0.15)" : GLASS,
-                  color: showMultiPage ? "#818cf8" : T2,
+                  border: `0.5px solid ${showMultiPage ? "rgba(165,180,252,0.7)" : "rgba(255,255,255,0.25)"}`,
+                  background: showMultiPage ? "rgba(99,102,241,0.35)" : "rgba(255,255,255,0.1)",
+                  color: showMultiPage ? "#e0e7ff" : "rgba(255,255,255,0.85)",
                 }}
               >
                 <svg
@@ -2062,8 +2074,8 @@ export default function DocumentDesignPage() {
                     gap: 5,
                     padding: "3px 8px",
                     borderRadius: 6,
-                    border: `0.5px solid ${GLASS_BORDER}`,
-                    background: GLASS,
+                    border: `0.5px solid rgba(255,255,255,0.25)`,
+                    background: "rgba(255,255,255,0.1)",
                   }}
                 >
                   <svg
@@ -2071,7 +2083,7 @@ export default function DocumentDesignPage() {
                     height="10"
                     viewBox="0 0 12 12"
                     fill="none"
-                    stroke={T3}
+                    stroke="rgba(255,255,255,0.65)"
                     strokeWidth="1.5"
                   >
                     <line x1="1" y1="3" x2="11" y2="3" />
@@ -2079,13 +2091,13 @@ export default function DocumentDesignPage() {
                     <line x1="1" y1="9" x2="11" y2="9" />
                   </svg>
                   <span
-                    style={{ fontSize: 10, color: T3, whiteSpace: "nowrap" }}
+                    style={{ fontSize: 10, color: "rgba(255,255,255,0.8)", whiteSpace: "nowrap" }}
                   >
                     {mockRowCount} rows
                   </span>
                   <Slider
                     min={1}
-                    max={30}
+                    max={100}
                     step={1}
                     value={[mockRowCount]}
                     onValueChange={([v]) => setMockRowCount(v)}
@@ -2126,7 +2138,7 @@ export default function DocumentDesignPage() {
           <p
             style={{
               fontSize: 10.5,
-              color: T3,
+              color: "rgba(255,255,255,0.6)",
               marginTop: 14,
               textAlign: "center",
             }}

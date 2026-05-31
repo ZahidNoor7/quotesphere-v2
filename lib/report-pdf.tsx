@@ -1,7 +1,8 @@
 "use client";
 /**
  * PDF templates for Financial Reports and Client Statements.
- * Uses @react-pdf/renderer (same as lib/pdf-document.tsx).
+ * Uses @react-pdf/renderer (vector). Invoice/quotation PDFs use headless Chrome
+ * via /api/pdf instead — see lib/pdf/browser.ts.
  */
 import { Document, Page, View, Text, StyleSheet, pdf } from "@react-pdf/renderer";
 import type { Invoice, Quotation, Expense, Customer, Settings } from "@/types";

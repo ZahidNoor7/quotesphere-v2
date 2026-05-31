@@ -4,6 +4,55 @@
 @config "../tailwind.config.ts";
 
 /* ══════════════════════════════════════════════
+   DOCUMENT FONTS — embedded so the live preview renders the
+   SAME typefaces the PDF embeds via Font.register (see lib/pdf-document.tsx).
+   Without these, the 'Inter'/serif presets fall back to system-ui / Georgia,
+   which are non-deterministic and cannot be embedded in the PDF.
+   ══════════════════════════════════════════════ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Inter-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Inter-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "PT Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/PTSerif-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "PT Serif";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/PTSerif-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "PT Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/PTSerif-Italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "PT Serif";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/PTSerif-BoldItalic.ttf") format("truetype");
+}
+
+/* ══════════════════════════════════════════════
    QUOTESPHERE DESIGN TOKENS
    Finalized from uploaded mockups
    ══════════════════════════════════════════════ */

@@ -18,7 +18,8 @@ export const authConfig: NextAuthConfig = {
         nextUrl.pathname === "/" ||
         nextUrl.pathname.startsWith("/_next") ||
         nextUrl.pathname.startsWith("/api/auth") ||
-        nextUrl.pathname.startsWith("/api/webhooks");
+        nextUrl.pathname.startsWith("/api/webhooks") ||
+        nextUrl.pathname.startsWith("/print"); // token-gated print route (self-validates)
 
       // Logged in + trying to access auth pages → redirect to dashboard
       if (isLoggedIn && isAuthPage) {

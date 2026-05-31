@@ -15,7 +15,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { printAsPdf } from "@/lib/pdf-export";
-import { downloadAsPdf, generatePdfBlob, type DocData } from "@/lib/pdf-document";
+import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
+import { buildDocumentData } from "@/lib/doc-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import type { Invoice, PaymentMethod, PaymentEntry } from "@/types";
@@ -541,29 +542,7 @@ export default function InvoiceDetailPage() {
               <DocumentRenderer
                 design={invoiceDesign}
                 width={isMobile ? 320 : 580}
-                data={{
-                  type: "invoice",
-                  docNo: invoice.invoice_no,
-                  issueDate: invoice.issue_date,
-                  dueDate: invoice.due_date,
-                  customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
-                  items: invoice.items,
-                  subTotal: invoice.sub_total,
-                  taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
-                  taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
-                  discount: invoice.discount,
-                  delivery: invoice.delivery_charges,
-                  total: invoice.total_amount,
-                  advance: invoice.advance,
-                  outstanding: invoice.outstanding,
-                  currency: invoice.currency,
-                  remarks: invoice.remarks,
-                  companyName: settings?.company_name ?? "Your Company",
-                  companyEmail: settings?.company_email,
-                  companyPhone: settings?.company_phone,
-                  companyAddress: settings?.company_address,
-                  termsText: settings?.terms_and_conditions,
-                }}
+                data={buildDocumentData("invoice", invoice, settings)}
               />
             </div>
           </div>
@@ -599,29 +578,7 @@ export default function InvoiceDetailPage() {
                   })}
                   docFilename={`Invoice-${invoice.invoice_no}.pdf`}
                   isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
-                  getPdfBlob={() => generatePdfBlob(invoiceDesign, {
-                    type: "invoice",
-                    docNo: invoice.invoice_no,
-                    issueDate: invoice.issue_date,
-                    dueDate: invoice.due_date,
-                    customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
-                    items: invoice.items,
-                    subTotal: invoice.sub_total,
-                    taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
-                    taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
-                    discount: invoice.discount,
-                    delivery: invoice.delivery_charges,
-                    total: invoice.total_amount,
-                    advance: invoice.advance,
-                    outstanding: invoice.outstanding,
-                    currency: invoice.currency,
-                    remarks: invoice.remarks,
-                    companyName: settings?.company_name ?? "Your Company",
-                    companyEmail: settings?.company_email,
-                    companyPhone: settings?.company_phone,
-                    companyAddress: settings?.company_address,
-                    termsText: settings?.terms_and_conditions,
-                  })}
+                  getPdfBlob={() => fetchServerPdfBlob("invoice", invoice._id)}
                 />
               )}
               <Button
@@ -646,30 +603,9 @@ export default function InvoiceDetailPage() {
                 onClick={async () => {
                   setDownloading(true);
                   try {
-                    const data: DocData = {
-                      type: "invoice",
-                      docNo: invoice.invoice_no,
-                      issueDate: invoice.issue_date,
-                      dueDate: invoice.due_date,
-                      customer: { name: invoice.customer_name, phone: invoice.customer_phone, address: invoice.customer_address },
-                      items: invoice.items,
-                      subTotal: invoice.sub_total,
-                      taxAmt: invoice.tax_type === "percentage" ? invoice.sub_total * invoice.tax / 100 : invoice.tax,
-                      taxLabel: invoice.tax_type === "percentage" ? `Tax (${invoice.tax}%)` : "Tax",
-                      discount: invoice.discount,
-                      delivery: invoice.delivery_charges,
-                      total: invoice.total_amount,
-                      advance: invoice.advance,
-                      outstanding: invoice.outstanding,
-                      currency: invoice.currency,
-                      remarks: invoice.remarks,
-                      companyName: settings?.company_name ?? "Your Company",
-                      companyEmail: settings?.company_email,
-                      companyPhone: settings?.company_phone,
-                      companyAddress: settings?.company_address,
-                      termsText: settings?.terms_and_conditions,
-                    };
-                    await downloadAsPdf(invoiceDesign, data, `Invoice-${invoice.invoice_no}.pdf`);
+                    await downloadServerPdf("invoice", invoice._id, `Invoice-${invoice.invoice_no}.pdf`);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
                   } finally { setDownloading(false); }
                 }}
               >

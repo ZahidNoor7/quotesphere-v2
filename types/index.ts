@@ -89,6 +89,7 @@ export interface QuotationItem {
   name: string;
   quantity: number;
   price: number;
+  images?: string[];
 }
 
 export interface Quotation {
@@ -287,6 +288,7 @@ export interface DocumentDesignConfig {
   logoUrl?: string;
   // Footer
   footerEnabled?: boolean;
+  footerVisibility?: "all" | "first" | "last" | "first-last";
   showPageNumber?: boolean;
   footerBg?: string;
   footerTextColor?: string;

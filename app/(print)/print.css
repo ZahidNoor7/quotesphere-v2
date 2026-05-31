@@ -1,0 +1,56 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Print-route styles (scoped to /print/* — Next only loads this CSS under the
+   (print) layout). Two jobs:
+   1. Neutralize the app's root <body> chrome so a tall, multi-page document can
+      flow and print on a clean white sheet (the root layout sets
+      `body.MainBody { position: fixed; width/height: 100vw/vh; overflow:hidden }`
+      + dark theme — all of which would clip/!darken the document).
+   2. Drive real CSS print pagination.
+   ────────────────────────────────────────────────────────────────────────── */
+
+html,
+body.MainBody {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  background: #ffffff !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.print-root {
+  background: #ffffff;
+}
+
+/* Backgrounds, gradients and accent fills must render in the PDF. */
+* {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Pagination: repeat the line-item column header on every page, and never split
+   a row or an atomic block (rows/totals/notes/attachments already carry
+   [data-break-block] markers from the templates). */
+thead {
+  display: table-header-group;
+}
+tfoot {
+  display: table-footer-group;
+}
+tr,
+[data-break-block],
+img {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+}

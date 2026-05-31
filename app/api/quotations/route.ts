@@ -24,6 +24,8 @@ const quotationSchema = z.object({
     name: z.string().max(500),
     quantity: z.number().min(0),
     price: z.number().min(0),
+    // Base64 data-URI thumbnails (client-compressed). Capped to bound payload size.
+    images: z.array(z.string().max(5_000_000)).max(20).optional(),
   })).min(1, "At least one item is required"),
   sub_total: z.number().min(0),
   total_amount: z.number().min(0),
