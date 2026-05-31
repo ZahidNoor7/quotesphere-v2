@@ -634,18 +634,26 @@ function AttachmentsSection({ items, cfg, textColor = "#555" }: {
   cfg: ReturnType<typeof resolveConfig>;
   textColor?: string;
 }) {
-  const itemsWithImages = (items ?? []).filter(i => i.name && i.images && i.images.length > 0);
-  if (itemsWithImages.length === 0) return null;
+  // Serial = the item's position among NAMED items, so it matches the "#" column
+  // in the line-item table. Customers can map each attachment back to its row.
+  const withImages = (items ?? [])
+    .filter(i => i.name)
+    .map((it, idx) => ({ it, serial: idx + 1 }))
+    .filter(x => x.it.images && x.it.images.length > 0);
+  if (withImages.length === 0) return null;
   const accent = cfg.accentColor ?? "#6366f1";
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ fontSize: 8, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: accent, marginBottom: 8, paddingBottom: 5, borderBottom: `1px solid ${accent}30` }}>Attachments</div>
-      {itemsWithImages.map((item, idx) => (
-        <div key={idx} data-break-block="" style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 8, fontWeight: 600, color: textColor, marginBottom: 4 }}>{item.name}</div>
-          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 5 }}>
-            {item.images!.map((img, i) => (
-              <img key={i} src={img} alt={item.name} style={{ width: 80, height: 80, objectFit: "cover" as const, borderRadius: 4, border: `0.5px solid ${accent}30` }} />
+      {withImages.map(({ it, serial }) => (
+        <div key={serial} data-break-block="" style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: textColor, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 16, height: 16, padding: "0 4px", borderRadius: 3, background: `${accent}1f`, color: accent, fontSize: 8.5, fontWeight: 700, flexShrink: 0 }}>{serial}</span>
+            <span>{it.name}</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+            {it.images!.map((img, i) => (
+              <img key={i} src={img} alt={`#${serial} ${it.name}`} style={{ width: 140, height: 140, objectFit: "cover" as const, borderRadius: 5, border: `0.5px solid ${accent}30` }} />
             ))}
           </div>
         </div>

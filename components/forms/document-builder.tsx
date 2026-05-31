@@ -1247,7 +1247,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 <span style={{ fontSize: 10, color: T3 }}>{activeDesign?.name ?? "Modern Gradient"}</span>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", justifyContent: "center" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: 18, display: "flex", flexDirection: "column", alignItems: "center" }}>
               <LivePreview
                 design={activeDesign}
                 type={type}

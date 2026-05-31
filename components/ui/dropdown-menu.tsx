@@ -22,7 +22,7 @@ const glassContent =
   "z-50 min-w-32 overflow-hidden rounded-lg border-[0.5px] border-(--glass-border) bg-(--glass-surface-bg) text-(--t1) backdrop-blur-2xl backdrop-saturate-200 shadow-[0_8px_32px_rgba(0,0,0,0.45),inset_0_0_0_0.5px_rgba(255,255,255,0.07)] p-1"
 
 const glassItem =
-  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--glass-hover) focus:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0"
+  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--accent-glow) focus:text-(--t1) data-highlighted:bg-(--accent-glow) data-highlighted:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0"
 
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
@@ -34,7 +34,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       glassItem,
-      "data-[state=open]:bg-(--glass-hover) data-[state=open]:text-(--t1)",
+      "data-[state=open]:bg-(--accent-glow) data-[state=open]:text-(--t1)",
       inset && "pl-8",
       className
     )}
@@ -51,15 +51,19 @@ const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubContent
-    ref={ref}
-    className={cn(
-      glassContent,
-      "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
-      className
-    )}
-    {...props}
-  />
+  // Portal so the submenu escapes the parent menu's `overflow-hidden` (glass
+  // rounding) — otherwise the flyout is clipped and appears hidden.
+  <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.SubContent
+      ref={ref}
+      className={cn(
+        glassContent,
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-dropdown-menu-content-transform-origin]",
+        className
+      )}
+      {...props}
+    />
+  </DropdownMenuPrimitive.Portal>
 ))
 DropdownMenuSubContent.displayName =
   DropdownMenuPrimitive.SubContent.displayName
@@ -105,7 +109,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-7 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--glass-hover) focus:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-7 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--accent-glow) focus:text-(--t1) data-highlighted:bg-(--accent-glow) data-highlighted:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50",
       className
     )}
     checked={checked}
@@ -129,7 +133,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-7 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--glass-hover) focus:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-7 text-xs text-(--t2) outline-none transition-colors duration-100 focus:bg-(--accent-glow) focus:text-(--t1) data-highlighted:bg-(--accent-glow) data-highlighted:text-(--t1) data-disabled:pointer-events-none data-disabled:opacity-50",
       className
     )}
     {...props}
