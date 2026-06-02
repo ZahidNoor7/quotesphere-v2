@@ -909,7 +909,15 @@ export async function runPendingAction(
     case "create_customer": {
       return {
         ok: true,
-        data: { success: true, id: data._id, name: data.name, phone_no: data.phone_no },
+        data: {
+          success: true,
+          id: data._id,
+          name: data.name,
+          phone_no: data.phone_no,
+          // Deterministic nudge: the model tends to stop here and ask the user to
+          // re-send the document details. Tell it, in-context, to keep going.
+          next_step: `Customer "${data.name}" now exists with customer_id "${data._id}". If the user earlier asked to create an invoice, quotation, or project for this customer, CONTINUE NOW in this same turn: call the matching create tool with customer_id "${data._id}" and the items, quantities, prices and currency they already gave earlier in this conversation. Do NOT ask the user to repeat or re-send anything. If they only asked to add a customer, just confirm it's done.`,
+        },
         summary: `Created customer ${data.name}`,
         documentLink: `/customers/${data._id}`,
         documentLabel: data.name,
