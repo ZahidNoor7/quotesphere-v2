@@ -7,10 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
-import type { IntegrationConfig, WhatsAppConfig } from "@/types";
+import type { IntegrationConfig, WhatsAppConfig, AiAssistantConfig } from "@/types";
 import {
   Cloud, ShieldCheck, DollarSign, Database,
-  Eye, EyeOff, Save, MessageCircle, Zap, Link2,
+  Eye, EyeOff, Save, MessageCircle, Zap, Link2, Sparkles,
 } from "lucide-react";
 
 type IntKey = "cloudinary" | "googleAuth" | "currencyApi" | "mongodb";
@@ -394,6 +394,250 @@ function WhatsAppCard({ initialCfg, onSaved }: { initialCfg: WhatsAppConfig; onS
   );
 }
 
+// ─── AI Assistant Card ────────────────────────────────────────────────────────
+
+const AI_COLOR = "#8b5cf6";
+
+const AI_PROVIDERS: { key: AiAssistantConfig["provider"]; label: string; envHint: string }[] = [
+  { key: "openai", label: "OpenAI", envHint: "OPENAI_API_KEY" },
+  { key: "azure_openai", label: "Azure OpenAI", envHint: "AZURE_OPENAI_API_KEY" },
+  { key: "anthropic", label: "Anthropic", envHint: "ANTHROPIC_API_KEY" },
+];
+
+function AiAssistantCard({ initialCfg, onSaved }: { initialCfg: AiAssistantConfig; onSaved: () => void }) {
+  const [cfg, setCfg] = useState<AiAssistantConfig>(initialCfg);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => { setCfg(initialCfg); }, [initialCfg]);
+
+  const set = (patch: Partial<AiAssistantConfig>) => setCfg(prev => ({ ...prev, ...patch }));
+  const isAzure = cfg.provider === "azure_openai";
+  const isAnthropic = cfg.provider === "anthropic";
+  const envHint = AI_PROVIDERS.find(p => p.key === cfg.provider)?.envHint ?? "OPENAI_API_KEY";
+
+  async function saveCfg() {
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ integrations: { aiAssistant: cfg } }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(typeof data.error === "string" ? data.error : "Save failed");
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await saveCfg();
+      toast.success("AI Assistant settings saved.");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function testConnection() {
+    setTesting(true);
+    try {
+      await saveCfg(); // test the latest config
+      const res = await fetch("/api/assistant/test", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message ?? "Connection successful.");
+        onSaved();
+      } else {
+        toast.error(data.error ?? "Connection failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+
+  return (
+    <div style={{
+      borderRadius: 12,
+      border: `0.5px solid ${cfg.enabled ? `color-mix(in srgb,${AI_COLOR} 35%,var(--glass-border))` : GLASS_BORDER}`,
+      background: GLASS,
+      overflow: "hidden",
+      transition: "border-color 0.2s",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: cfg.enabled ? `0.5px solid ${GLASS_BORDER}` : "none" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: `${AI_COLOR}18`, border: `0.5px solid ${AI_COLOR}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: AI_COLOR }}>
+          <Sparkles size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T1 }}>AI Assistant</div>
+          <div style={{ fontSize: 11, color: T3, marginTop: 1 }}>
+            Create and edit quotations & invoices by chatting. Choose your LLM provider and model.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <Label htmlFor="toggle-aiAssistant" style={{ fontSize: 11, color: cfg.enabled ? T2 : T3 }}>
+            {cfg.enabled ? "Enabled" : "Disabled"}
+          </Label>
+          <Switch
+            id="toggle-aiAssistant"
+            checked={cfg.enabled}
+            onCheckedChange={v => set({ enabled: v })}
+          />
+        </div>
+      </div>
+
+      {/* Fields */}
+      {cfg.enabled && (
+        <div style={{ padding: "16px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* Provider selector */}
+          <div>
+            <label style={lbl}>Provider</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {AI_PROVIDERS.map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => set({ provider: p.key })}
+                  style={{
+                    flex: 1, padding: "7px 0", borderRadius: 8,
+                    border: `0.5px solid ${cfg.provider === p.key ? AI_COLOR : GLASS_BORDER}`,
+                    background: cfg.provider === p.key ? `${AI_COLOR}18` : "transparent",
+                    color: cfg.provider === p.key ? AI_COLOR : T3,
+                    fontSize: 12, fontWeight: cfg.provider === p.key ? 600 : 400,
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* API style (OpenAI / Azure only) */}
+          {!isAnthropic && (
+            <div>
+              <label style={lbl}>API</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {([["responses", "Responses API"], ["chat", "Chat Completions"]] as const).map(([key, label]) => {
+                  const active = (cfg.apiStyle ?? "responses") === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => set({ apiStyle: key })}
+                      style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: `0.5px solid ${active ? AI_COLOR : GLASS_BORDER}`, background: active ? `${AI_COLOR}18` : "transparent", color: active ? AI_COLOR : T3, fontSize: 12, fontWeight: active ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11, color: T3, marginTop: 5, lineHeight: 1.5 }}>
+                gpt-5 models and newer Azure endpoints (<code style={{ background: `${AI_COLOR}14`, padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>/openai/responses</code>) require the Responses API.
+              </div>
+            </div>
+          )}
+
+          {/* API key */}
+          <div>
+            <label style={lbl}>API key</label>
+            <div style={{ position: "relative" }}>
+              <Input
+                type={showKey ? "text" : "password"}
+                value={cfg.apiKey ?? ""}
+                onChange={e => set({ apiKey: e.target.value })}
+                placeholder={isAnthropic ? "sk-ant-…" : isAzure ? "Azure OpenAI key" : "sk-…"}
+                style={{ paddingRight: 36 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(v => !v)}
+                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T3, padding: 0 }}
+              >
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: T3, marginTop: 5, lineHeight: 1.5 }}>
+              Leave blank to use the <code style={{ background: `${AI_COLOR}14`, padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>{envHint}</code> environment variable instead.
+            </div>
+          </div>
+
+          {/* Provider-specific fields */}
+          {isAzure ? (
+            <>
+              <div>
+                <label style={lbl}>Azure endpoint</label>
+                <Input
+                  value={cfg.azureEndpoint ?? ""}
+                  onChange={e => set({ azureEndpoint: e.target.value })}
+                  placeholder="https://my-resource.openai.azure.com"
+                />
+                <div style={{ fontSize: 11, color: T3, marginTop: 5, lineHeight: 1.5 }}>
+                  Just the resource origin — pasting the full <code style={{ background: `${AI_COLOR}14`, padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>/openai/responses?…</code> URL works too; it&apos;s trimmed automatically.
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Deployment name</label>
+                <Input
+                  value={cfg.azureDeployment ?? ""}
+                  onChange={e => set({ azureDeployment: e.target.value })}
+                  placeholder="e.g. gpt-5.4"
+                />
+              </div>
+              <div>
+                <label style={lbl}>API version</label>
+                <Input
+                  value={cfg.azureApiVersion ?? ""}
+                  onChange={e => set({ azureApiVersion: e.target.value })}
+                  placeholder="2025-04-01-preview"
+                />
+              </div>
+            </>
+          ) : (
+            <div>
+              <label style={lbl}>Model</label>
+              <Input
+                value={cfg.model ?? ""}
+                onChange={e => set({ model: e.target.value })}
+                placeholder={isAnthropic ? "claude-sonnet-4-6" : "gpt-4o"}
+              />
+              {!isAnthropic && (
+                <>
+                  <label style={{ ...lbl, marginTop: 12 }}>Base URL (optional)</label>
+                  <Input
+                    value={cfg.baseUrl ?? ""}
+                    onChange={e => set({ baseUrl: e.target.value })}
+                    placeholder="Override for OpenAI-compatible gateways"
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingTop: 4 }}>
+            <Button size="sm" variant="outline" onClick={testConnection} disabled={testing}>
+              <Zap size={12} className="mr-1.5" />
+              {testing ? "Testing…" : "Test Connection"}
+            </Button>
+            <div style={{ flex: 1 }} />
+            <Button size="sm" onClick={save} disabled={saving}>
+              <Save size={12} className="mr-1.5" />
+              {saving ? "Saving…" : "Save AI Assistant"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
@@ -405,6 +649,7 @@ export default function IntegrationsPage() {
     mongodb: { enabled: false },
   });
   const [waCfg, setWaCfg] = useState<WhatsAppConfig>({ enabled: false, mode: "sandbox" });
+  const [aiCfg, setAiCfg] = useState<AiAssistantConfig>({ enabled: false, provider: "openai" });
   const [saving, setSaving] = useState<IntKey | null>(null);
 
   useEffect(() => {
@@ -420,6 +665,9 @@ export default function IntegrationsPage() {
       });
       if (settings.integrations.whatsapp) {
         setWaCfg(settings.integrations.whatsapp as WhatsAppConfig);
+      }
+      if (settings.integrations.aiAssistant) {
+        setAiCfg(settings.integrations.aiAssistant as AiAssistantConfig);
       }
     }
   }, [settings]);
@@ -519,6 +767,9 @@ export default function IntegrationsPage() {
 
       {/* WhatsApp card */}
       <WhatsAppCard initialCfg={waCfg} onSaved={mutate} />
+
+      {/* AI Assistant card */}
+      <AiAssistantCard initialCfg={aiCfg} onSaved={mutate} />
     </div>
   );
 }

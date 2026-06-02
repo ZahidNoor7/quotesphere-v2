@@ -65,6 +65,17 @@ export interface ISettings extends Document {
     currencyApi?: { enabled: boolean; apiKey?: string; provider?: string };
     mongodb?: { enabled: boolean; uri?: string };
     whatsapp?: { enabled: boolean; mode: "sandbox" | "production"; apiKey?: string; phoneNumber?: string; webhookBaseUrl?: string };
+    aiAssistant?: {
+      enabled: boolean;
+      provider: "openai" | "azure_openai" | "anthropic";
+      apiStyle?: "chat" | "responses";
+      apiKey?: string;
+      model?: string;
+      azureEndpoint?: string;
+      azureDeployment?: string;
+      azureApiVersion?: string;
+      baseUrl?: string;
+    };
   };
   currencyRates?: {
     base: string;
@@ -173,6 +184,17 @@ const settingsSchema = new Schema<ISettings>(
         apiKey: String,
         phoneNumber: String,
         webhookBaseUrl: String,
+      },
+      aiAssistant: {
+        enabled: { type: Boolean, default: false },
+        provider: { type: String, enum: ["openai", "azure_openai", "anthropic"], default: "openai" },
+        apiStyle: { type: String, enum: ["chat", "responses"], default: "responses" },
+        apiKey: String,
+        model: String,
+        azureEndpoint: String,
+        azureDeployment: String,
+        azureApiVersion: String,
+        baseUrl: String,
       },
     },
     currencyRates: {

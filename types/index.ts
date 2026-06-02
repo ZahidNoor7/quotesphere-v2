@@ -353,6 +353,7 @@ export interface Integrations {
   currencyApi?: IntegrationConfig;
   mongodb?: IntegrationConfig;
   whatsapp?: WhatsAppConfig;
+  aiAssistant?: AiAssistantConfig;
 }
 
 export interface WhatsAppMessage {
@@ -450,4 +451,124 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// ─── AI Assistant ─────────────────────────────────────────────────────────────
+
+export type AiAssistantProvider = "openai" | "azure_openai" | "anthropic";
+
+/** LLM provider config for the AI assistant, stored under Settings.integrations.aiAssistant. */
+export interface AiAssistantConfig {
+  enabled: boolean;
+  provider: AiAssistantProvider;
+  /** OpenAI/Azure API surface. gpt-5-series & the new Azure endpoints use "responses". */
+  apiStyle?: "chat" | "responses";
+  /** API key. Falls back to the provider's env var when blank. */
+  apiKey?: string;
+  /** OpenAI / Anthropic model id (e.g. gpt-4o, claude-sonnet-4-6). */
+  model?: string;
+  /** Azure OpenAI resource endpoint, e.g. https://my-resource.openai.azure.com */
+  azureEndpoint?: string;
+  /** Azure OpenAI deployment name (used as the model for Azure). */
+  azureDeployment?: string;
+  /** Azure OpenAI API version, e.g. 2024-10-21. */
+  azureApiVersion?: string;
+  /** Optional OpenAI-compatible base URL override (proxies, gateways). */
+  baseUrl?: string;
+}
+
+/** A tool the model asked to run, in provider-neutral form. */
+export interface AssistantToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export type AssistantMessageRole = "user" | "assistant" | "tool";
+
+/** Canonical (provider-neutral) message persisted on the conversation and replayed to the LLM. */
+export interface AssistantMessage {
+  id: string;
+  role: AssistantMessageRole;
+  content: string;
+  /** Assistant turns that requested tool calls. */
+  toolCalls?: AssistantToolCall[];
+  /** Tool-result turns — the originating tool_use id. */
+  toolCallId?: string;
+  /** Tool-result turns — the tool name. */
+  toolName?: string;
+  /** Set on the final assistant turn after a write, so the "View …" link survives reload. */
+  documentLink?: string;
+  documentLabel?: string;
+  createdAt: string;
+}
+
+export interface AssistantPendingActionPreview {
+  label: string;
+  value: string;
+}
+
+/** An editable field rendered in a form-style confirmation card (e.g. new customer). */
+export interface AssistantFormField {
+  key: string;
+  label: string;
+  type: "text" | "tel" | "email";
+  value: string;
+  required: boolean;
+  placeholder?: string;
+}
+
+/** Client-facing summary of a write the assistant wants to perform (confirm card). */
+export interface AssistantPendingAction {
+  id: string;
+  tool: string;
+  title: string;
+  summary: string;
+  preview: AssistantPendingActionPreview[];
+  /** When present, the card renders editable inputs (the user completes & confirms). */
+  form?: AssistantFormField[];
+}
+
+/** SSE events streamed from /api/assistant/chat to the client hook. */
+export type AssistantStreamEvent =
+  | { type: "text_delta"; content: string }
+  | { type: "tool_started"; id: string; tool: string; label: string }
+  | { type: "tool_result"; id: string; tool: string; ok: boolean; summary: string }
+  | { type: "needs_confirmation"; conversationId: string; title: string; action: AssistantPendingAction }
+  | {
+      type: "completed";
+      conversationId: string;
+      title: string;
+      message: string;
+      documentLink?: string;
+      documentLabel?: string;
+    }
+  | { type: "error"; error: { message: string } };
+
+export interface AssistantConversationSummary {
+  _id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AssistantUiToolEvent {
+  id: string;
+  tool: string;
+  label: string;
+  status: "running" | "done" | "error";
+  summary?: string;
+}
+
+/** Rendered chat message in the assistant UI. */
+export interface AssistantUiMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  toolEvents?: AssistantUiToolEvent[];
+  pendingAction?: AssistantPendingAction;
+  documentLink?: string;
+  documentLabel?: string;
+  error?: string;
+  createdAt?: string;
 }
