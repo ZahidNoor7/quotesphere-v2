@@ -5,6 +5,7 @@ import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import type { AssistantUiMessage } from "@/types";
 import { ToolActivity } from "./tool-activity";
 import { DocumentCard } from "./document-card";
+import { MarkdownMessage } from "./markdown-message";
 
 function formatStamp(iso?: string): string {
   if (!iso) return "";
@@ -96,11 +97,7 @@ export function AssistantMessageBubble({
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {msg.toolEvents && <ToolActivity events={msg.toolEvents} />}
-        {msg.content && (
-          <div style={{ fontSize: 13.5, color: T1, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {msg.content}
-          </div>
-        )}
+        {msg.content && <MarkdownMessage content={msg.content} />}
         {msg.error && (
           <div style={{ marginTop: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#ef4444" }}>

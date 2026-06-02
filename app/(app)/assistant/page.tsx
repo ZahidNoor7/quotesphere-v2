@@ -3,10 +3,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Sparkles, Send, Plus, Trash2, ArrowRight, Loader2, Square, MessageSquarePlus, Pin, Search, ImagePlus, X,
+  Sparkles, Send, Plus, Trash2, ArrowRight, Loader2, Square, MessageSquarePlus, Pin, Search, ImagePlus, X, ChevronLeft,
 } from "lucide-react";
 import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useAssistantStream } from "@/hooks/use-assistant-stream";
 import { useAssistantConversations } from "@/hooks/use-assistant-conversations";
 import { AssistantMessageBubble } from "@/components/assistant/assistant-message";
@@ -101,6 +102,18 @@ export default function AssistantPage() {
   const [editDraft, setEditDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Single-pane on mobile / narrow viewports: list ↔ chat.
+  const deviceMobile = useIsMobile();
+  const [narrow, setNarrow] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < 820);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  const isMobile = deviceMobile || narrow;
 
   async function uploadFiles(files: FileList) {
     const imgs = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, 8);
@@ -206,10 +219,10 @@ export default function AssistantPage() {
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {/* Left: conversation list */}
-      <div style={{ width: 280, flexShrink: 0, borderRight: `0.5px solid ${GLASS_BORDER}`, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ width: isMobile ? "100%" : 280, flexShrink: isMobile ? 1 : 0, borderRight: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, display: !isMobile || mobileView === "list" ? "flex" : "none", flexDirection: "column", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
         <div style={{ padding: "14px 14px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
           <button
-            onClick={() => chat.newChat()}
+            onClick={() => { chat.newChat(); setMobileView("chat"); }}
             style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "9px 12px", borderRadius: 10, background: `color-mix(in srgb, ${AC} 14%, transparent)`, border: `0.5px solid color-mix(in srgb, ${AC} 34%, transparent)`, color: AC, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
           >
             <Plus size={15} /> New chat
@@ -237,7 +250,7 @@ export default function AssistantPage() {
             return (
               <div
                 key={c._id}
-                onClick={() => chat.loadConversation(c._id)}
+                onClick={() => { void chat.loadConversation(c._id); setMobileView("chat"); }}
                 className="group/conv"
                 style={{ padding: "11px 14px", display: "flex", gap: 8, alignItems: "center", cursor: "pointer", borderLeft: active ? `2px solid ${AC}` : "2px solid transparent", background: active ? `color-mix(in srgb, ${AC} 8%, transparent)` : "transparent" }}
               >
@@ -273,15 +286,24 @@ export default function AssistantPage() {
       </div>
 
       {/* Right: chat */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ flex: 1, display: !isMobile || mobileView === "chat" ? "flex" : "none", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         {/* Header */}
-        <div style={{ padding: "14px 20px", borderBottom: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, background: GLASS }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: `color-mix(in srgb, ${AC} 16%, transparent)`, border: `0.5px solid color-mix(in srgb, ${AC} 30%, transparent)`, display: "flex", alignItems: "center", justifyContent: "center", color: AC }}>
+        <div style={{ padding: "14px 16px", borderBottom: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0, background: GLASS }}>
+          {isMobile && (
+            <button
+              onClick={() => setMobileView("list")}
+              title="Back to conversations"
+              style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T2 }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+          <div style={{ width: 32, height: 32, borderRadius: 9, flexShrink: 0, background: `color-mix(in srgb, ${AC} 16%, transparent)`, border: `0.5px solid color-mix(in srgb, ${AC} 30%, transparent)`, display: "flex", alignItems: "center", justifyContent: "center", color: AC }}>
             <Sparkles size={16} />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>AI Assistant</div>
-            <div style={{ fontSize: 11, color: T3 }}>Creates & edits quotations and invoices through the app</div>
+            <div style={{ fontSize: 11, color: T3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Creates &amp; edits quotations and invoices through the app</div>
           </div>
         </div>
 
@@ -434,15 +456,24 @@ export default function AssistantPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                // Desktop: Enter sends. Mobile: Enter is a newline, tap Send to submit.
+                if (!isMobile && e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   submit();
                 }
               }}
-              placeholder={chat.pendingAction ? "Confirm or cancel the action above, or type a new instruction…" : "Message the assistant… (Enter to send, Shift+Enter for new line)"}
+              placeholder={
+                chat.pendingAction
+                  ? isMobile
+                    ? "Confirm or cancel above…"
+                    : "Confirm or cancel the action above, or type a new instruction…"
+                  : isMobile
+                    ? "Message the assistant…"
+                    : "Message the assistant… (Enter to send, Shift+Enter for new line)"
+              }
               rows={1}
               disabled={chat.isStreaming}
-              style={{ flex: 1, resize: "none", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 12, padding: "10px 14px", fontSize: 13, color: T1, outline: "none", fontFamily: "inherit", lineHeight: 1.5, maxHeight: 140, overflowY: "auto", opacity: chat.isStreaming ? 0.6 : 1 }}
+              style={{ flex: 1, minWidth: 0, resize: "none", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 12, padding: isMobile ? "11px 14px" : "10px 14px", fontSize: isMobile ? 16 : 13, color: T1, outline: "none", fontFamily: "inherit", lineHeight: 1.5, maxHeight: 140, overflowY: "auto", opacity: chat.isStreaming ? 0.6 : 1 }}
             />
             {chat.isStreaming ? (
               <button

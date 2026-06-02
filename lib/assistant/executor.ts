@@ -192,6 +192,8 @@ export async function executeReadTool(
       const params = new URLSearchParams({ limit: "10" });
       if (a.search) params.set("search", a.search);
       if (a.status) params.set("status", a.status);
+      if (a.from) params.set("from", a.from);
+      if (a.to) params.set("to", a.to);
       const r = await selfFetch(ctx, "GET", `/api/quotations?${params.toString()}`);
       if (!r.ok) return { ok: false, summary: "Quotation search failed", data: { error: errMsg(r.json, r.status) } };
       const quotations = (r.json.data ?? []).map((q: any) => ({
@@ -209,6 +211,8 @@ export async function executeReadTool(
       if (a.search) params.set("search", a.search);
       if (a.status) params.set("status", a.status);
       if (a.payment_status) params.set("payment_status", a.payment_status);
+      if (a.from) params.set("from", a.from);
+      if (a.to) params.set("to", a.to);
       const r = await selfFetch(ctx, "GET", `/api/invoices?${params.toString()}`);
       if (!r.ok) return { ok: false, summary: "Invoice search failed", data: { error: errMsg(r.json, r.status) } };
       const invoices = (r.json.data ?? []).map((inv: any) => ({
