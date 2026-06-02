@@ -119,7 +119,7 @@ export function ServiceSheet({ open, onOpenChange, service, categories, units, o
           onInteractOutside={e => { if (isDirty) e.preventDefault(); }}
           onEscapeKeyDown={e => { if (isDirty) { e.preventDefault(); setConfirmOpen(true); } }}
           className={isMobile
-            ? "flex flex-col p-0 gap-0 h-[88vh] overflow-hidden rounded-t-2xl"
+            ? "flex flex-col p-0 gap-0 h-[88dvh] overflow-hidden rounded-t-2xl"
             : "flex flex-col p-0 gap-0 sm:w-[460px] sm:max-w-[460px]"}
         >
           <SheetHeader style={{ padding: "16px 20px 12px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>

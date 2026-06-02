@@ -401,7 +401,7 @@ export default function QuotationDetailPage() {
       <Sheet open={showPdfPreview} onOpenChange={setShowPdfPreview}>
         <SheetContent
           side={isMobile ? "bottom" : "right"}
-          className={isMobile ? "flex flex-col p-0 gap-0 h-[85vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[600px] sm:max-w-[600px]"}
+          className={isMobile ? "flex flex-col p-0 gap-0 h-[85dvh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[600px] sm:max-w-[600px]"}
         >
           <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>
             <SheetTitle>Quotation Preview</SheetTitle>

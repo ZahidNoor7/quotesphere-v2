@@ -39,8 +39,10 @@ export function AppShell({
 
   return (
     <div
-      className="flex h-screen overflow-hidden relative app-bg"
-      style={{ fontFamily: "var(--font-geist-sans, -apple-system, system-ui)" }}
+      className="flex overflow-hidden relative app-bg"
+      // 100dvh (not h-screen/100vh) so the shell fills only the visible viewport on
+      // mobile — keeps pinned headers/composers on-screen instead of below the fold.
+      style={{ height: "100dvh", fontFamily: "var(--font-geist-sans, -apple-system, system-ui)" }}
     >
       {/* Desktop sidebar */}
       <div className="hidden md:flex shrink-0 relative z-10">

@@ -109,7 +109,7 @@ function ProjectForm({ onSave, onClose, initial }: { onSave: () => void; onClose
 
   return (
     <>
-      <div className="flex flex-col gap-3 pt-1.5 pb-1 max-h-[70vh] overflow-y-auto no-scrollbar px-0.5 -mx-0.5">
+      <div className="flex flex-col gap-3 pt-1.5 pb-1 max-h-[70dvh] overflow-y-auto no-scrollbar px-0.5 -mx-0.5">
         <div className="space-y-1">
           <Label htmlFor="proj-name" className={lbl} style={{ color: T3 }}>Project name *</Label>
           <Input id="proj-name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Office renovation Phase 1" style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />

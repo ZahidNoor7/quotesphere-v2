@@ -105,7 +105,7 @@ function ProjectEditForm({ initial, onSave, onClose }: { initial: Project; onSav
 
   return (
     <>
-      <div className="flex flex-col gap-3 pt-1.5 max-h-[70vh] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-3 pt-1.5 max-h-[70dvh] overflow-y-auto pr-1">
         <div className="space-y-1">
           <Label htmlFor="proj-name" className={lbl} style={{ color: T3 }}>Project name *</Label>
           <Input id="proj-name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Office renovation Phase 1" style={FIELD_INPUT} className="focus-visible:ring-indigo-500/30" />

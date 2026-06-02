@@ -135,7 +135,7 @@ export function ProductSheet({ open, onOpenChange, product, categories, units, o
           onInteractOutside={e => { if (isDirty) e.preventDefault(); }}
           onEscapeKeyDown={e => { if (isDirty) { e.preventDefault(); setConfirmOpen(true); } }}
           className={isMobile
-            ? "flex flex-col p-0 gap-0 h-[90vh] overflow-hidden rounded-t-2xl"
+            ? "flex flex-col p-0 gap-0 h-[90dvh] overflow-hidden rounded-t-2xl"
             : "flex flex-col p-0 gap-0 sm:w-[480px] sm:max-w-[480px]"}
         >
           <SheetHeader style={{ padding: "16px 20px 12px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>

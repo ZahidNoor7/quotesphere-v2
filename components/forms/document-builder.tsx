@@ -1217,7 +1217,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
 
         {/* Right: live document preview */}
         {showPreview && (
-          <div style={{ flex: isMobile ? undefined : 1, height: isMobile ? "60vh" : undefined, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(8,11,22,0.5)" }}>
+          <div style={{ flex: isMobile ? undefined : 1, height: isMobile ? "60dvh" : undefined, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden", background: "rgba(8,11,22,0.5)" }}>
             <div style={{ padding: "8px 12px", borderBottom: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(13,17,32,0.5)", flexShrink: 0, gap: 8, flexWrap: "wrap" as const }}>
               <span style={{ fontSize: 10, fontWeight: 500, color: T3, textTransform: "uppercase", letterSpacing: "0.07em" }}>Live preview</span>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -1290,7 +1290,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           />
           <div style={{
             position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 51,
-            height: "88vh",
+            height: "88dvh",
             background: "rgba(8,11,22,0.99)",
             border: `0.5px solid ${GLASS_BORDER}`,
             borderBottom: "none",
@@ -1662,7 +1662,7 @@ function TemplatePicker({
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <SheetContent side={isMobile ? "bottom" : "right"}
-        className={isMobile ? "flex flex-col p-0 gap-0 h-[80vh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[420px] sm:max-w-[420px]"}
+        className={isMobile ? "flex flex-col p-0 gap-0 h-[80dvh] overflow-hidden rounded-t-2xl" : "flex flex-col p-0 gap-0 sm:w-[420px] sm:max-w-[420px]"}
       >
         <SheetHeader style={{ padding: "14px 18px 10px", borderBottom: "0.5px solid var(--glass-border)", flexShrink: 0 }}>
           <SheetTitle>Template library</SheetTitle>

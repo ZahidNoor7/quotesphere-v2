@@ -22,6 +22,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Resize the layout (not just overlay) when the on-screen keyboard opens,
+  // so 100dvh shrinks and the chat composer stays visible above the keyboard.
+  interactiveWidget: "resizes-content",
 };
 
 function detectMobileUA(ua: string): boolean {
@@ -82,7 +85,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       data-theme={initialThemeId}
       suppressHydrationWarning
     >
-      <body className={`MainBody ${geistSans.variable} ${geistMono.variable} antialiased fixed w-screen h-screen`}>
+      <body
+        className={`MainBody ${geistSans.variable} ${geistMono.variable} antialiased fixed w-screen`}
+        // 100dvh = the *visible* viewport on mobile (100vh wrongly counts the area
+        // behind the browser chrome, pushing the bottom of the app off-screen).
+        // overflowY:auto is a safety net for non-shell screens (auth/error) that may
+        // exceed a short viewport; it's a no-op for the AppShell (exactly 100dvh,
+        // overflow-hidden internally), which manages its own scroll regions.
+        style={{ height: "100dvh", overflowY: "auto" }}
+      >
         <SessionProvider>
           <SWRProvider>
             <DeviceProvider initialMobile={initialMobile}>
