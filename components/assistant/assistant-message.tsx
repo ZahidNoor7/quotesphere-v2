@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, AlertCircle, Sparkles } from "lucide-react";
-import { T1, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
+import { ArrowRight, AlertCircle, Sparkles, Pencil, RotateCcw } from "lucide-react";
+import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import type { AssistantUiMessage } from "@/types";
 import { ToolActivity } from "./tool-activity";
+import { DocumentCard } from "./document-card";
 
 function formatStamp(iso?: string): string {
   if (!iso) return "";
@@ -16,26 +17,58 @@ function formatStamp(iso?: string): string {
 
 const stampStyle: React.CSSProperties = { fontSize: 10, color: T3, marginTop: 3 };
 
-export function AssistantMessageBubble({ msg }: { msg: AssistantUiMessage }) {
+export function AssistantMessageBubble({
+  msg,
+  onEdit,
+  onRetry,
+}: {
+  msg: AssistantUiMessage;
+  onEdit?: () => void;
+  onRetry?: () => void;
+}) {
   const stamp = formatStamp(msg.createdAt);
 
   if (msg.role === "user") {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: 12 }}>
-        <div
-          style={{
-            maxWidth: "78%",
-            padding: "9px 13px",
-            borderRadius: "16px 16px 4px 16px",
-            background: AC,
-            color: "#fff",
-            fontSize: 13.5,
-            lineHeight: 1.55,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {msg.content}
+      <div className="group/msg" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: 12, gap: 6 }}>
+        {msg.attachments?.length ? (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: "82%" }}>
+            {msg.attachments.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="attachment" style={{ width: 92, height: 92, objectFit: "cover", borderRadius: 10, border: `0.5px solid ${GLASS_BORDER}`, display: "block" }} />
+              </a>
+            ))}
+          </div>
+        ) : null}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, maxWidth: "82%" }}>
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              title="Edit & resend"
+              className="opacity-0 group-hover/msg:opacity-100"
+              style={{ background: "none", border: "none", cursor: "pointer", color: T3, display: "flex", padding: 4, transition: "opacity 0.15s", flexShrink: 0 }}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {msg.content ? (
+            <div
+              style={{
+                padding: "9px 13px",
+                borderRadius: "16px 16px 4px 16px",
+                background: AC,
+                color: "#fff",
+                fontSize: 13.5,
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                minWidth: 0,
+              }}
+            >
+              {msg.content}
+            </div>
+          ) : null}
         </div>
         {stamp && <div style={{ ...stampStyle, marginRight: 2 }}>{stamp}</div>}
       </div>
@@ -69,11 +102,23 @@ export function AssistantMessageBubble({ msg }: { msg: AssistantUiMessage }) {
           </div>
         )}
         {msg.error && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12.5, color: "#ef4444" }}>
-            <AlertCircle size={13} /> {msg.error}
+          <div style={{ marginTop: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#ef4444" }}>
+              <AlertCircle size={13} /> {msg.error}
+            </div>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, color: T2, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+              >
+                <RotateCcw size={12} /> Retry
+              </button>
+            )}
           </div>
         )}
-        {msg.documentLink && (
+        {msg.documentCard ? (
+          <DocumentCard card={msg.documentCard} />
+        ) : msg.documentLink ? (
           <Link
             href={msg.documentLink}
             style={{
@@ -93,7 +138,7 @@ export function AssistantMessageBubble({ msg }: { msg: AssistantUiMessage }) {
           >
             View {msg.documentLabel ?? "document"} <ArrowRight size={13} />
           </Link>
-        )}
+        ) : null}
         {stamp && <div style={stampStyle}>{stamp}</div>}
       </div>
     </div>

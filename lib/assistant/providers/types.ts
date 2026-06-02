@@ -31,3 +31,11 @@ export interface LLMProvider {
   readonly name: string;
   streamChat(params: ProviderChatParams): AsyncIterable<ProviderStreamEvent>;
 }
+
+/** User-facing text for a message, with a note appended when images are attached. */
+export function userText(m: AssistantMessage): string {
+  if (m.attachments?.length) {
+    return `${m.content}\n\n[The user attached ${m.attachments.length} image(s), numbered 0 to ${m.attachments.length - 1}. To put one on a line item, set that item's image_index to its number.]`;
+  }
+  return m.content;
+}

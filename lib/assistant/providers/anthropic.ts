@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AssistantMessage } from "@/types";
-import type { LLMProvider, ProviderChatParams, ProviderStreamEvent, ProviderTool } from "./types";
+import { userText, type LLMProvider, type ProviderChatParams, type ProviderStreamEvent, type ProviderTool } from "./types";
 
 const MAX_TOKENS = 4096;
 
@@ -10,7 +10,7 @@ function toAnthropicMessages(messages: AssistantMessage[]): Anthropic.MessagePar
   while (i < messages.length) {
     const m = messages[i];
     if (m.role === "user") {
-      out.push({ role: "user", content: m.content });
+      out.push({ role: "user", content: userText(m) });
       i++;
     } else if (m.role === "assistant") {
       const blocks: Anthropic.ContentBlockParam[] = [];
@@ -44,7 +44,7 @@ function toAnthropicTools(tools: ProviderTool[]): Anthropic.Tool[] {
 }
 
 export function createAnthropicProvider(opts: { apiKey: string; model: string }): LLMProvider {
-  const client = new Anthropic({ apiKey: opts.apiKey });
+  const client = new Anthropic({ apiKey: opts.apiKey, maxRetries: 4 });
 
   return {
     name: "anthropic",

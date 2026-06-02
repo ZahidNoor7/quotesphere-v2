@@ -13,8 +13,10 @@ export interface IAssistantMessage {
   toolCalls?: IAssistantToolCall[];
   toolCallId?: string;
   toolName?: string;
+  attachments?: string[];
   documentLink?: string;
   documentLabel?: string;
+  documentCard?: unknown;
   createdAt: Date;
 }
 
@@ -46,6 +48,7 @@ export interface IPendingAction {
 export interface IAssistantConversation extends Document {
   user_id: mongoose.Types.ObjectId;
   title: string;
+  pinned: boolean;
   messages: IAssistantMessage[];
   pendingAction?: IPendingAction | null;
   createdAt: Date;
@@ -69,8 +72,10 @@ const messageSchema = new Schema<IAssistantMessage>(
     toolCalls: { type: [toolCallSchema], default: undefined },
     toolCallId: String,
     toolName: String,
+    attachments: { type: [String], default: undefined },
     documentLink: String,
     documentLabel: String,
+    documentCard: { type: Schema.Types.Mixed },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -107,13 +112,15 @@ const conversationSchema = new Schema<IAssistantConversation>(
   {
     user_id: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     title: { type: String, default: "New chat" },
+    pinned: { type: Boolean, default: false },
     messages: { type: [messageSchema], default: [] },
     pendingAction: { type: pendingActionSchema, default: null },
   },
   { timestamps: true, versionKey: false }
 );
 
-conversationSchema.index({ user_id: 1, updatedAt: -1 });
+// Pinned conversations first, then most-recent — matches the sidebar ordering.
+conversationSchema.index({ user_id: 1, pinned: -1, updatedAt: -1 });
 
 const AssistantConversation: Model<IAssistantConversation> =
   mongoose.models.AssistantConversation ||

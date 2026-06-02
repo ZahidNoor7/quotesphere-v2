@@ -1,6 +1,6 @@
 import OpenAI, { AzureOpenAI } from "openai";
 import type { AssistantMessage } from "@/types";
-import type { LLMProvider, ProviderChatParams, ProviderStreamEvent, ProviderTool } from "./types";
+import { userText, type LLMProvider, type ProviderChatParams, type ProviderStreamEvent, type ProviderTool } from "./types";
 
 /** Reduce a (possibly full) Azure URL to its resource origin, e.g.
  *  https://res.openai.azure.com/openai/responses?api-version=… → https://res.openai.azure.com */
@@ -32,7 +32,7 @@ function toOpenAiMessages(
   ];
   for (const m of messages) {
     if (m.role === "user") {
-      out.push({ role: "user", content: m.content });
+      out.push({ role: "user", content: userText(m) });
     } else if (m.role === "assistant") {
       if (m.toolCalls?.length) {
         out.push({
@@ -68,8 +68,9 @@ export function createOpenAiProvider(opts: OpenAiProviderOptions): LLMProvider {
         endpoint: azureOrigin(opts.azure.endpoint),
         apiVersion: opts.azure.apiVersion,
         deployment: opts.azure.deployment,
+        maxRetries: 4,
       })
-    : new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL });
+    : new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL, maxRetries: 4 });
   const model = opts.azure ? opts.azure.deployment : opts.model;
 
   return {

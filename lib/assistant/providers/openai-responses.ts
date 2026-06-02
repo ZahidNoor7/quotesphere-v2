@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import type { AssistantMessage } from "@/types";
-import type { LLMProvider, ProviderChatParams, ProviderStreamEvent, ProviderTool } from "./types";
+import { userText, type LLMProvider, type ProviderChatParams, type ProviderStreamEvent, type ProviderTool } from "./types";
 import { azureOrigin, type OpenAiProviderOptions } from "./openai";
 
 /**
@@ -13,7 +13,7 @@ function toResponsesInput(messages: AssistantMessage[]): OpenAI.Responses.Respon
   const input: OpenAI.Responses.ResponseInputItem[] = [];
   for (const m of messages) {
     if (m.role === "user") {
-      input.push({ role: "user", content: m.content });
+      input.push({ role: "user", content: userText(m) });
     } else if (m.role === "assistant") {
       if (m.content) input.push({ role: "assistant", content: m.content });
       for (const tc of m.toolCalls ?? []) {
@@ -49,10 +49,15 @@ function buildClient(opts: OpenAiProviderOptions): { client: OpenAI; model: stri
       baseURL: `${base}/openai`,
       defaultQuery: { "api-version": opts.azure.apiVersion },
       defaultHeaders: { "api-key": opts.apiKey },
+      maxRetries: 4,
     });
     return { client, model: opts.azure.deployment, name: "azure_openai" };
   }
-  return { client: new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL }), model: opts.model, name: "openai" };
+  return {
+    client: new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL, maxRetries: 4 }),
+    model: opts.model,
+    name: "openai",
+  };
 }
 
 export function createOpenAiResponsesProvider(opts: OpenAiProviderOptions): LLMProvider {

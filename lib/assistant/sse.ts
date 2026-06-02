@@ -1,4 +1,5 @@
 import type { AssistantStreamEvent } from "@/types";
+import { describeAgentError } from "./errors";
 
 export const SSE_HEADERS: Record<string, string> = {
   "Content-Type": "text/event-stream; charset=utf-8",
@@ -26,9 +27,8 @@ export function streamSse(
       try {
         await run(send);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "The assistant hit an unexpected error.";
         try {
-          send({ type: "error", error: { message } });
+          send({ type: "error", error: { message: describeAgentError(err) } });
         } catch {
           /* controller already closed */
         }

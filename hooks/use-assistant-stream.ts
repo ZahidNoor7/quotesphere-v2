@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createParser } from "eventsource-parser";
 import { mutate as globalMutate } from "swr";
 import type {
+  AssistantDocumentCard,
   AssistantMessage,
   AssistantPendingAction,
   AssistantStreamEvent,
@@ -27,6 +28,26 @@ interface ChatPayload {
   approve?: string;
   cancel?: string;
   formValues?: Record<string, string>;
+  /** Document status chosen on the confirm card. */
+  status?: string;
+  /** Uploaded image URLs attached to this message. */
+  attachments?: string[];
+  /** Tell the server to drop the last persisted user turn before running (edit/retry of a completed turn). */
+  replaceLast?: boolean;
+}
+
+/** True if the conversation's last turn completed successfully (and was therefore persisted). */
+function lastTurnPersisted(msgs: AssistantUiMessage[]): boolean {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === "assistant") return !msgs[i].error;
+    if (msgs[i].role === "user") return false;
+  }
+  return false;
+}
+
+function lastUserIndex(msgs: AssistantUiMessage[]): number {
+  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === "user") return i;
+  return -1;
 }
 
 /** Rehydrate a saved conversation into UI bubbles, preserving tool activity + "View …" links. */
@@ -34,8 +55,8 @@ function canonicalToUi(messages: AssistantMessage[]): AssistantUiMessage[] {
   const out: AssistantUiMessage[] = [];
   for (const m of messages) {
     if (m.role === "user") {
-      if ((m.content ?? "").trim()) {
-        out.push({ id: m.id ?? genId(), role: "user", content: m.content, createdAt: m.createdAt });
+      if ((m.content ?? "").trim() || m.attachments?.length) {
+        out.push({ id: m.id ?? genId(), role: "user", content: m.content, attachments: m.attachments, createdAt: m.createdAt });
       }
     } else if (m.role === "assistant") {
       const toolEvents: AssistantUiToolEvent[] = (m.toolCalls ?? []).map((tc) => ({
@@ -44,7 +65,7 @@ function canonicalToUi(messages: AssistantMessage[]): AssistantUiMessage[] {
         label: toolLabel(tc.name),
         status: "done" as const,
       }));
-      if ((m.content ?? "").trim() || toolEvents.length || m.documentLink) {
+      if ((m.content ?? "").trim() || toolEvents.length || m.documentLink || m.documentCard) {
         out.push({
           id: m.id ?? genId(),
           role: "assistant",
@@ -52,6 +73,7 @@ function canonicalToUi(messages: AssistantMessage[]): AssistantUiMessage[] {
           toolEvents: toolEvents.length ? toolEvents : undefined,
           documentLink: m.documentLink,
           documentLabel: m.documentLabel,
+          documentCard: m.documentCard,
           createdAt: m.createdAt,
         });
       }
@@ -81,11 +103,14 @@ export interface UseAssistantStream {
   toolEvents: AssistantUiToolEvent[];
   pendingAction: AssistantPendingAction | null;
   isStreaming: boolean;
+  historyLoading: boolean;
   error: string | null;
   conversationId: string | null;
-  send: (message: string) => Promise<void>;
-  confirm: (formValues?: Record<string, string>) => Promise<void>;
+  send: (message: string, attachments?: string[]) => Promise<void>;
+  confirm: (opts?: { formValues?: Record<string, string>; status?: string }) => Promise<void>;
   cancel: () => Promise<void>;
+  retry: () => Promise<void>;
+  editAndResend: (text: string) => Promise<void>;
   stop: () => void;
   newChat: () => void;
   loadConversation: (id: string) => Promise<void>;
@@ -101,6 +126,7 @@ export function useAssistantStream(
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Mirror the callback into a ref so runStream stays stable across renders.
@@ -121,6 +147,7 @@ export function useAssistantStream(
     const events: AssistantUiToolEvent[] = [];
     let docLink: string | undefined;
     let docLabel: string | undefined;
+    let docCard: AssistantDocumentCard | undefined;
     let pending: AssistantPendingAction | null = null;
     let turnError: string | null = null;
 
@@ -135,6 +162,7 @@ export function useAssistantStream(
             toolEvents: events.length ? [...events] : undefined,
             documentLink: docLink,
             documentLabel: docLabel,
+            documentCard: docCard,
             error: turnError ?? undefined,
             createdAt: now(),
           },
@@ -205,7 +233,8 @@ export function useAssistantStream(
               }
               docLink = data.documentLink;
               docLabel = data.documentLabel;
-              if (docLink) refreshDocumentLists();
+              docCard = data.documentCard;
+              if (docLink || docCard) refreshDocumentLists();
               break;
             case "error":
               turnError = data.error.message;
@@ -237,18 +266,21 @@ export function useAssistantStream(
   }, []);
 
   const send = useCallback(
-    async (message: string) => {
-      if (isStreaming || !message.trim()) return;
-      setMessages((prev) => [...prev, { id: genId(), role: "user", content: message, createdAt: now() }]);
-      await runStream({ conversationId: conversationId ?? undefined, message });
+    async (message: string, attachments?: string[]) => {
+      if (isStreaming || (!message.trim() && !attachments?.length)) return;
+      setMessages((prev) => [
+        ...prev,
+        { id: genId(), role: "user", content: message, attachments, createdAt: now() },
+      ]);
+      await runStream({ conversationId: conversationId ?? undefined, message, attachments });
     },
     [isStreaming, conversationId, runStream]
   );
 
   const confirm = useCallback(
-    async (formValues?: Record<string, string>) => {
+    async (opts?: { formValues?: Record<string, string>; status?: string }) => {
       if (!pendingAction || !conversationId || isStreaming) return;
-      await runStream({ conversationId, approve: pendingAction.id, formValues });
+      await runStream({ conversationId, approve: pendingAction.id, formValues: opts?.formValues, status: opts?.status });
     },
     [pendingAction, conversationId, isStreaming, runStream]
   );
@@ -257,6 +289,30 @@ export function useAssistantStream(
     if (!pendingAction || !conversationId || isStreaming) return;
     await runStream({ conversationId, cancel: pendingAction.id });
   }, [pendingAction, conversationId, isStreaming, runStream]);
+
+  // Re-run the last user message (after an error) without re-adding the bubble.
+  const retry = useCallback(async () => {
+    if (isStreaming) return;
+    const idx = lastUserIndex(messages);
+    if (idx === -1) return;
+    const text = messages[idx].content;
+    const replaceLast = lastTurnPersisted(messages);
+    setMessages((prev) => prev.slice(0, idx + 1));
+    await runStream({ conversationId: conversationId ?? undefined, message: text, replaceLast });
+  }, [isStreaming, messages, conversationId, runStream]);
+
+  // Replace the last user message with edited text and re-run.
+  const editAndResend = useCallback(
+    async (newText: string) => {
+      if (isStreaming || !newText.trim()) return;
+      const idx = lastUserIndex(messages);
+      if (idx === -1) return;
+      const replaceLast = lastTurnPersisted(messages);
+      setMessages((prev) => [...prev.slice(0, idx), { id: genId(), role: "user", content: newText, createdAt: now() }]);
+      await runStream({ conversationId: conversationId ?? undefined, message: newText, replaceLast });
+    },
+    [isStreaming, messages, conversationId, runStream]
+  );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -282,6 +338,7 @@ export function useAssistantStream(
     setPendingAction(null);
     setError(null);
     setConversationId(id);
+    setHistoryLoading(true);
     try {
       const res = await fetch(`/api/assistant/conversations/${id}`);
       const json = await res.json();
@@ -298,6 +355,8 @@ export function useAssistantStream(
       setConversationId(null);
       if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY);
       if (!opts?.silent) setError(err instanceof Error ? err.message : "Failed to load conversation");
+    } finally {
+      setHistoryLoading(false);
     }
   }, []);
 
@@ -320,11 +379,14 @@ export function useAssistantStream(
     toolEvents,
     pendingAction,
     isStreaming,
+    historyLoading,
     error,
     conversationId,
     send,
     confirm,
     cancel,
+    retry,
+    editAndResend,
     stop,
     newChat,
     loadConversation,

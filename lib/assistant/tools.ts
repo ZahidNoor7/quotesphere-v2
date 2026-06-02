@@ -34,6 +34,10 @@ const itemJsonSchema = {
       type: "string",
       description: "Catalog product id, only if this line is a known product (enables stock tracking on invoices)",
     },
+    image_index: {
+      type: "number",
+      description: "0-based index of an attached image to show on this line item (only when the user attached image(s) to their message).",
+    },
   },
   required: ["name", "quantity", "price"],
   additionalProperties: false,
@@ -44,6 +48,7 @@ const itemZod = z.object({
   quantity: z.number().min(0),
   price: z.number().min(0),
   product_id: z.string().optional(),
+  image_index: z.number().int().min(0).optional(),
 });
 
 // Shared editable document fields (JSON Schema fragments reused by create/update).

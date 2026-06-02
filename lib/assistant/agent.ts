@@ -1,10 +1,17 @@
 import { randomUUID } from "crypto";
 import type {
+  AssistantDocumentCard,
   AssistantMessage,
   AssistantPendingAction,
   AssistantStreamEvent,
   AssistantToolCall,
 } from "@/types";
+
+interface Carried {
+  documentLink?: string;
+  documentLabel?: string;
+  documentCard?: AssistantDocumentCard;
+}
 import type { LLMProvider } from "./providers/types";
 import { providerTools, TOOL_MAP } from "./tools";
 import { buildPendingAction, executeReadTool, runPendingAction } from "./executor";
@@ -32,6 +39,7 @@ export type TurnOutcome =
       finalText: string;
       documentLink?: string;
       documentLabel?: string;
+      documentCard?: AssistantDocumentCard;
     }
   | { status: "paused"; messages: AssistantMessage[]; pending: StoredPendingAction };
 
@@ -45,7 +53,16 @@ function newMsg(
 
 /** Strip server-only execution detail before sending a pending action to the client. */
 export function toClientAction(p: StoredPendingAction): AssistantPendingAction {
-  return { id: p.id, tool: p.tool, title: p.title, summary: p.summary, preview: p.preview, form: p.form };
+  return {
+    id: p.id,
+    tool: p.tool,
+    title: p.title,
+    summary: p.summary,
+    preview: p.preview,
+    form: p.form,
+    statusValue: p.statusValue,
+    statusOptions: p.statusOptions,
+  };
 }
 
 const cancelContent = (message: string) => JSON.stringify({ cancelled: true, message });
@@ -69,13 +86,11 @@ export function appendCancellationResults(messages: AssistantMessage[], pending:
 
 // ─── The agentic loop ─────────────────────────────────────────────────────────
 
-async function loop(
-  params: AgentRunParams,
-  carried?: { documentLink?: string; documentLabel?: string }
-): Promise<TurnOutcome> {
+async function loop(params: AgentRunParams, carried?: Carried): Promise<TurnOutcome> {
   const { provider, system, toolCtx, messages, emit, signal } = params;
   const documentLink = carried?.documentLink;
   const documentLabel = carried?.documentLabel;
+  const documentCard = carried?.documentCard;
   const tools = providerTools();
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
@@ -94,8 +109,9 @@ async function loop(
     // No tools → final answer. Persist the document link onto this turn so the
     // "View …" CTA survives a page reload.
     if (toolCalls.length === 0) {
-      messages.push(newMsg("assistant", text, documentLink ? { documentLink, documentLabel } : undefined));
-      return { status: "completed", messages, finalText: text, documentLink, documentLabel };
+      const meta = documentLink || documentCard ? { documentLink, documentLabel, documentCard } : undefined;
+      messages.push(newMsg("assistant", text, meta));
+      return { status: "completed", messages, finalText: text, documentLink, documentLabel, documentCard };
     }
 
     // Record the assistant turn that requested the tools.
@@ -166,13 +182,17 @@ async function loop(
 
   const msg = "I couldn't complete that within a reasonable number of steps. Could you rephrase or break it into smaller asks?";
   messages.push(newMsg("assistant", msg));
-  return { status: "completed", messages, finalText: msg, documentLink, documentLabel };
+  return { status: "completed", messages, finalText: msg, documentLink, documentLabel, documentCard };
 }
 
 // ─── Entry points used by the route ───────────────────────────────────────────
 
-export async function runTurn(params: AgentRunParams, userMessage: string): Promise<TurnOutcome> {
-  params.messages.push(newMsg("user", userMessage));
+export async function runTurn(
+  params: AgentRunParams,
+  userMessage: string,
+  attachments?: string[]
+): Promise<TurnOutcome> {
+  params.messages.push(newMsg("user", userMessage, attachments?.length ? { attachments } : undefined));
   return loop(params);
 }
 
@@ -182,7 +202,7 @@ export async function resumeTurn(
   decision: "approve" | "cancel"
 ): Promise<TurnOutcome> {
   const { emit, toolCtx, messages } = params;
-  let carried: { documentLink?: string; documentLabel?: string } | undefined;
+  let carried: Carried | undefined;
   let writeResultContent: string;
 
   if (decision === "approve") {
@@ -190,7 +210,7 @@ export async function resumeTurn(
     const r = await runPendingAction(pending, toolCtx);
     emit({ type: "tool_result", id: pending.toolCallId, tool: pending.tool, ok: r.ok, summary: r.summary });
     writeResultContent = JSON.stringify(r.data);
-    if (r.ok) carried = { documentLink: r.documentLink, documentLabel: r.documentLabel };
+    if (r.ok) carried = { documentLink: r.documentLink, documentLabel: r.documentLabel, documentCard: r.card };
   } else {
     emit({ type: "tool_result", id: pending.toolCallId, tool: pending.tool, ok: false, summary: "Cancelled" });
     writeResultContent = cancelContent("The user declined this action. Do not perform it unless they ask again.");

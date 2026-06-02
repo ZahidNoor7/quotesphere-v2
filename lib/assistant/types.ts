@@ -1,4 +1,4 @@
-import type { AssistantFormField, AssistantPendingActionPreview, UserRole } from "@/types";
+import type { AssistantDocumentCard, AssistantFormField, AssistantPendingActionPreview, UserRole } from "@/types";
 
 /** Per-request context the executor needs to call quotesphere's own APIs. */
 export interface ToolContext {
@@ -10,6 +10,8 @@ export interface ToolContext {
   role?: UserRole;
   /** The user's default currency, used when the model doesn't specify one. */
   defaultCurrency: string;
+  /** Image URLs attached to this turn, referenced by line items via image_index. */
+  attachments: string[];
 }
 
 /** A tool result for a non-write tool that ran alongside a paused write. */
@@ -37,6 +39,9 @@ export interface StoredPendingAction {
   preview: AssistantPendingActionPreview[];
   /** When present, the confirm card is an editable form the user completes. */
   form?: AssistantFormField[];
+  /** Lets the user choose the document status on the card before saving. */
+  statusValue?: string;
+  statusOptions?: { value: string; label: string }[];
   docType?: "quotation" | "invoice" | "customer";
   /** Results of any non-write tools the model called in the same (paused) turn. */
   siblingResults: SiblingToolResult[];
@@ -55,4 +60,5 @@ export interface WriteExecResult {
   summary: string;
   documentLink?: string;
   documentLabel?: string;
+  card?: AssistantDocumentCard;
 }

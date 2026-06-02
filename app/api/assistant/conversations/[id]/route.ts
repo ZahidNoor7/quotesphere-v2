@@ -6,7 +6,12 @@ import { connectDB } from "@/lib/mongoose";
 import AssistantConversation from "@/models/AssistantConversation";
 import { withLog } from "@/lib/logger";
 
-const renameSchema = z.object({ title: z.string().min(1).max(120) });
+const patchSchema = z
+  .object({
+    title: z.string().min(1).max(120).optional(),
+    pinned: z.boolean().optional(),
+  })
+  .refine((v) => v.title !== undefined || v.pinned !== undefined, { message: "Nothing to update" });
 
 export const GET = withLog(
   "GET /api/assistant/conversations/[id]",
@@ -42,13 +47,18 @@ export const PATCH = withLog(
       const { id } = await params;
       if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
 
-      const parsed = renameSchema.safeParse(await req.json());
-      if (!parsed.success) return NextResponse.json({ success: false, error: "Invalid title" }, { status: 400 });
+      const parsed = patchSchema.safeParse(await req.json());
+      if (!parsed.success) return NextResponse.json({ success: false, error: "Invalid update" }, { status: 400 });
+
+      const $set: Record<string, unknown> = {};
+      if (parsed.data.title !== undefined) $set.title = parsed.data.title;
+      if (parsed.data.pinned !== undefined) $set.pinned = parsed.data.pinned;
 
       const data = await AssistantConversation.findOneAndUpdate(
         { _id: id, user_id: userId },
-        { $set: { title: parsed.data.title } },
-        { new: true, projection: "title createdAt updatedAt" }
+        { $set },
+        // Don't bump updatedAt for rename/pin — these aren't conversation activity.
+        { new: true, projection: "title pinned createdAt updatedAt", timestamps: false }
       ).lean();
       if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
       return NextResponse.json({ success: true, data });

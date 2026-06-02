@@ -8,6 +8,7 @@ import type { AiAssistantConfig, AssistantMessage, UserRole } from "@/types";
 import { getBaseUrl } from "@/lib/assistant/base-url";
 import { resolveProvider, ProviderConfigError } from "@/lib/assistant/providers";
 import { buildSystemPrompt } from "@/lib/assistant/prompt";
+import { describeAgentError } from "@/lib/assistant/errors";
 import { streamSse } from "@/lib/assistant/sse";
 import {
   appendCancellationResults,
@@ -29,11 +30,26 @@ const bodySchema = z.object({
   cancel: z.string().optional(),
   /** User-completed values from a form-style confirmation card (e.g. new customer). */
   formValues: z.record(z.string(), z.string()).optional(),
+  /** Document status chosen on the confirm card. */
+  status: z.string().max(40).optional(),
+  /** Uploaded image URLs attached to this message (referenced by line items via image_index). */
+  attachments: z.array(z.string().max(2000)).max(20).optional(),
+  /** Drop the last persisted user turn before running (edit/retry of a completed turn). */
+  replaceLast: z.boolean().optional(),
 });
 
 function deriveTitle(message: string): string {
   const t = message.trim().replace(/\s+/g, " ");
   return t.length > 60 ? `${t.slice(0, 57)}…` : t || "New chat";
+}
+
+/** Most recent user message's attachments — so an image survives the customer-creation pause. */
+function lastUserAttachments(msgs: AssistantMessage[]): string[] {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.role === "user" && m.attachments?.length) return m.attachments;
+  }
+  return [];
 }
 
 export async function POST(req: NextRequest) {
@@ -84,6 +100,22 @@ export async function POST(req: NextRequest) {
     pending = (existing.pendingAction ?? null) as StoredPendingAction | null;
   }
 
+  // Edit/retry of a completed turn → drop the last user message and everything after it.
+  if (body.replaceLast && !isDecision && messages.length) {
+    let cut = messages.length;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        cut = i;
+        break;
+      }
+    }
+    messages = messages.slice(0, cut);
+  }
+
+  // Images attached this turn — or, on a resume after the customer form, the ones
+  // from the original message (still in history).
+  const turnAttachments = body.attachments?.length ? body.attachments : lastUserAttachments(messages);
+
   async function persist(finalMessages: AssistantMessage[], finalPending: StoredPendingAction | null) {
     if (convoId) {
       await AssistantConversation.updateOne(
@@ -115,7 +147,7 @@ export async function POST(req: NextRequest) {
       return;
     }
 
-    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(), role, defaultCurrency };
+    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(), role, defaultCurrency, attachments: turnAttachments };
     const params: AgentRunParams = {
       provider,
       system: buildSystemPrompt({
@@ -145,10 +177,14 @@ export async function POST(req: NextRequest) {
           }
           pending.payload = merged;
         }
+        // Apply the status chosen on the confirm card.
+        if (body.approve && body.status && pending.statusOptions?.some((o) => o.value === body.status)) {
+          (pending.payload as Record<string, unknown>).status = body.status;
+        }
         outcome = await resumeTurn(params, pending, body.approve ? "approve" : "cancel");
       } else {
         if (pending) appendCancellationResults(messages, pending);
-        outcome = await runTurn(params, body.message as string);
+        outcome = await runTurn(params, body.message as string, body.attachments);
       }
 
       if (outcome.status === "paused") {
@@ -163,12 +199,12 @@ export async function POST(req: NextRequest) {
           message: outcome.finalText,
           documentLink: outcome.documentLink,
           documentLabel: outcome.documentLabel,
+          documentCard: outcome.documentCard,
         });
       }
     } catch (e) {
       if (req.signal?.aborted) return; // client disconnected — discard partial turn
-      const message = e instanceof Error ? e.message : "The assistant hit an unexpected error.";
-      send({ type: "error", error: { message } });
+      send({ type: "error", error: { message: describeAgentError(e) } });
     }
   });
 }

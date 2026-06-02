@@ -76,14 +76,30 @@ function fmt(amount: number, currency: string): string {
   return formatCurrency(amount, currency);
 }
 
-function numberItems(items: Array<{ name: string; quantity: number; price: number; product_id?: string }>) {
-  return items.map((it, i) => ({
-    id: i + 1,
-    name: it.name,
-    quantity: it.quantity,
-    price: it.price,
-    ...(it.product_id ? { product_id: it.product_id } : {}),
-  }));
+function numberItems(
+  items: Array<{ name: string; quantity: number; price: number; product_id?: string; image_index?: number }>,
+  attachments: string[] = []
+) {
+  return items.map((it, i) => {
+    const img =
+      typeof it.image_index === "number" && it.image_index >= 0 && it.image_index < attachments.length
+        ? attachments[it.image_index]
+        : undefined;
+    return {
+      id: i + 1,
+      name: it.name,
+      quantity: it.quantity,
+      price: it.price,
+      ...(it.product_id ? { product_id: it.product_id } : {}),
+      ...(img ? { images: [img] } : {}),
+    };
+  });
+}
+
+function statusOptionsFor(docType: "quotation" | "invoice", current: string): { value: string; label: string }[] {
+  const base = docType === "invoice" ? ["draft", "issued"] : ["draft", "pending", "approved"];
+  const values = base.includes(current) ? base : [current, ...base];
+  return values.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) }));
 }
 
 function docPreview(
@@ -284,7 +300,7 @@ export async function buildPendingAction(
         return { error: `Couldn't find customer ${a.customer_id}. Use list_customers to find a valid customer first.` };
       }
       const isInvoice = name === "create_invoice";
-      const items = numberItems(a.items);
+      const items = numberItems(a.items, ctx.attachments);
       const tax = a.tax ?? 0;
       const taxType = a.tax_type ?? "percentage";
       const currency = a.currency ?? customer.currency ?? ctx.defaultCurrency;
@@ -331,6 +347,8 @@ export async function buildPendingAction(
         title: `Create ${noun}`,
         summary: `Create a ${noun} for ${customer.name} — ${items.length} item(s), total ${fmt(totals.total_amount, currency)}.`,
         preview: docPreview(customer.name, items, totals, currency, tax, taxType),
+        statusValue: (a.status ?? "draft") as string,
+        statusOptions: statusOptionsFor(noun, (a.status ?? "draft") as string),
       };
     }
 
@@ -349,7 +367,7 @@ export async function buildPendingAction(
         if (!customer) return { error: `Couldn't find customer ${a.customer_id}.` };
       }
 
-      const items = a.items ? numberItems(a.items) : (doc.items ?? []);
+      const items = a.items ? numberItems(a.items, ctx.attachments) : (doc.items ?? []);
       const tax = a.tax ?? doc.tax ?? 0;
       const taxType = a.tax_type ?? doc.tax_type ?? "percentage";
       const discount = a.discount ?? doc.discount ?? 0;
@@ -398,6 +416,8 @@ export async function buildPendingAction(
         title: `Update ${noun} ${doc.quotation_no ?? doc.invoice_no ?? ""}`.trim(),
         summary: `Update ${noun} ${doc.quotation_no ?? doc.invoice_no} — new total ${fmt(totals.total_amount, currency)}.`,
         preview: docPreview(customerName, items, totals, currency, tax, taxType),
+        statusValue: (a.status ?? doc.status) as string,
+        statusOptions: statusOptionsFor(noun, (a.status ?? doc.status) as string),
       };
     }
 
@@ -517,6 +537,15 @@ export async function runPendingAction(
         summary: `${verb} ${data.quotation_no}`,
         documentLink: `/quotations/${data._id}`,
         documentLabel: data.quotation_no,
+        card: {
+          type: "quotation",
+          link: `/quotations/${data._id}`,
+          label: data.quotation_no,
+          subtitle: data.customer_name,
+          amount: data.total_amount,
+          currency: data.currency,
+          status: data.status,
+        },
       };
     }
     case "create_invoice":
@@ -528,6 +557,15 @@ export async function runPendingAction(
         summary: `${verb} ${data.invoice_no}`,
         documentLink: `/invoices/${data._id}`,
         documentLabel: data.invoice_no,
+        card: {
+          type: "invoice",
+          link: `/invoices/${data._id}`,
+          label: data.invoice_no,
+          subtitle: data.customer_name,
+          amount: data.total_amount,
+          currency: data.currency,
+          status: data.payment_status ?? data.status,
+        },
       };
     }
     case "convert_quotation": {
@@ -539,6 +577,15 @@ export async function runPendingAction(
         summary: `Converted ${quotation.quotation_no} → ${invoice.invoice_no}`,
         documentLink: `/invoices/${invoice._id}`,
         documentLabel: invoice.invoice_no,
+        card: {
+          type: "invoice",
+          link: `/invoices/${invoice._id}`,
+          label: invoice.invoice_no,
+          subtitle: invoice.customer_name,
+          amount: invoice.total_amount,
+          currency: invoice.currency,
+          status: invoice.payment_status ?? invoice.status,
+        },
       };
     }
     case "record_payment": {
@@ -548,6 +595,15 @@ export async function runPendingAction(
         summary: `Payment recorded — outstanding ${fmt(data.outstanding ?? 0, data.currency ?? ctx.defaultCurrency)}`,
         documentLink: `/invoices/${data._id}`,
         documentLabel: data.invoice_no,
+        card: {
+          type: "invoice",
+          link: `/invoices/${data._id}`,
+          label: data.invoice_no,
+          subtitle: data.customer_name,
+          amount: data.outstanding,
+          currency: data.currency,
+          status: data.payment_status,
+        },
       };
     }
     case "create_customer": {
@@ -557,6 +613,12 @@ export async function runPendingAction(
         summary: `Created customer ${data.name}`,
         documentLink: `/customers/${data._id}`,
         documentLabel: data.name,
+        card: {
+          type: "customer",
+          link: `/customers/${data._id}`,
+          label: data.name,
+          subtitle: data.phone_no,
+        },
       };
     }
     default:

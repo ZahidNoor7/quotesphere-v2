@@ -497,9 +497,12 @@ export interface AssistantMessage {
   toolCallId?: string;
   /** Tool-result turns — the tool name. */
   toolName?: string;
+  /** User turns — uploaded image URLs attached to the message. */
+  attachments?: string[];
   /** Set on the final assistant turn after a write, so the "View …" link survives reload. */
   documentLink?: string;
   documentLabel?: string;
+  documentCard?: AssistantDocumentCard;
   createdAt: string;
 }
 
@@ -527,6 +530,9 @@ export interface AssistantPendingAction {
   preview: AssistantPendingActionPreview[];
   /** When present, the card renders editable inputs (the user completes & confirms). */
   form?: AssistantFormField[];
+  /** When present, the card lets the user choose the document status before saving. */
+  statusValue?: string;
+  statusOptions?: { value: string; label: string }[];
 }
 
 /** SSE events streamed from /api/assistant/chat to the client hook. */
@@ -542,12 +548,14 @@ export type AssistantStreamEvent =
       message: string;
       documentLink?: string;
       documentLabel?: string;
+      documentCard?: AssistantDocumentCard;
     }
   | { type: "error"; error: { message: string } };
 
 export interface AssistantConversationSummary {
   _id: string;
   title: string;
+  pinned?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -560,15 +568,28 @@ export interface AssistantUiToolEvent {
   summary?: string;
 }
 
+/** A rich preview card for a created/updated document, rendered in the chat. */
+export interface AssistantDocumentCard {
+  type: "quotation" | "invoice" | "customer";
+  link: string;
+  label: string; // e.g. INV-00012 or customer name
+  subtitle?: string; // customer name, or phone for a customer
+  amount?: number;
+  currency?: string;
+  status?: string;
+}
+
 /** Rendered chat message in the assistant UI. */
 export interface AssistantUiMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: string[];
   toolEvents?: AssistantUiToolEvent[];
   pendingAction?: AssistantPendingAction;
   documentLink?: string;
   documentLabel?: string;
+  documentCard?: AssistantDocumentCard;
   error?: string;
   createdAt?: string;
 }
