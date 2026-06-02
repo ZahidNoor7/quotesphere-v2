@@ -345,7 +345,7 @@ export function MobileNav() {
 
       {/* Drawer */}
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-[200] md:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <aside
             className="absolute left-0 top-0 bottom-0 w-72 flex flex-col animate-slide-up"

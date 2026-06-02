@@ -11,6 +11,7 @@ import type {
   AssistantUiToolEvent,
 } from "@/types";
 import { toolLabel } from "@/lib/assistant/labels";
+import { parseSuggestions } from "@/lib/assistant/suggestions";
 
 const STORAGE_KEY = "qs-assistant-active-conversation";
 
@@ -65,11 +66,13 @@ function canonicalToUi(messages: AssistantMessage[]): AssistantUiMessage[] {
         label: toolLabel(tc.name),
         status: "done" as const,
       }));
-      if ((m.content ?? "").trim() || toolEvents.length || m.documentLink || m.documentCard) {
+      const parsed = parseSuggestions(m.content ?? "");
+      if (parsed.content.trim() || toolEvents.length || m.documentLink || m.documentCard) {
         out.push({
           id: m.id ?? genId(),
           role: "assistant",
-          content: m.content ?? "",
+          content: parsed.content,
+          suggestions: parsed.suggestions.length ? parsed.suggestions : undefined,
           toolEvents: toolEvents.length ? toolEvents : undefined,
           documentLink: m.documentLink,
           documentLabel: m.documentLabel,
@@ -152,13 +155,15 @@ export function useAssistantStream(
     let turnError: string | null = null;
 
     const commitAssistant = () => {
-      if (assistantText || events.length || turnError) {
+      const { content, suggestions } = parseSuggestions(assistantText);
+      if (content || events.length || turnError) {
         setMessages((prev) => [
           ...prev,
           {
             id: genId(),
             role: "assistant",
-            content: assistantText,
+            content,
+            suggestions: suggestions.length ? suggestions : undefined,
             toolEvents: events.length ? [...events] : undefined,
             documentLink: docLink,
             documentLabel: docLabel,

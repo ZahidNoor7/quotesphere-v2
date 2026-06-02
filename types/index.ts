@@ -475,6 +475,10 @@ export interface AiAssistantConfig {
   azureApiVersion?: string;
   /** Optional OpenAI-compatible base URL override (proxies, gateways). */
   baseUrl?: string;
+  /** Per-feature enable map (quotations, invoices, …); a missing key means enabled. */
+  features?: Record<string, boolean>;
+  /** Extra user instructions appended to the assistant's system prompt. */
+  customInstructions?: string;
 }
 
 /** A tool the model asked to run, in provider-neutral form. */
@@ -585,6 +589,7 @@ export interface AssistantUiMessage {
   role: "user" | "assistant";
   content: string;
   attachments?: string[];
+  suggestions?: string[];
   toolEvents?: AssistantUiToolEvent[];
   pendingAction?: AssistantPendingAction;
   documentLink?: string;

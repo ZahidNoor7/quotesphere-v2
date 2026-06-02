@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Sparkles, Send, Plus, Trash2, ArrowRight, Loader2, Square, MessageSquarePlus, Pin, Search, ImagePlus, X, ChevronLeft,
+  Sparkles, Send, Plus, Trash2, ArrowRight, Loader2, Square, MessageSquarePlus, Pin, Search, ImagePlus, X, ChevronLeft, Settings,
 } from "lucide-react";
 import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
@@ -14,6 +14,8 @@ import { AssistantMessageBubble } from "@/components/assistant/assistant-message
 import { ConfirmCard } from "@/components/assistant/confirm-card";
 import { FormCard } from "@/components/assistant/form-card";
 import { MessageSkeleton, ConversationListSkeleton } from "@/components/assistant/skeletons";
+import { AssistantSettingsSheet } from "@/components/assistant/assistant-settings-sheet";
+import { parseSuggestions } from "@/lib/assistant/suggestions";
 
 interface PendingAttachment {
   id: string;
@@ -100,6 +102,7 @@ export default function AssistantPage() {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -218,6 +221,7 @@ export default function AssistantPage() {
 
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
+      <AssistantSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
       {/* Left: conversation list */}
       <div style={{ width: isMobile ? "100%" : 280, flexShrink: isMobile ? 1 : 0, borderRight: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, display: !isMobile || mobileView === "list" ? "flex" : "none", flexDirection: "column", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
         <div style={{ padding: "14px 14px 10px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -246,13 +250,14 @@ export default function AssistantPage() {
             </div>
           ) : null}
           {conversations.map((c) => {
-            const active = c._id === chat.conversationId;
+            // On mobile the list is its own screen — don't highlight a chat you're not viewing.
+            const active = c._id === chat.conversationId && (!isMobile || mobileView === "chat");
             return (
               <div
                 key={c._id}
                 onClick={() => { void chat.loadConversation(c._id); setMobileView("chat"); }}
                 className="group/conv"
-                style={{ padding: "11px 14px", display: "flex", gap: 8, alignItems: "center", cursor: "pointer", borderLeft: active ? `2px solid ${AC}` : "2px solid transparent", background: active ? `color-mix(in srgb, ${AC} 8%, transparent)` : "transparent" }}
+                style={{ padding: "11px 14px", display: "flex", gap: 8, alignItems: "center", cursor: "pointer", borderBottom: `0.5px solid ${GLASS_BORDER}`, borderLeft: active ? `2px solid ${AC}` : "2px solid transparent", background: active ? `color-mix(in srgb, ${AC} 8%, transparent)` : "transparent" }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
@@ -305,6 +310,13 @@ export default function AssistantPage() {
             <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>AI Assistant</div>
             <div style={{ fontSize: 11, color: T3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Creates &amp; edits quotations and invoices through the app</div>
           </div>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            title="Assistant settings"
+            style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T2 }}
+          >
+            <Settings size={16} />
+          </button>
         </div>
 
         {/* Thread */}
@@ -373,18 +385,20 @@ export default function AssistantPage() {
                 }
                 const canEdit = m.role === "user" && m.id === lastUserId && !chat.isStreaming;
                 const canRetry = m.role === "assistant" && !!m.error && m.id === lastMsg?.id && !chat.isStreaming;
+                const canSuggest = m.role === "assistant" && m.id === lastMsg?.id && !chat.isStreaming && !chat.pendingAction;
                 return (
                   <AssistantMessageBubble
                     key={m.id}
                     msg={m}
                     onEdit={canEdit ? () => startEdit(m.id, m.content) : undefined}
                     onRetry={canRetry ? () => chat.retry() : undefined}
+                    onSuggestion={canSuggest ? (t) => void chat.send(t) : undefined}
                   />
                 );
               })}
               {chat.isStreaming && (chat.streamingText || chat.toolEvents.length > 0) && (
                 <AssistantMessageBubble
-                  msg={{ id: "live", role: "assistant", content: chat.streamingText, toolEvents: chat.toolEvents.length ? chat.toolEvents : undefined }}
+                  msg={{ id: "live", role: "assistant", content: parseSuggestions(chat.streamingText).content, toolEvents: chat.toolEvents.length ? chat.toolEvents : undefined }}
                 />
               )}
               {chat.isStreaming && !chat.streamingText && chat.toolEvents.length === 0 && <ThinkingRow />}

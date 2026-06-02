@@ -12,6 +12,8 @@ export interface ToolContext {
   defaultCurrency: string;
   /** Image URLs attached to this turn, referenced by line items via image_index. */
   attachments: string[];
+  /** Tool names the assistant may use (from the feature toggles). */
+  enabledTools?: Set<string>;
 }
 
 /** A tool result for a non-write tool that ran alongside a paused write. */
@@ -42,7 +44,7 @@ export interface StoredPendingAction {
   /** Lets the user choose the document status on the card before saving. */
   statusValue?: string;
   statusOptions?: { value: string; label: string }[];
-  docType?: "quotation" | "invoice" | "customer";
+  docType?: string;
   /** Results of any non-write tools the model called in the same (paused) turn. */
   siblingResults: SiblingToolResult[];
 }

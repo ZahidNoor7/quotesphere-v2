@@ -6,7 +6,7 @@ import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 /** Renders assistant text as GitHub-flavored Markdown, styled for the chat surface. */
 export function MarkdownMessage({ content }: { content: string }) {
   return (
-    <div style={{ fontSize: 13.5, color: T1, lineHeight: 1.6, wordBreak: "break-word" }}>
+    <div style={{ fontSize: 13.5, color: T1, lineHeight: 1.6, wordBreak: "break-word", maxWidth: "100%", minWidth: 0 }}>
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -53,17 +53,17 @@ export function MarkdownMessage({ content }: { content: string }) {
           ),
           hr: () => <hr style={{ border: "none", borderTop: `0.5px solid ${GLASS_BORDER}`, margin: "10px 0" }} />,
           table: ({ children }) => (
-            <div style={{ overflowX: "auto", margin: "0 0 8px", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8 }}>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", maxWidth: "100%", margin: "0 0 8px", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8 }}>
               <table style={{ borderCollapse: "collapse", fontSize: 12.5, width: "100%" }}>{children}</table>
             </div>
           ),
           th: ({ children }) => (
-            <th style={{ textAlign: "left", padding: "7px 11px", borderBottom: `0.5px solid ${GLASS_BORDER}`, background: GLASS, color: T3, fontWeight: 600, whiteSpace: "nowrap" }}>
+            <th style={{ textAlign: "left", padding: "7px 11px", borderBottom: `0.5px solid ${GLASS_BORDER}`, background: GLASS, color: T3, fontWeight: 600 }}>
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td style={{ padding: "7px 11px", borderTop: `0.5px solid ${GLASS_BORDER}`, color: T1, whiteSpace: "nowrap" }}>{children}</td>
+            <td style={{ padding: "7px 11px", borderTop: `0.5px solid ${GLASS_BORDER}`, color: T1, wordBreak: "break-word" }}>{children}</td>
           ),
         }}
       >

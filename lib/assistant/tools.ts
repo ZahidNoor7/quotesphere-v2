@@ -190,6 +190,39 @@ export const ASSISTANT_TOOLS: ToolDef[] = [
     op: "read",
   },
 
+  {
+    name: "list_expenses",
+    description: "List or search the user's expenses (read-only). Returns vendor, amount and status.",
+    inputSchema: {
+      type: "object",
+      properties: { search: { type: "string", description: "Vendor name or expense number." } },
+      additionalProperties: false,
+    },
+    zod: z.object({ search: z.string().optional() }),
+    kind: "read",
+    op: "read",
+  },
+  {
+    name: "list_projects",
+    description: "List or search the user's projects (read-only). Returns name, status and budget.",
+    inputSchema: {
+      type: "object",
+      properties: { search: { type: "string", description: "Project name." } },
+      additionalProperties: false,
+    },
+    zod: z.object({ search: z.string().optional() }),
+    kind: "read",
+    op: "read",
+  },
+  {
+    name: "get_summary",
+    description: "Get a business summary (read-only): total revenue, received, outstanding, expenses, and document counts.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    zod: z.object({}),
+    kind: "read",
+    op: "read",
+  },
+
   // ── Writes ──
   {
     name: "create_quotation",
@@ -388,15 +421,381 @@ export const ASSISTANT_TOOLS: ToolDef[] = [
     kind: "write",
     op: "create",
   },
+  {
+    name: "create_customers",
+    description: "Create MULTIPLE customers at once (bulk). Use when the user wants several / N customers — pass them all in one array in a single call. Each needs a name and phone number.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        customers: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              phone_no: { type: "string" },
+              email: { type: "string" },
+              address: { type: "string" },
+              company: { type: "string" },
+            },
+            required: ["name", "phone_no"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["customers"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      customers: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            phone_no: z.string().min(1),
+            email: z.string().optional(),
+            address: z.string().optional(),
+            company: z.string().optional(),
+          })
+        )
+        .min(1)
+        .max(30),
+    }),
+    kind: "write",
+    op: "create",
+  },
+
+  // ── Catalog / expense / project management ──
+  {
+    name: "create_product",
+    description: "Add a new product to the catalog. Only the name is required; set price (default_price), stock (stock_qty), SKU, category, unit, etc.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        default_price: { type: "number", description: "Unit price." },
+        stock_qty: { type: "number", description: "Stock level." },
+        sku: { type: "string" },
+        description: { type: "string" },
+        category: { type: "string" },
+        unit: { type: "string", description: 'e.g. "pcs", "kg".' },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        low_stock_threshold: { type: "number" },
+        is_active: { type: "boolean" },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      name: z.string().min(1),
+      default_price: z.number().min(0).optional(),
+      stock_qty: z.number().min(0).optional(),
+      sku: z.string().optional(),
+      description: z.string().optional(),
+      category: z.string().optional(),
+      unit: z.string().optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      low_stock_threshold: z.number().min(0).optional(),
+      is_active: z.boolean().optional(),
+    }),
+    kind: "write",
+    op: "create",
+  },
+  {
+    name: "update_product",
+    description: "Update a product (price, stock, etc.). Pass the id (from list_products) and only the fields that change.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        default_price: { type: "number" },
+        stock_qty: { type: "number" },
+        sku: { type: "string" },
+        description: { type: "string" },
+        category: { type: "string" },
+        unit: { type: "string" },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        low_stock_threshold: { type: "number" },
+        is_active: { type: "boolean" },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      id: z.string().min(1),
+      name: z.string().optional(),
+      default_price: z.number().min(0).optional(),
+      stock_qty: z.number().min(0).optional(),
+      sku: z.string().optional(),
+      description: z.string().optional(),
+      category: z.string().optional(),
+      unit: z.string().optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      low_stock_threshold: z.number().min(0).optional(),
+      is_active: z.boolean().optional(),
+    }),
+    kind: "write",
+    op: "update",
+  },
+  {
+    name: "create_products",
+    description: "Create MULTIPLE products at once (bulk). Use this whenever the user wants several / N products — pass them all in one array in a single call. Do NOT call create_product repeatedly.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        products: {
+          type: "array",
+          description: "The products to create.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              default_price: { type: "number" },
+              stock_qty: { type: "number" },
+              sku: { type: "string" },
+              description: { type: "string" },
+              category: { type: "string" },
+              unit: { type: "string" },
+              currency: { type: "string", enum: [...CURRENCY_VALUES] },
+              low_stock_threshold: { type: "number" },
+              is_active: { type: "boolean" },
+            },
+            required: ["name"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["products"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      products: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            default_price: z.number().min(0).optional(),
+            stock_qty: z.number().min(0).optional(),
+            sku: z.string().optional(),
+            description: z.string().optional(),
+            category: z.string().optional(),
+            unit: z.string().optional(),
+            currency: z.enum(CURRENCY_VALUES).optional(),
+            low_stock_threshold: z.number().min(0).optional(),
+            is_active: z.boolean().optional(),
+          })
+        )
+        .min(1)
+        .max(30),
+    }),
+    kind: "write",
+    op: "create",
+  },
+  {
+    name: "create_service",
+    description: "Add a new service to the catalog. Only the name is required; set default_price, category, unit, description.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        default_price: { type: "number" },
+        category: { type: "string" },
+        unit: { type: "string" },
+        description: { type: "string" },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        is_active: { type: "boolean" },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      name: z.string().min(1),
+      default_price: z.number().min(0).optional(),
+      category: z.string().optional(),
+      unit: z.string().optional(),
+      description: z.string().optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      is_active: z.boolean().optional(),
+    }),
+    kind: "write",
+    op: "create",
+  },
+  {
+    name: "update_service",
+    description: "Update a service (price, category, etc.). Pass the id (from list_services) and only the fields that change.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        name: { type: "string" },
+        default_price: { type: "number" },
+        category: { type: "string" },
+        unit: { type: "string" },
+        description: { type: "string" },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        is_active: { type: "boolean" },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      id: z.string().min(1),
+      name: z.string().optional(),
+      default_price: z.number().min(0).optional(),
+      category: z.string().optional(),
+      unit: z.string().optional(),
+      description: z.string().optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      is_active: z.boolean().optional(),
+    }),
+    kind: "write",
+    op: "update",
+  },
+  {
+    name: "create_services",
+    description: "Create MULTIPLE services at once (bulk). Use when the user wants several / N services — pass them all in one array in a single call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        services: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              default_price: { type: "number" },
+              category: { type: "string" },
+              unit: { type: "string" },
+              description: { type: "string" },
+              currency: { type: "string", enum: [...CURRENCY_VALUES] },
+              is_active: { type: "boolean" },
+            },
+            required: ["name"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["services"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      services: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            default_price: z.number().min(0).optional(),
+            category: z.string().optional(),
+            unit: z.string().optional(),
+            description: z.string().optional(),
+            currency: z.enum(CURRENCY_VALUES).optional(),
+            is_active: z.boolean().optional(),
+          })
+        )
+        .min(1)
+        .max(30),
+    }),
+    kind: "write",
+    op: "create",
+  },
+  {
+    name: "create_project",
+    description: "Create a new project for a customer (resolve the customer with list_customers first). Name and customer are required.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        customer_id: { type: "string" },
+        customer_name: { type: "string" },
+        description: { type: "string" },
+        status: { type: "string", enum: ["pending", "in_progress", "on_hold", "cancelled", "complete"] },
+        start_date: { type: "string", description: "YYYY-MM-DD" },
+        due_date: { type: "string", description: "YYYY-MM-DD" },
+        budget: { type: "number" },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        notes: { type: "string" },
+      },
+      required: ["name", "customer_id", "customer_name"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      name: z.string().min(1),
+      customer_id: z.string().min(1),
+      customer_name: z.string().min(1),
+      description: z.string().optional(),
+      status: z.enum(["pending", "in_progress", "on_hold", "cancelled", "complete"] as const).optional(),
+      start_date: z.string().optional(),
+      due_date: z.string().optional(),
+      budget: z.number().min(0).optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      notes: z.string().optional(),
+    }),
+    kind: "write",
+    op: "create",
+  },
+  {
+    name: "create_expense",
+    description: "Record a new expense. Requires a bill date and at least one line item (name, quantity, unit_price). The total is computed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bill_date: { type: "string", description: "YYYY-MM-DD (required)." },
+        vendor_name: { type: "string" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              quantity: { type: "number" },
+              unit_price: { type: "number" },
+              category: { type: "string" },
+            },
+            required: ["name", "quantity", "unit_price"],
+            additionalProperties: false,
+          },
+        },
+        tax: { type: "number" },
+        tax_type: { type: "string", enum: [...TAX_TYPE_VALUES] },
+        discount: { type: "number" },
+        currency: { type: "string", enum: [...CURRENCY_VALUES] },
+        payment_method: { type: "string", enum: [...PAYMENT_METHOD_VALUES] },
+        notes: { type: "string" },
+      },
+      required: ["bill_date", "items"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      bill_date: z.string().min(1),
+      vendor_name: z.string().optional(),
+      items: z
+        .array(
+          z.object({
+            name: z.string().min(1),
+            quantity: z.number().min(0),
+            unit_price: z.number().min(0),
+            category: z.string().optional(),
+          })
+        )
+        .min(1),
+      tax: z.number().min(0).optional(),
+      tax_type: z.enum(TAX_TYPE_VALUES).optional(),
+      discount: z.number().min(0).optional(),
+      currency: z.enum(CURRENCY_VALUES).optional(),
+      payment_method: z.enum(PAYMENT_METHOD_VALUES).optional(),
+      notes: z.string().optional(),
+    }),
+    kind: "write",
+    op: "create",
+  },
 ];
 
 export const TOOL_MAP: Record<string, ToolDef> = Object.fromEntries(
   ASSISTANT_TOOLS.map((t) => [t.name, t])
 );
 
-/** Tool definitions in the provider-neutral shape consumed by the agent loop. */
-export function providerTools(): ProviderTool[] {
-  return ASSISTANT_TOOLS.map((t) => ({
+/** Tool definitions in the provider-neutral shape consumed by the agent loop.
+ *  Pass `enabled` (a set of allowed tool names) to gate by feature toggles. */
+export function providerTools(enabled?: Set<string>): ProviderTool[] {
+  return ASSISTANT_TOOLS.filter((t) => !enabled || enabled.has(t.name)).map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: t.inputSchema,

@@ -331,26 +331,69 @@ export default function CustomersPage() {
     });
   }
 
-  async function del(id: string) {
-    await fetch(`/api/customers/${id}`, { method: "DELETE" });
-    toast.success("Client deleted.");
-    setSelected((prev) => {
-      const s = new Set(prev);
-      s.delete(id);
-      return s;
-    });
-    setDeleteTarget(null);
-    mutate();
+  async function del(id: string, force = false) {
+    try {
+      const res = await fetch(`/api/customers/${id}${force ? "?force=true" : ""}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({ success: false }));
+      if (res.status === 409) {
+        const d = data.details ?? {};
+        const total = (d.invoiceCount ?? 0) + (d.quotationCount ?? 0) + (d.expenseCount ?? 0);
+        setDeleteTarget(null);
+        toast.warning(`This client has ${total} linked record(s) (invoices / quotations). Delete anyway?`, {
+          duration: 10000,
+          action: { label: "Force delete", onClick: () => del(id, true) },
+        });
+        return;
+      }
+      if (!data.success) throw new Error(data.error ?? "Failed to delete client.");
+      toast.success("Client deleted.");
+      setSelected((prev) => {
+        const s = new Set(prev);
+        s.delete(id);
+        return s;
+      });
+      setDeleteTarget(null);
+      mutate();
+    } catch (err: unknown) {
+      setDeleteTarget(null);
+      toast.error(err instanceof Error ? err.message : "Failed to delete client.");
+    }
   }
 
-  async function bulkDelete() {
-    const ids = allIds.filter((id) => selected.has(id));
-    await Promise.all(
-      ids.map((id) => fetch(`/api/customers/${id}`, { method: "DELETE" })),
-    );
-    toast.success(`${ids.length} client(s) deleted.`);
-    setSelected(new Set());
-    mutate();
+  async function bulkDelete(force = false, onlyIds?: string[]) {
+    const ids = onlyIds ?? allIds.filter((id) => selected.has(id));
+    if (!ids.length) return;
+    try {
+      const res = await fetch("/api/customers/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, force }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error ?? "Bulk delete failed.");
+      const deleted: { id: string; name: string }[] = data.data?.deleted ?? [];
+      const blocked: { id: string; name: string }[] = data.data?.blocked ?? [];
+
+      if (deleted.length) {
+        toast.success(`${deleted.length} client${deleted.length > 1 ? "s" : ""} deleted.`);
+        setSelected((prev) => {
+          const s = new Set(prev);
+          for (const d of deleted) s.delete(d.id);
+          return s;
+        });
+      }
+      if (blocked.length) {
+        const names = blocked.slice(0, 3).map((b) => b.name).join(", ");
+        const blockedIds = blocked.map((b) => b.id);
+        toast.warning(
+          `${blocked.length} client${blocked.length > 1 ? "s" : ""} not deleted — linked to invoices / quotations${names ? ` (${names}${blocked.length > 3 ? "…" : ""})` : ""}.`,
+          { duration: 12000, action: { label: "Force delete", onClick: () => bulkDelete(true, blockedIds) } }
+        );
+      }
+      mutate();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Bulk delete failed.");
+    }
   }
 
   return (
@@ -551,7 +594,7 @@ export default function CustomersPage() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={bulkDelete}>
+                    <AlertDialogAction onClick={() => bulkDelete()}>
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>

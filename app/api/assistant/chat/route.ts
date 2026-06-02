@@ -9,6 +9,7 @@ import { getBaseUrl } from "@/lib/assistant/base-url";
 import { resolveProvider, ProviderConfigError } from "@/lib/assistant/providers";
 import { buildSystemPrompt } from "@/lib/assistant/prompt";
 import { describeAgentError } from "@/lib/assistant/errors";
+import { enabledToolSet, disabledFeatureLabels } from "@/lib/assistant/features";
 import { streamSse } from "@/lib/assistant/sse";
 import {
   appendCancellationResults,
@@ -81,6 +82,8 @@ export async function POST(req: NextRequest) {
   const cfg = settings?.integrations?.aiAssistant;
   const defaultCurrency = settings?.default_currency ?? "PKR";
   const cookie = req.headers.get("cookie") ?? "";
+  const enabledTools = enabledToolSet(cfg?.features);
+  const disabledFeatures = disabledFeatureLabels(cfg?.features);
 
   // Load existing conversation (or defer creation for a brand-new chat).
   let convoId = body.conversationId ?? null;
@@ -147,18 +150,21 @@ export async function POST(req: NextRequest) {
       return;
     }
 
-    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(), role, defaultCurrency, attachments: turnAttachments };
+    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(), role, defaultCurrency, attachments: turnAttachments, enabledTools };
     const params: AgentRunParams = {
       provider,
       system: buildSystemPrompt({
         today: new Date().toISOString().slice(0, 10),
         defaultCurrency,
         userName: session.user?.name ?? undefined,
+        disabledFeatures,
+        customInstructions: cfg?.customInstructions,
       }),
       toolCtx,
       messages,
       emit: send,
       signal: req.signal,
+      enabledTools,
     };
 
     try {

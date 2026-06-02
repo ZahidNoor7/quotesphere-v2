@@ -22,10 +22,12 @@ export function AssistantMessageBubble({
   msg,
   onEdit,
   onRetry,
+  onSuggestion,
 }: {
   msg: AssistantUiMessage;
   onEdit?: () => void;
   onRetry?: () => void;
+  onSuggestion?: (text: string) => void;
 }) {
   const stamp = formatStamp(msg.createdAt);
 
@@ -135,6 +137,19 @@ export function AssistantMessageBubble({
           >
             View {msg.documentLabel ?? "document"} <ArrowRight size={13} />
           </Link>
+        ) : null}
+        {msg.suggestions?.length && onSuggestion ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9 }}>
+            {msg.suggestions.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => onSuggestion(s)}
+                style={{ padding: "5px 12px", borderRadius: 999, background: `color-mix(in srgb, ${AC} 12%, transparent)`, border: `0.5px solid color-mix(in srgb, ${AC} 30%, transparent)`, color: AC, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         ) : null}
         {stamp && <div style={stampStyle}>{stamp}</div>}
       </div>

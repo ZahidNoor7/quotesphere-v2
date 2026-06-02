@@ -118,31 +118,35 @@ export function AlertDialogDescription({ className, children, ...props }: React.
 }
 export function AlertDialogAction({ className, children, onClick, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button onClick={onClick}
-      style={{
-        padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer",
-        background: "rgba(248,113,113,0.15)", color: "#f87171", border: "0.5px solid rgba(248,113,113,0.3)",
-        transition: "all 0.15s",
-      } as any}
-      onMouseEnter={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(248,113,113,0.3)" })}
-      onMouseLeave={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(248,113,113,0.15)" })}
-      className={className}
-      {...props}
-    >{children}</button>
+    <AlertDialogPrimitive.Action asChild>
+      <button onClick={onClick}
+        style={{
+          padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer",
+          background: "rgba(248,113,113,0.15)", color: "#f87171", border: "0.5px solid rgba(248,113,113,0.3)",
+          transition: "all 0.15s",
+        } as any}
+        onMouseEnter={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(248,113,113,0.3)" })}
+        onMouseLeave={e => Object.assign((e.target as HTMLElement).style, { background: "rgba(248,113,113,0.15)" })}
+        className={className}
+        {...props}
+      >{children}</button>
+    </AlertDialogPrimitive.Action>
   );
 }
 export function AlertDialogCancel({ className, children, onClick, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button onClick={onClick}
-      style={{
-        padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer",
-        background: "var(--glass)", color: "var(--t2)", border: "0.5px solid var(--glass-border)",
-        transition: "all 0.15s",
-      }}
-      onMouseEnter={e => Object.assign((e.target as HTMLElement).style, { background: "var(--glass-hover)", color: "var(--t1)" })}
-      onMouseLeave={e => Object.assign((e.target as HTMLElement).style, { background: "var(--glass)", color: "var(--t2)" })}
-      className={className}
-      {...props}
-    >{children}</button>
+    <AlertDialogPrimitive.Cancel asChild>
+      <button onClick={onClick}
+        style={{
+          padding: "7px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer",
+          background: "var(--glass)", color: "var(--t2)", border: "0.5px solid var(--glass-border)",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={e => Object.assign((e.target as HTMLElement).style, { background: "var(--glass-hover)", color: "var(--t1)" })}
+        onMouseLeave={e => Object.assign((e.target as HTMLElement).style, { background: "var(--glass)", color: "var(--t2)" })}
+        className={className}
+        {...props}
+      >{children}</button>
+    </AlertDialogPrimitive.Cancel>
   );
 }

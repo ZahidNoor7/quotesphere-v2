@@ -14,6 +14,18 @@ export const TOOL_LABELS: Record<string, string> = {
   convert_quotation: "Preparing conversion",
   record_payment: "Preparing payment",
   create_customer: "Preparing customer",
+  create_customers: "Preparing customers",
+  create_services: "Preparing services",
+  list_expenses: "Looking up expenses",
+  list_projects: "Looking up projects",
+  get_summary: "Loading summary",
+  create_product: "Preparing product",
+  create_products: "Preparing products",
+  update_product: "Preparing product update",
+  create_service: "Preparing service",
+  update_service: "Preparing service update",
+  create_project: "Preparing project",
+  create_expense: "Preparing expense",
 };
 
 export function toolLabel(name: string): string {

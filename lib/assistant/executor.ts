@@ -137,6 +137,9 @@ export async function executeReadTool(
 ): Promise<ReadToolResult> {
   const def = TOOL_MAP[name];
   if (!def) return { ok: false, summary: `Unknown tool`, data: { error: `Unknown tool ${name}` } };
+  if (ctx.enabledTools && !ctx.enabledTools.has(name)) {
+    return { ok: false, summary: "Feature disabled", data: { error: `The ${name} capability is turned off in the assistant settings.` } };
+  }
   const parsed = def.zod.safeParse(input);
   if (!parsed.success) {
     return { ok: false, summary: "Invalid input", data: { error: parsed.error.issues.map((i) => i.message).join("; ") } };
@@ -239,6 +242,57 @@ export async function executeReadTool(
       const inv = r.json.data;
       return { ok: true, summary: `Loaded ${inv.invoice_no}`, data: { invoice: trimDoc(inv) } };
     }
+    case "list_expenses": {
+      const q = a.search ? `?search=${encodeURIComponent(a.search)}&limit=10` : `?limit=10`;
+      const r = await selfFetch(ctx, "GET", `/api/expenses${q}`);
+      if (!r.ok) return { ok: false, summary: "Expense lookup failed", data: { error: errMsg(r.json, r.status) } };
+      const expenses = (r.json.data ?? []).map((e: any) => ({
+        id: e._id,
+        expense_no: e.expense_no,
+        vendor: e.vendor_name,
+        total_amount: e.total_amount,
+        currency: e.currency,
+        status: e.status,
+        date: e.bill_date,
+      }));
+      return { ok: true, summary: `Found ${expenses.length} expense(s)`, data: { expenses } };
+    }
+    case "list_projects": {
+      const q = a.search ? `?search=${encodeURIComponent(a.search)}&limit=10` : `?limit=10`;
+      const r = await selfFetch(ctx, "GET", `/api/projects${q}`);
+      if (!r.ok) return { ok: false, summary: "Project lookup failed", data: { error: errMsg(r.json, r.status) } };
+      const projects = (r.json.data ?? []).map((p: any) => ({
+        id: p._id,
+        project_no: p.project_no,
+        name: p.name,
+        status: p.status,
+        budget: p.budget,
+        currency: p.currency,
+        customer: p.customer_name,
+      }));
+      return { ok: true, summary: `Found ${projects.length} project(s)`, data: { projects } };
+    }
+    case "get_summary": {
+      const r = await selfFetch(ctx, "GET", `/api/dashboard`);
+      if (!r.ok) return { ok: false, summary: "Summary failed", data: { error: errMsg(r.json, r.status) } };
+      const d = r.json.data ?? {};
+      return {
+        ok: true,
+        summary: "Loaded business summary",
+        data: {
+          summary: {
+            totalRevenue: d.totalRevenue,
+            totalReceived: d.totalReceived,
+            totalOutstanding: d.totalOutstanding,
+            totalExpenses: d.totalExpenses,
+            invoiceCount: d.invoiceCount,
+            quotationCount: d.quotationCount,
+            customerCount: d.customerCount,
+            overdueCount: d.overdueCount,
+          },
+        },
+      };
+    }
     default:
       return { ok: false, summary: "Not a read tool", data: { error: `${name} is not a read tool` } };
   }
@@ -285,6 +339,9 @@ export async function buildPendingAction(
 ): Promise<StoredPendingAction | { error: string }> {
   const def = TOOL_MAP[name];
   if (!def || def.kind !== "write") return { error: `Unknown write tool ${name}` };
+  if (ctx.enabledTools && !ctx.enabledTools.has(name)) {
+    return { error: `That capability is turned off in the assistant settings.` };
+  }
   if (!can(ctx.role, def.op)) {
     return { error: `You don't have permission to ${def.op} (your role is ${ctx.role ?? "unknown"}).` };
   }
@@ -508,6 +565,219 @@ export async function buildPendingAction(
       };
     }
 
+    case "create_product":
+    case "update_product": {
+      const isUpdate = name === "update_product";
+      const currency = a.currency ?? ctx.defaultCurrency;
+      const payload: Record<string, unknown> = {};
+      for (const k of ["name", "default_price", "stock_qty", "sku", "description", "category", "unit", "low_stock_threshold", "is_active", "currency"] as const) {
+        if (a[k] !== undefined) payload[k] = a[k];
+      }
+      return {
+        ...base,
+        tool: name,
+        method: isUpdate ? "PUT" : "POST",
+        endpoint: isUpdate ? `/api/products/${a.id}` : "/api/products",
+        payload,
+        docType: "product",
+        title: isUpdate ? "Update product" : "Create product",
+        summary: isUpdate
+          ? `Update product ${a.name ?? a.id}.`
+          : `Add product ${a.name}${a.default_price !== undefined ? ` — ${fmt(a.default_price, currency)}` : ""}${a.stock_qty !== undefined ? `, stock ${a.stock_qty}` : ""}.`,
+        preview: [
+          { label: "Name", value: a.name ?? "(unchanged)" },
+          ...(a.default_price !== undefined ? [{ label: "Price", value: fmt(a.default_price, currency) }] : []),
+          ...(a.stock_qty !== undefined ? [{ label: "Stock", value: String(a.stock_qty) }] : []),
+          ...(a.category ? [{ label: "Category", value: a.category }] : []),
+        ],
+      };
+    }
+
+    case "create_products": {
+      const products = a.products.map((p: any) => ({
+        name: p.name,
+        default_price: p.default_price ?? 0,
+        stock_qty: p.stock_qty ?? 0,
+        currency: p.currency ?? ctx.defaultCurrency,
+        is_active: p.is_active ?? true,
+        ...(p.sku ? { sku: p.sku } : {}),
+        ...(p.description ? { description: p.description } : {}),
+        ...(p.category ? { category: p.category } : {}),
+        ...(p.unit ? { unit: p.unit } : {}),
+        ...(p.low_stock_threshold !== undefined ? { low_stock_threshold: p.low_stock_threshold } : {}),
+      }));
+      return {
+        ...base,
+        tool: name,
+        method: "POST",
+        endpoint: "/api/products",
+        payload: { products },
+        docType: "product",
+        title: `Create ${products.length} products`,
+        summary: `Add ${products.length} products to the catalog.`,
+        preview: [
+          {
+            label: `Products (${products.length})`,
+            value: products.map((p: any) => `${p.name} — ${fmt(p.default_price, p.currency)}, stock ${p.stock_qty}`).join("\n"),
+          },
+        ],
+      };
+    }
+
+    case "create_customers": {
+      const customers = a.customers.map((c: any) => ({
+        name: c.name,
+        phone_no: c.phone_no,
+        ...(c.email ? { email: c.email } : {}),
+        ...(c.address ? { address: c.address } : {}),
+        ...(c.company ? { company: c.company } : {}),
+      }));
+      return {
+        ...base,
+        tool: name,
+        method: "POST",
+        endpoint: "/api/customers",
+        payload: { customers },
+        docType: "customer",
+        title: `Create ${customers.length} customers`,
+        summary: `Add ${customers.length} customers.`,
+        preview: [
+          { label: `Customers (${customers.length})`, value: customers.map((c: any) => `${c.name} — ${c.phone_no}`).join("\n") },
+        ],
+      };
+    }
+
+    case "create_services": {
+      const services = a.services.map((s: any) => ({
+        name: s.name,
+        default_price: s.default_price ?? 0,
+        currency: s.currency ?? ctx.defaultCurrency,
+        is_active: s.is_active ?? true,
+        ...(s.category ? { category: s.category } : {}),
+        ...(s.unit ? { unit: s.unit } : {}),
+        ...(s.description ? { description: s.description } : {}),
+      }));
+      return {
+        ...base,
+        tool: name,
+        method: "POST",
+        endpoint: "/api/services",
+        payload: { services },
+        docType: "service",
+        title: `Create ${services.length} services`,
+        summary: `Add ${services.length} services.`,
+        preview: [
+          { label: `Services (${services.length})`, value: services.map((s: any) => `${s.name} — ${fmt(s.default_price, s.currency)}`).join("\n") },
+        ],
+      };
+    }
+
+    case "create_service":
+    case "update_service": {
+      const isUpdate = name === "update_service";
+      const currency = a.currency ?? ctx.defaultCurrency;
+      const payload: Record<string, unknown> = {};
+      for (const k of ["name", "default_price", "category", "unit", "description", "is_active", "currency"] as const) {
+        if (a[k] !== undefined) payload[k] = a[k];
+      }
+      return {
+        ...base,
+        tool: name,
+        method: isUpdate ? "PUT" : "POST",
+        endpoint: isUpdate ? `/api/services/${a.id}` : "/api/services",
+        payload,
+        docType: "service",
+        title: isUpdate ? "Update service" : "Create service",
+        summary: isUpdate
+          ? `Update service ${a.name ?? a.id}.`
+          : `Add service ${a.name}${a.default_price !== undefined ? ` — ${fmt(a.default_price, currency)}` : ""}.`,
+        preview: [
+          { label: "Name", value: a.name ?? "(unchanged)" },
+          ...(a.default_price !== undefined ? [{ label: "Price", value: fmt(a.default_price, currency) }] : []),
+          ...(a.category ? [{ label: "Category", value: a.category }] : []),
+        ],
+      };
+    }
+
+    case "create_project": {
+      const customer = await fetchCustomer(ctx, a.customer_id);
+      if (!customer) return { error: `Couldn't find customer ${a.customer_id}. Use list_customers first.` };
+      const currency = a.currency ?? customer.currency ?? ctx.defaultCurrency;
+      const payload: Record<string, unknown> = {
+        name: a.name,
+        customer_id: a.customer_id,
+        customer_name: customer.name ?? a.customer_name,
+        customer_phone: customer.phone_no,
+        currency,
+      };
+      if (a.description) payload.description = a.description;
+      if (a.status) payload.status = a.status;
+      if (a.start_date) payload.start_date = a.start_date;
+      if (a.due_date) payload.due_date = a.due_date;
+      if (a.budget !== undefined) payload.budget = a.budget;
+      if (a.notes) payload.notes = a.notes;
+      return {
+        ...base,
+        tool: name,
+        method: "POST",
+        endpoint: "/api/projects",
+        payload,
+        docType: "project",
+        title: "Create project",
+        summary: `Create project "${a.name}" for ${customer.name}${a.budget !== undefined ? ` — budget ${fmt(a.budget, currency)}` : ""}.`,
+        preview: [
+          { label: "Name", value: a.name },
+          { label: "Customer", value: customer.name },
+          ...(a.budget !== undefined ? [{ label: "Budget", value: fmt(a.budget, currency) }] : []),
+          ...(a.due_date ? [{ label: "Due", value: a.due_date }] : []),
+        ],
+      };
+    }
+
+    case "create_expense": {
+      const items = a.items.map((it: any, i: number) => ({
+        id: i + 1,
+        name: it.name,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+        total: (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
+        ...(it.category ? { category: it.category } : {}),
+      }));
+      const sub_total = items.reduce((s: number, it: any) => s + it.total, 0);
+      const tax = a.tax ?? 0;
+      const taxType = a.tax_type ?? "percentage";
+      const taxAmt = taxType === "percentage" ? (sub_total * tax) / 100 : tax;
+      const total_amount = sub_total + taxAmt - (a.discount ?? 0);
+      const currency = a.currency ?? ctx.defaultCurrency;
+      const payload: Record<string, unknown> = {
+        bill_date: a.bill_date,
+        items,
+        tax,
+        tax_type: taxType,
+        discount: a.discount ?? 0,
+        currency,
+      };
+      if (a.vendor_name) payload.vendor_name = a.vendor_name;
+      if (a.payment_method) payload.payment_method = a.payment_method;
+      if (a.notes) payload.notes = a.notes;
+      return {
+        ...base,
+        tool: name,
+        method: "POST",
+        endpoint: "/api/expenses",
+        payload,
+        docType: "expense",
+        title: "Record expense",
+        summary: `Record an expense${a.vendor_name ? ` for ${a.vendor_name}` : ""} — ${items.length} item(s), total ${fmt(total_amount, currency)}.`,
+        preview: [
+          ...(a.vendor_name ? [{ label: "Vendor", value: a.vendor_name }] : []),
+          { label: "Items", value: items.map((i: any) => `${i.quantity} × ${i.name} @ ${fmt(i.unit_price, currency)}`).join("\n") },
+          { label: "Total", value: fmt(total_amount, currency) },
+          { label: "Date", value: a.bill_date },
+        ],
+      };
+    }
+
     default:
       return { error: `Unsupported write tool ${name}` };
   }
@@ -522,6 +792,32 @@ export async function runPendingAction(
   const def = TOOL_MAP[action.tool];
   if (def && !can(ctx.role, def.op)) {
     return { ok: false, data: { error: "Permission denied." }, summary: "Permission denied" };
+  }
+
+  // Bulk creation — POST each item to the resource endpoint.
+  const BULK: Record<string, { key: string; endpoint: string; link: string; noun: string }> = {
+    create_products: { key: "products", endpoint: "/api/products", link: "/products", noun: "product" },
+    create_services: { key: "services", endpoint: "/api/services", link: "/services", noun: "service" },
+    create_customers: { key: "customers", endpoint: "/api/customers", link: "/customers", noun: "customer" },
+  };
+  const bulk = BULK[action.tool];
+  if (bulk) {
+    const items = ((action.payload as Record<string, any[]>)[bulk.key]) ?? [];
+    const names: string[] = [];
+    const errors: string[] = [];
+    for (const it of items) {
+      const res = await selfFetch(ctx, "POST", bulk.endpoint, it);
+      if (res.ok) names.push(res.json?.data?.name ?? it.name);
+      else errors.push(`${it.name}: ${errMsg(res.json, res.status)}`);
+    }
+    const ok = errors.length === 0;
+    return {
+      ok,
+      data: { success: ok, created: names.length, failed: errors.length, names, errors },
+      summary: `Created ${names.length} ${bulk.noun}(s)${errors.length ? `, ${errors.length} failed` : ""}`,
+      documentLink: bulk.link,
+      documentLabel: `${names.length} ${bulk.noun}s`,
+    };
   }
 
   const r = await selfFetch(ctx, action.method, action.endpoint, action.payload);
@@ -623,6 +919,46 @@ export async function runPendingAction(
           label: data.name,
           subtitle: data.phone_no,
         },
+      };
+    }
+    case "create_product":
+    case "update_product": {
+      const verb = action.tool === "create_product" ? "Created" : "Updated";
+      return {
+        ok: true,
+        data: { success: true, id: data._id, name: data.name, default_price: data.default_price, stock_qty: data.stock_qty },
+        summary: `${verb} product ${data.name}`,
+        documentLink: "/products",
+        documentLabel: data.name,
+      };
+    }
+    case "create_service":
+    case "update_service": {
+      const verb = action.tool === "create_service" ? "Created" : "Updated";
+      return {
+        ok: true,
+        data: { success: true, id: data._id, name: data.name, default_price: data.default_price },
+        summary: `${verb} service ${data.name}`,
+        documentLink: "/services",
+        documentLabel: data.name,
+      };
+    }
+    case "create_project": {
+      return {
+        ok: true,
+        data: { success: true, id: data._id, name: data.name, project_no: data.project_no },
+        summary: `Created project ${data.name}`,
+        documentLink: `/projects/${data._id}`,
+        documentLabel: data.project_no ?? data.name,
+      };
+    }
+    case "create_expense": {
+      return {
+        ok: true,
+        data: { success: true, id: data._id, expense_no: data.expense_no, total_amount: data.total_amount },
+        summary: `Recorded expense ${data.expense_no ?? ""}`.trim(),
+        documentLink: `/expenses/${data._id}`,
+        documentLabel: data.expense_no ?? "expense",
       };
     }
     default:

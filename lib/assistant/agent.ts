@@ -30,6 +30,8 @@ export interface AgentRunParams {
   messages: AssistantMessage[];
   emit: Emit;
   signal?: AbortSignal;
+  /** Tool names the assistant may use (from the feature toggles). */
+  enabledTools?: Set<string>;
 }
 
 export type TurnOutcome =
@@ -91,7 +93,7 @@ async function loop(params: AgentRunParams, carried?: Carried): Promise<TurnOutc
   const documentLink = carried?.documentLink;
   const documentLabel = carried?.documentLabel;
   const documentCard = carried?.documentCard;
-  const tools = providerTools();
+  const tools = providerTools(params.enabledTools);
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     let text = "";

@@ -75,6 +75,8 @@ export interface ISettings extends Document {
       azureDeployment?: string;
       azureApiVersion?: string;
       baseUrl?: string;
+      features?: Record<string, boolean>;
+      customInstructions?: string;
     };
   };
   currencyRates?: {
@@ -195,6 +197,8 @@ const settingsSchema = new Schema<ISettings>(
         azureDeployment: String,
         azureApiVersion: String,
         baseUrl: String,
+        features: { type: Schema.Types.Mixed, default: undefined },
+        customInstructions: String,
       },
     },
     currencyRates: {
