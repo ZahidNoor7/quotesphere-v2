@@ -33,7 +33,9 @@ export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
     if (!settings) {
       settings = (await Settings.create({ user_id: userId })).toObject();
     }
-    return NextResponse.json({ success: true, data: settings });
+    // Surface whether server-side email (Resend) is configured so the UI can
+    // gate the reminder email channel. Boolean only — never exposes the key.
+    return NextResponse.json({ success: true, data: { ...settings, emailConfigured: !!process.env.RESEND_API_KEY } });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to fetch settings" }, { status: 500 });
   }

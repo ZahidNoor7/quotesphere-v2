@@ -420,6 +420,8 @@ export interface Settings {
   currencyRates?: CurrencyRates;
   integrations?: Integrations;
   reminders?: ReminderSettings;
+  /** Read-only: server reports whether Resend email is configured (env var). */
+  emailConfigured?: boolean;
 }
 
 export interface DashboardAlert {
