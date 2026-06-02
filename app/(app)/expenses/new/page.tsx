@@ -1,5 +1,5 @@
 "use client";
-import { useState, memo, useEffect, useCallback } from "react";
+import { useState, useRef, memo, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ScanLine } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -148,7 +149,7 @@ const MobileExpItemCard = memo(function MobileExpItemCard({
         onValueChange={(v) => onUpdate(item.id, "category", v)}
       >
         <SelectTrigger className="h-8 text-xs mb-3">
-          <SelectValue />
+          <SelectValue placeholder="Category (optional)" />
         </SelectTrigger>
         <SelectContent>
           {EXPENSE_CATEGORIES.map((c) => (
@@ -265,6 +266,48 @@ export default function NewExpensePage() {
     { id: 1, name: "", quantity: 1, unit_price: 0, category: "Materials" },
   ]);
   const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Scan a bill photo → AI extracts vendor/date/items → prefill the form.
+  async function scanBill(file: File) {
+    setScanning(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "expenses");
+      const up = await fetch("/api/upload", { method: "POST", body: fd });
+      const uj = await up.json();
+      if (!up.ok || !uj.success) throw new Error(uj.error || "Upload failed");
+
+      const scan = await fetch("/api/expenses/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: uj.data.url }),
+      });
+      const sj = await scan.json();
+      if (!scan.ok || !sj.success) throw new Error(typeof sj.error === "string" ? sj.error : "Scan failed");
+
+      const d = sj.data;
+      if (d.vendor_name) setVendorName(d.vendor_name);
+      if (d.bill_date) setBillDate(d.bill_date);
+      if (d.currency && CURRENCIES.includes(d.currency)) setCurrency(d.currency);
+      if (Array.isArray(d.items) && d.items.length) {
+        setItems(d.items.map((it: { name?: string; quantity?: number; unit_price?: number }, i: number) => ({
+          id: Date.now() + i,
+          name: it.name ?? "",
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          category: "",
+        })));
+      }
+      toast.success("Bill scanned — review the details below.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't scan the bill.");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   const customer = (customers as Customer[]).find((c) => c._id === customerId);
   const subTotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
@@ -370,6 +413,36 @@ export default function NewExpensePage() {
     justifyContent: "space-between",
   };
 
+  const summaryCard = (
+    <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, padding: "14px 16px", background: "var(--glass)", display: "flex", flexDirection: "column", gap: 9 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: T3, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Summary</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T2 }}>
+        <span>Subtotal</span><span>{formatCurrency(subTotal, currency)}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 64px 84px", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: T2 }}>Tax (%)</span>
+        <Input type="number" min="0" value={tax} onChange={(e) => setTax(e.target.value)} className="h-7 text-xs text-right" />
+        <span style={{ fontSize: 11.5, color: T2, textAlign: "right" }}>{formatCurrency(taxAmt, currency)}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 64px 84px", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: T2 }}>Discount</span>
+        <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} className="h-7 text-xs text-right" />
+        <span style={{ fontSize: 11.5, color: T2, textAlign: "right" }}>−{formatCurrency(parseFloat(discount || "0"), currency)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 17, fontWeight: 700, color: T1, borderTop: `0.5px solid ${GLASS_BORDER}`, paddingTop: 10, marginTop: 3 }}>
+        <span>Total</span><span style={{ color: AC2 }}>{formatCurrency(total, currency)}</span>
+      </div>
+      <div style={{ fontSize: 11, color: T3 }}>{items.length} item{items.length !== 1 ? "s" : ""}</div>
+    </div>
+  );
+
+  const formActions = (
+    <div style={{ display: "flex", gap: 8 }}>
+      <Button loading={loading} onClick={save} style={{ flex: 1 }}>Save expense</Button>
+      <Button asChild variant="outline"><Link href="/expenses">Cancel</Link></Button>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Topbar */}
@@ -458,6 +531,15 @@ export default function NewExpensePage() {
             ...(isMobile ? { width: "100%" } : {}),
           }}
         >
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void scanBill(f); e.target.value = ""; }} />
+          <Button
+            variant="outline"
+            loading={scanning}
+            onClick={() => fileRef.current?.click()}
+            style={isMobile ? { flex: 1 } : undefined}
+          >
+            <ScanLine className="size-4" /> {isMobile ? "Scan" : "Scan a bill"}
+          </Button>
           <Button
             loading={loading}
             onClick={save}
@@ -474,16 +556,10 @@ export default function NewExpensePage() {
       </div>
 
       {/* Body */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: isMobile ? "14px 12px" : "18px 20px",
-          maxWidth: 700,
-          width: "100%",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "22px 24px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, alignItems: "flex-start" }}>
+          {/* LEFT: details, items, notes */}
+          <div style={{ flex: 1, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: 18 }}>
           {/* ── Details ── */}
           <div>
             <div style={secTitle}>
@@ -683,9 +759,9 @@ export default function NewExpensePage() {
                         }
                       >
                         <SelectTrigger
-                          style={{ height: "auto", minHeight: "unset", fontSize: 10, padding: "2px 8px 2px 5px" }}
+                          style={{ height: "auto", minHeight: "unset", fontSize: 10, padding: "2px 8px 2px 5px", color: T3 }}
                         >
-                          <SelectValue />
+                          <SelectValue placeholder="Category (optional)" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
@@ -760,104 +836,7 @@ export default function NewExpensePage() {
               </div>
             )}
 
-            {/* Totals */}
-            <div
-              style={{
-                marginTop: 10,
-                borderRadius: 10,
-                border: `0.5px solid ${GLASS_BORDER}`,
-                padding: "10px 14px",
-                background: "var(--glass)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 11.5,
-                  color: T2,
-                }}
-              >
-                <span>Subtotal</span>
-                <span>{formatCurrency(subTotal, currency)}</span>
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto",
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 11.5, color: T2 }}>Tax (%)</span>
-                <Input
-                  type="number"
-                  min="0"
-                  value={tax}
-                  onChange={(e) => setTax(e.target.value)}
-                  className="h-7 text-xs text-right"
-                  style={{ width: 64 }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: T2,
-                    minWidth: 80,
-                    textAlign: "right",
-                  }}
-                >
-                  {formatCurrency(taxAmt, currency)}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto",
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: 11.5, color: T2 }}>Discount</span>
-                <Input
-                  type="number"
-                  min="0"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  className="h-7 text-xs text-right"
-                  style={{ width: 64 }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: T2,
-                    minWidth: 80,
-                    textAlign: "right",
-                  }}
-                >
-                  −{formatCurrency(parseFloat(discount || "0"), currency)}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: T1,
-                  borderTop: `0.5px solid ${GLASS_BORDER}`,
-                  paddingTop: 8,
-                  marginTop: 2,
-                }}
-              >
-                <span>Total</span>
-                <span style={{ color: AC2 }}>
-                  {formatCurrency(total, currency)}
-                </span>
-              </div>
-            </div>
+            {/* Totals now live in the sticky summary rail (right on desktop, inline on mobile) */}
           </div>
 
           {/* ── Notes ── */}
@@ -874,15 +853,22 @@ export default function NewExpensePage() {
             />
           </div>
 
-          {/* Bottom actions */}
-          <div style={{ display: "flex", gap: 10 }}>
-            <Button loading={loading} onClick={save}>
-              Save expense
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/expenses">Cancel</Link>
-            </Button>
+          {/* Mobile: summary + actions inline (desktop uses the right rail) */}
+          {isMobile && (
+            <>
+              {summaryCard}
+              {formActions}
+            </>
+          )}
           </div>
+
+          {/* RIGHT: sticky summary rail (desktop only) */}
+          {!isMobile && (
+            <aside style={{ width: 320, flexShrink: 0, position: "sticky", top: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+              {summaryCard}
+              {formActions}
+            </aside>
+          )}
         </div>
       </div>
     </div>

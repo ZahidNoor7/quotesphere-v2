@@ -85,6 +85,12 @@ export interface ISettings extends Document {
     thresholds: Record<string, number>;
     lastUpdated: Date | null;
   };
+  reminders?: {
+    enabled: boolean;
+    channels: { email: boolean; whatsapp: boolean };
+    dueSoonDays: number;
+    overdueDays: number[];
+  };
 }
 
 const currencyRatesSchema = new Schema(
@@ -204,6 +210,15 @@ const settingsSchema = new Schema<ISettings>(
     currencyRates: {
       type: currencyRatesSchema,
       default: () => ({ base: "PKR", rates: {}, thresholds: {}, lastUpdated: null }),
+    },
+    reminders: {
+      enabled: { type: Boolean, default: false },
+      channels: {
+        email: { type: Boolean, default: true },
+        whatsapp: { type: Boolean, default: false },
+      },
+      dueSoonDays: { type: Number, default: 3 },
+      overdueDays: { type: [Number], default: [1, 7, 14] },
     },
   },
   { timestamps: true, versionKey: false }

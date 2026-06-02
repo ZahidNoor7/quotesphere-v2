@@ -65,6 +65,8 @@ export interface IInvoice extends Document {
     end_date?: Date;
     enabled?: boolean;
   };
+  // Payment reminder tracking (set by the reminders cron)
+  lastReminderAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -133,6 +135,8 @@ const invoiceSchema = new Schema<IInvoice>(
     tracking_no: String,
     // Document design
     designId: String,
+    // Payment reminder tracking (set by the reminders cron)
+    lastReminderAt: Date,
     // Exchange rates frozen at creation time
     rateSnapshot: { type: Schema.Types.Mixed, default: {} },
     // Recurring billing

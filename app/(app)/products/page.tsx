@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { Package, AlertTriangle, Plus, Pencil, Trash2, FilterX } from "lucide-react";
+import { Package, AlertTriangle, Plus, Pencil, Trash2, FilterX, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { ProductSheet } from "@/components/products/product-sheet";
 import { StockAdjustSheet } from "@/components/products/stock-adjust-sheet";
+import { ImportSheet, IMPORT_CONFIGS } from "@/components/import/ImportSheet";
 
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
@@ -67,6 +68,7 @@ export default function ProductsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Debounce the (server-side) text search so we don't hit $text on every keystroke.
   useEffect(() => {
@@ -131,12 +133,14 @@ export default function ProductsPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <ImportSheet open={importOpen} onOpenChange={setImportOpen} config={IMPORT_CONFIGS.products} onDone={() => mutate()} />
       <div style={TOPBAR_STYLE}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Package size={15} style={{ color: AC2 }} />
           <div style={{ fontSize: 15, fontWeight: 600, color: T1 }}>Products catalog</div>
         </div>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="size-4" />Import</Button>
           <Button onClick={openNew} size="sm"><Plus className="size-4" />Add product</Button>
         </div>
       </div>

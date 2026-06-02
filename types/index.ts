@@ -384,6 +384,13 @@ export interface WhatsAppConversation {
   direction: "in" | "out";
 }
 
+export interface ReminderSettings {
+  enabled: boolean;
+  channels: { email: boolean; whatsapp: boolean };
+  dueSoonDays: number;
+  overdueDays: number[];
+}
+
 export interface Settings {
   _id: string;
   user_id?: string;
@@ -412,6 +419,7 @@ export interface Settings {
   lastUsed: LastUsedSettings;
   currencyRates?: CurrencyRates;
   integrations?: Integrations;
+  reminders?: ReminderSettings;
 }
 
 export interface DashboardAlert {
