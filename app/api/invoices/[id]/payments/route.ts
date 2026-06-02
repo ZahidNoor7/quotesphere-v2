@@ -72,7 +72,8 @@ export const POST = withLog("POST /api/invoices/[id]/payments", async (req: Next
           },
         },
       ],
-      { new: true }
+      // Mongoose 9 requires updatePipeline:true to accept an aggregation-pipeline update.
+      { new: true, updatePipeline: true }
     );
 
     if (!updated) {
@@ -164,7 +165,8 @@ export const DELETE = withLog("DELETE /api/invoices/[id]/payments", async (req: 
           },
         },
       ],
-      { new: true }
+      // Mongoose 9 requires updatePipeline:true to accept an aggregation-pipeline update.
+      { new: true, updatePipeline: true }
     );
 
     if (!updated) {

@@ -69,9 +69,10 @@ const expenseSchema = new Schema<IExpense>(
     currency: { type: String, default: "PKR" },
     notes: String,
     bill_images: [String],
-    customer_id: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
-    customer_name: { type: String, required: true },
-    customer_phone: { type: String, required: true },
+    // Expenses are vendor bills — a customer is optional (the API/UI may omit it).
+    customer_id: { type: Schema.Types.ObjectId, ref: "Customer" },
+    customer_name: { type: String },
+    customer_phone: { type: String },
     project_id: { type: Schema.Types.ObjectId, ref: "Project" },
     invoice_id: { type: Schema.Types.ObjectId, ref: "Invoice" },
     quotation_id: { type: Schema.Types.ObjectId, ref: "Quotation" },

@@ -83,7 +83,14 @@ export const POST = withLog("POST /api/expenses", async (req: NextRequest) => {
     const pattern = userSettings?.expense_number_pattern ?? null;
     const expense_no = await getNextNumberWithPattern("expense", prefix, pattern);
 
-    const expense = new Expense({ ...parsed.data, expense_no });
+    // Compute monetary totals from the line items — the model requires
+    // sub_total/total_amount and the Zod schema doesn't carry them.
+    const sub_total = parsed.data.items.reduce((s, it) => s + (it.total ?? 0), 0);
+    const taxBase = parsed.data.tax ?? 0;
+    const taxAmount = (parsed.data.tax_type ?? "percentage") === "percentage" ? (sub_total * taxBase) / 100 : taxBase;
+    const total_amount = Math.max(0, sub_total + taxAmount - (parsed.data.discount ?? 0));
+
+    const expense = new Expense({ ...parsed.data, sub_total, total_amount, expense_no });
     await expense.save();
     void recordAudit({ req, session, action: "create", resource: "expense", resource_id: String(expense._id), resource_label: expense_no, after: expense.toObject() });
     return NextResponse.json({ success: true, data: expense }, { status: 201 });

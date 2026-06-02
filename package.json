@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "node scripts/live-smoke.mjs",
     "start": "next start",
     "lint": "next lint"
   },
@@ -85,8 +88,11 @@
     "autoprefixer": "^10.5.0",
     "eslint": "^10.4.1",
     "eslint-config-next": "16.2.7",
+    "mongodb-memory-server": "11.2.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite-tsconfig-paths": "6.1.1",
+    "vitest": "4.1.8"
   }
 }
