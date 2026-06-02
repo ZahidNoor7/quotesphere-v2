@@ -2,9 +2,11 @@
 import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { MessageCircle, Send, Search, ArrowRight, CheckCheck, Check, Phone, Trash2, AlertTriangle, X, AlertCircle } from "lucide-react";
+import { MessageCircle, Send, Search, ArrowRight, CheckCheck, Check, Phone, Trash2, AlertTriangle, X, AlertCircle, ChevronLeft } from "lucide-react";
 import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MessagingListSkeleton, MessageThreadSkeleton } from "@/components/messaging/skeletons";
 import type { WhatsAppConversation, WhatsAppMessage } from "@/types";
 import Link from "next/link";
 
@@ -240,8 +242,8 @@ async function postStatus(action: "read" | "typing", messageId: string) {
 }
 
 function ChatPanel({
-  phone, customerName, onDeleted, onReadAll,
-}: { phone: string; customerName?: string; onDeleted: () => void; onReadAll: () => void }) {
+  phone, customerName, onDeleted, onReadAll, isMobile, onBack,
+}: { phone: string; customerName?: string; onDeleted: () => void; onReadAll: () => void; isMobile?: boolean; onBack?: () => void }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -251,7 +253,7 @@ function ChatPanel({
   const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef<number>(0);
 
-  const { data: messages = [], mutate } = useSWR<WhatsAppMessage[]>(
+  const { data: messages = [], mutate, isLoading: messagesLoading } = useSWR<WhatsAppMessage[]>(
     `/api/whatsapp/messages?phone=${encodeURIComponent(phone)}`,
     fetcher,
     { refreshInterval: 5000 }
@@ -366,6 +368,20 @@ function ChatPanel({
           display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
           background: GLASS,
         }}>
+          {isMobile && onBack && (
+            <button
+              onClick={onBack}
+              aria-label="Back to chats"
+              style={{
+                width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                background: "transparent", border: `0.5px solid ${GLASS_BORDER}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: T2,
+              }}
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
           <div style={{
             width: 36, height: 36, borderRadius: "50%",
             background: "rgba(37,211,102,0.15)", border: "0.5px solid rgba(37,211,102,0.3)",
@@ -407,12 +423,15 @@ function ChatPanel({
 
         {/* Messages — ref on the scrollable container, never on a child div */}
         <div ref={messagesContainerRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 20px" }}>
-          {messages.length === 0 && (
+          {messagesLoading && messages.length === 0 ? (
+            <MessageThreadSkeleton />
+          ) : messages.length === 0 ? (
             <div style={{ textAlign: "center", color: T3, fontSize: 13, marginTop: 60 }}>
               No messages yet. Send the first one below.
             </div>
+          ) : (
+            messages.map(msg => <Bubble key={msg._id} msg={msg} />)
           )}
-          {messages.map(msg => <Bubble key={msg._id} msg={msg} />)}
         </div>
 
         {/* Input */}
@@ -424,13 +443,16 @@ function ChatPanel({
           <textarea
             value={text}
             onChange={e => handleTyping(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+            onKeyDown={e => {
+              // Desktop: Enter sends. Mobile: Enter is a newline, tap Send to submit.
+              if (!isMobile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+            }}
+            placeholder={isMobile ? "Type a message…" : "Type a message… (Enter to send, Shift+Enter for new line)"}
             rows={1}
             style={{
-              flex: 1, resize: "none", background: "var(--glass)",
+              flex: 1, minWidth: 0, resize: "none", background: "var(--glass)",
               border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 12,
-              padding: "10px 14px", fontSize: 13, color: T1,
+              padding: isMobile ? "11px 14px" : "10px 14px", fontSize: isMobile ? 16 : 13, color: T1,
               outline: "none", fontFamily: "inherit", lineHeight: 1.5,
               maxHeight: 120, overflowY: "auto",
             }}
@@ -475,12 +497,24 @@ export default function MessagingPage() {
   const [activePhone, setActivePhone] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
+  // Single-pane on mobile / narrow viewports: list ↔ chat (same pattern as the assistant).
+  const deviceMobile = useIsMobile();
+  const [narrow, setNarrow] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < 820);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  const isMobile = deviceMobile || narrow;
+
   const isConfigured = !!(
     settings?.integrations?.whatsapp?.enabled &&
     settings?.integrations?.whatsapp?.apiKey
   );
 
-  const { data: conversations = [], mutate: mutateConversations } = useSWR<WhatsAppConversation[]>(
+  const { data: conversations = [], mutate: mutateConversations, isLoading: conversationsLoading } = useSWR<WhatsAppConversation[]>(
     isConfigured ? "/api/whatsapp/conversations" : null,
     fetcher,
     { refreshInterval: 10000 }
@@ -495,6 +529,7 @@ export default function MessagingPage() {
 
   function handleDeleted() {
     setActivePhone(null);
+    setMobileView("list");
     mutateConversations();
   }
 
@@ -520,10 +555,12 @@ export default function MessagingPage() {
 
   return (
     <div style={{ display: "flex", height: "100%", minHeight: 0, overflow: "hidden" }}>
-      {/* Left: conversation list */}
+      {/* Left: conversation list (full-width single pane on mobile) */}
       <div style={{
-        width: 280, flexShrink: 0, borderRight: `0.5px solid ${GLASS_BORDER}`,
-        display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden",
+        width: isMobile ? "100%" : 280, flexShrink: isMobile ? 1 : 0,
+        borderRight: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`,
+        display: !isMobile || mobileView === "list" ? "flex" : "none",
+        flexDirection: "column", minHeight: 0, minWidth: 0, overflow: "hidden",
       }}>
         <div style={{ padding: "16px 14px 12px", borderBottom: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: T1, marginBottom: 10 }}>Chats</div>
@@ -544,28 +581,31 @@ export default function MessagingPage() {
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-          {filtered.length === 0 && (
+          {conversationsLoading && conversations.length === 0 ? (
+            <MessagingListSkeleton />
+          ) : filtered.length === 0 ? (
             <div style={{ padding: 24, textAlign: "center", fontSize: 12, color: T3 }}>
               {conversations.length === 0
                 ? "No conversations yet. Send a message from an invoice or quotation to start."
                 : "No results"}
             </div>
+          ) : (
+            filtered.map(conv => (
+              <ConversationItem
+                key={conv.phone}
+                conv={conv}
+                active={activePhone === conv.phone && (!isMobile || mobileView === "chat")}
+                onClick={() => { setActivePhone(conv.phone); setMobileView("chat"); }}
+              />
+            ))
           )}
-          {filtered.map(conv => (
-            <ConversationItem
-              key={conv.phone}
-              conv={conv}
-              active={activePhone === conv.phone}
-              onClick={() => setActivePhone(conv.phone)}
-            />
-          ))}
         </div>
       </div>
 
-      {/* Right: chat panel */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
+      {/* Right: chat panel (full-screen single pane on mobile) */}
+      <div style={{ flex: 1, display: !isMobile || mobileView === "chat" ? "flex" : "none", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         {activePhone
-          ? <ChatPanel phone={activePhone} customerName={activeConv?.customer_name} onDeleted={handleDeleted} onReadAll={mutateConversations} />
+          ? <ChatPanel key={activePhone} phone={activePhone} customerName={activeConv?.customer_name} onDeleted={handleDeleted} onReadAll={mutateConversations} isMobile={isMobile} onBack={() => setMobileView("list")} />
           : <NoChatSelected />
         }
       </div>
