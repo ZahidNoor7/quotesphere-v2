@@ -30,8 +30,8 @@ export const ASSISTANT_FEATURES: AssistantFeature[] = [
   {
     key: "customers",
     label: "Clients",
-    description: "Look up and create customers",
-    tools: ["list_customers", "create_customer", "create_customers"],
+    description: "Look up, create and edit customers",
+    tools: ["list_customers", "create_customer", "update_customer", "create_customers"],
   },
   {
     key: "products",
@@ -48,14 +48,14 @@ export const ASSISTANT_FEATURES: AssistantFeature[] = [
   {
     key: "expenses",
     label: "Expenses",
-    description: "List and record expenses",
-    tools: ["list_expenses", "create_expense"],
+    description: "List, create and edit expenses",
+    tools: ["list_expenses", "create_expense", "update_expense"],
   },
   {
     key: "projects",
     label: "Projects",
-    description: "List and create projects",
-    tools: ["list_projects", "create_project"],
+    description: "List, create and edit projects",
+    tools: ["list_projects", "create_project", "update_project"],
   },
   {
     key: "reports",
@@ -82,4 +82,9 @@ export function enabledToolSet(features: Record<string, boolean> | undefined): S
 /** Labels of disabled features — surfaced to the model so it declines them. */
 export function disabledFeatureLabels(features: Record<string, boolean> | undefined): string[] {
   return ASSISTANT_FEATURES.filter((f) => !isFeatureEnabled(features, f.key)).map((f) => f.label);
+}
+
+/** Labels of enabled features — used to describe the assistant's scope dynamically. */
+export function enabledFeatureLabels(features: Record<string, boolean> | undefined): string[] {
+  return ASSISTANT_FEATURES.filter((f) => isFeatureEnabled(features, f.key)).map((f) => f.label);
 }

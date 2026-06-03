@@ -778,6 +778,58 @@ export async function buildPendingAction(
       };
     }
 
+    case "update_project": {
+      const payload: Record<string, unknown> = {};
+      for (const k of ["name", "description", "status", "start_date", "due_date", "budget", "currency", "progress", "notes"] as const) {
+        if (a[k] !== undefined) payload[k] = a[k];
+      }
+      return {
+        ...base, tool: name, method: "PUT", endpoint: `/api/projects/${a.id}`, payload, docType: "project",
+        title: "Update project",
+        summary: `Update project ${a.name ?? a.id}${a.status ? ` — ${a.status}` : ""}.`,
+        preview: [
+          ...(a.name ? [{ label: "Name", value: a.name }] : []),
+          ...(a.status ? [{ label: "Status", value: a.status }] : []),
+          ...(a.budget !== undefined ? [{ label: "Budget", value: fmt(a.budget, a.currency ?? ctx.defaultCurrency) }] : []),
+          ...(a.due_date ? [{ label: "Due", value: a.due_date }] : []),
+        ],
+      };
+    }
+
+    case "update_customer": {
+      const payload: Record<string, unknown> = {};
+      for (const k of ["name", "phone_no", "email", "address", "company", "tax_id", "notes"] as const) {
+        if (a[k] !== undefined) payload[k] = a[k];
+      }
+      return {
+        ...base, tool: name, method: "PUT", endpoint: `/api/customers/${a.id}`, payload, docType: "customer",
+        title: "Update customer",
+        summary: `Update customer ${a.name ?? a.id}.`,
+        preview: [
+          ...(a.name ? [{ label: "Name", value: a.name }] : []),
+          ...(a.phone_no ? [{ label: "Phone", value: a.phone_no }] : []),
+          ...(a.email ? [{ label: "Email", value: a.email }] : []),
+        ],
+      };
+    }
+
+    case "update_expense": {
+      const payload: Record<string, unknown> = {};
+      for (const k of ["vendor_name", "status", "payment_status", "payment_method", "bill_date", "notes"] as const) {
+        if (a[k] !== undefined) payload[k] = a[k];
+      }
+      return {
+        ...base, tool: name, method: "PUT", endpoint: `/api/expenses/${a.id}`, payload, docType: "expense",
+        title: "Update expense",
+        summary: `Update expense ${a.id}${a.status ? ` — ${a.status}` : ""}.`,
+        preview: [
+          ...(a.vendor_name ? [{ label: "Vendor", value: a.vendor_name }] : []),
+          ...(a.status ? [{ label: "Status", value: a.status }] : []),
+          ...(a.payment_status ? [{ label: "Payment", value: a.payment_status }] : []),
+        ],
+      };
+    }
+
     default:
       return { error: `Unsupported write tool ${name}` };
   }
@@ -965,6 +1017,34 @@ export async function runPendingAction(
         ok: true,
         data: { success: true, id: data._id, expense_no: data.expense_no, total_amount: data.total_amount },
         summary: `Recorded expense ${data.expense_no ?? ""}`.trim(),
+        documentLink: `/expenses/${data._id}`,
+        documentLabel: data.expense_no ?? "expense",
+      };
+    }
+    case "update_project": {
+      return {
+        ok: true,
+        data: { success: true, id: data._id, name: data.name, project_no: data.project_no, status: data.status },
+        summary: `Updated project ${data.project_no ?? data.name}`,
+        documentLink: `/projects/${data._id}`,
+        documentLabel: data.project_no ?? data.name,
+      };
+    }
+    case "update_customer": {
+      return {
+        ok: true,
+        data: { success: true, id: data._id, name: data.name, phone_no: data.phone_no },
+        summary: `Updated customer ${data.name}`,
+        documentLink: `/customers/${data._id}`,
+        documentLabel: data.name,
+        card: { type: "customer", link: `/customers/${data._id}`, label: data.name, subtitle: data.phone_no },
+      };
+    }
+    case "update_expense": {
+      return {
+        ok: true,
+        data: { success: true, id: data._id, expense_no: data.expense_no, status: data.status },
+        summary: `Updated expense ${data.expense_no ?? ""}`.trim(),
         documentLink: `/expenses/${data._id}`,
         documentLabel: data.expense_no ?? "expense",
       };
