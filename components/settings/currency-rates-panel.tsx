@@ -7,6 +7,7 @@ import { Spinner, SpinnerCenter } from "@/components/loaders/spinner";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { Input } from "@/components/ui/input";
 import { RefreshCw } from "lucide-react";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 import {
   Select,
   SelectContent,
@@ -238,6 +239,7 @@ export function CurrencyRatesPanel() {
 
   const defaultCurrency = settings?.default_currency ?? "PKR";
   const enabledCurrencies = settings?.enabledCurrencies ?? ["PKR"];
+  const currencyConfigured = !!settings?.currencyConfigured;
 
   const {
     rates, thresholds, lastUpdated,
@@ -261,6 +263,15 @@ export function CurrencyRatesPanel() {
     <div>
       {/* Section header */}
       <div style={{ fontSize: 14, fontWeight: 500, color: T1, marginBottom: 16 }}>Currencies</div>
+
+      {!currencyConfigured && (
+        <div style={{ marginBottom: 16 }}>
+          <IntegrationGateNotice
+            title="Live exchange rates are turned off"
+            detail="Enable the Currency exchange integration to fetch live rates for multi-currency invoices and quotations."
+          />
+        </div>
+      )}
 
       {/* Default currency select + sync button */}
       <div className="CurrencySelector" style={{
@@ -306,14 +317,15 @@ export function CurrencyRatesPanel() {
           </span>
           <button
             onClick={sync}
-            disabled={isSyncing || isLoadingRates}
+            disabled={isSyncing || isLoadingRates || !currencyConfigured}
+            title={!currencyConfigured ? "Enable Currency exchange in Settings → Integrations first" : undefined}
             style={{
               display: "flex", alignItems: "center", gap: 5,
               padding: "5px 10px", borderRadius: 7,
               border: `0.5px solid ${GLASS_BORDER}`,
               background: GLASS, color: T2, fontSize: 11,
-              cursor: isSyncing || isLoadingRates ? "not-allowed" : "pointer",
-              opacity: isSyncing || isLoadingRates ? 0.6 : 1,
+              cursor: isSyncing || isLoadingRates || !currencyConfigured ? "not-allowed" : "pointer",
+              opacity: isSyncing || isLoadingRates || !currencyConfigured ? 0.6 : 1,
             }}
           >
             {isSyncing ? <Spinner size="sm" /> : <RefreshCw size={11} />}

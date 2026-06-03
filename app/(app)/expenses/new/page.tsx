@@ -21,6 +21,8 @@ import { formatCurrency } from "@/lib/utils";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSettings } from "@/hooks/use-settings";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 import type { Customer } from "@/types";
 
 const fetcher = (url: string) =>
@@ -268,6 +270,8 @@ export default function NewExpensePage() {
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { settings } = useSettings();
+  const cloudinaryConfigured = !!settings?.cloudinaryConfigured;
 
   // Scan a bill photo → AI extracts vendor/date/items → prefill the form.
   async function scanBill(file: File) {
@@ -535,6 +539,8 @@ export default function NewExpensePage() {
           <Button
             variant="outline"
             loading={scanning}
+            disabled={!cloudinaryConfigured}
+            title={!cloudinaryConfigured ? "Set up Cloudinary in Settings → Integrations to scan bills" : undefined}
             onClick={() => fileRef.current?.click()}
             style={isMobile ? { flex: 1 } : undefined}
           >
@@ -557,6 +563,14 @@ export default function NewExpensePage() {
 
       {/* Body */}
       <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "22px 24px" }}>
+        {!cloudinaryConfigured && (
+          <div style={{ maxWidth: 1080, margin: "0 auto 16px" }}>
+            <IntegrationGateNotice
+              title="“Scan a bill” needs image storage"
+              detail="Connect Cloudinary in Settings → Integrations to snap a bill photo and auto-fill this expense. You can still record expenses manually below."
+            />
+          </div>
+        )}
         <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, alignItems: "flex-start" }}>
           {/* LEFT: details, items, notes */}
           <div style={{ flex: 1, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: 18 }}>

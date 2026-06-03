@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/rbac";
 import { withLog } from "@/lib/logger";
 import { mintPrintToken, type PrintDocType } from "@/lib/print-token";
 import { getBrowser } from "@/lib/pdf/browser";
+import { resolveCloudinaryConfig, uploadToCloudinary, type CloudinaryConfig } from "@/lib/cloudinary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,15 +23,9 @@ const BASE_URL =
 // are uploaded to Cloudinary and returned as a URL instead of raw bytes.
 const MAX_INLINE_BYTES = 4_000_000;
 
-async function uploadPdf(pdf: Uint8Array, fileName: string): Promise<string> {
-  const { v2: cloudinary } = await import("cloudinary");
-  cloudinary.config({
-    cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
+async function uploadPdf(cfg: CloudinaryConfig, pdf: Uint8Array, fileName: string): Promise<string> {
   const dataUri = `data:application/pdf;base64,${Buffer.from(pdf).toString("base64")}`;
-  const res = await cloudinary.uploader.upload(dataUri, {
+  const res = await uploadToCloudinary(cfg, dataUri, {
     resource_type: "raw",
     folder: "quotesphere/pdf",
     public_id: fileName.replace(/\.pdf$/i, ""),
@@ -76,7 +71,14 @@ export const GET = withLog(
 
         const fileName = `${type === "invoice" ? "Invoice" : "Quotation"}-${id}.pdf`;
         if (pdf.byteLength > MAX_INLINE_BYTES) {
-          const hostedUrl = await uploadPdf(pdf, fileName);
+          const cfg = await resolveCloudinaryConfig(uid);
+          if (!cfg) {
+            return NextResponse.json(
+              { success: false, error: "This document is too large to download directly. Enable Cloudinary in Settings → Integrations to generate a download link.", code: "cloudinary_not_configured" },
+              { status: 400 }
+            );
+          }
+          const hostedUrl = await uploadPdf(cfg, pdf, fileName);
           return NextResponse.json({ success: true, url: hostedUrl });
         }
         return new NextResponse(Buffer.from(pdf), {

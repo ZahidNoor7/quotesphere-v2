@@ -43,7 +43,16 @@ export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
         : emailCfg.apiKey
     ));
     const emailConfigured = inAppEmail || !!process.env.RESEND_API_KEY;
-    return NextResponse.json({ success: true, data: { ...settings, emailConfigured } });
+
+    // Cloudinary + currency now live entirely in-app — surface boolean "configured"
+    // flags (never the secrets) so the UI can gate features and link to setup.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cl = (settings as any)?.integrations?.cloudinary;
+    const cloudinaryConfigured = !!(cl?.enabled && cl.cloudName && cl.apiKey && cl.apiSecret);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currencyConfigured = !!(settings as any)?.integrations?.currencyApi?.enabled;
+
+    return NextResponse.json({ success: true, data: { ...settings, emailConfigured, cloudinaryConfigured, currencyConfigured } });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to fetch settings" }, { status: 500 });
   }

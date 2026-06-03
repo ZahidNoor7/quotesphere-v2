@@ -8,11 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { Camera, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { useCloudinaryConfigured } from "@/hooks/use-cloudinary-configured";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
 export default function ProfilePage() {
   const { data: user, mutate } = useSWR("/api/profile", fetcher);
+  const cloudinaryConfigured = useCloudinaryConfigured();
   const [form, setForm] = useState({ name: "", phone: "", bio: "" });
   const [avatar, setAvatar] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -144,8 +147,9 @@ export default function ProfilePage() {
           </div>
           <button
             onClick={() => avatarInputRef.current?.click()}
-            disabled={uploadingAvatar}
-            style={{ position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: "50%", background: "var(--accent)", border: "2px solid var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}
+            disabled={uploadingAvatar || !cloudinaryConfigured}
+            title={!cloudinaryConfigured ? "Set up image storage in Settings → Integrations" : "Change photo"}
+            style={{ position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: "50%", background: "var(--accent)", border: "2px solid var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", cursor: !cloudinaryConfigured ? "not-allowed" : "pointer", color: "#fff", opacity: !cloudinaryConfigured ? 0.6 : 1 }}
           >
             <Camera size={11} />
           </button>
@@ -157,6 +161,14 @@ export default function ProfilePage() {
         </div>
         <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
       </div>
+      {!cloudinaryConfigured && (
+        <div style={{ marginBottom: 20 }}>
+          <IntegrationGateNotice
+            title="Set up image storage to change your photo"
+            detail="Connect Cloudinary in Settings → Integrations to upload images."
+          />
+        </div>
+      )}
 
       {/* Basic info */}
       <div style={secTitle}>Personal information</div>

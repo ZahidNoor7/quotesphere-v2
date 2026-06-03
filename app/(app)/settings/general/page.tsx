@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import type { Settings } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 import { CurrencyRatesPanel } from "@/components/settings/currency-rates-panel";
 import { Upload, X, Globe, Link2 } from "lucide-react";
 
@@ -33,6 +34,7 @@ const SOCIAL_FIELDS: { key: string; label: string; placeholder: string; icon: Re
 
 export default function GeneralSettingsPage() {
   const { settings, mutate } = useSettings();
+  const cloudinaryConfigured = !!settings?.cloudinaryConfigured;
   const [form, setForm] = useState<Partial<Settings> & { social_links?: Record<string, string> }>({});
   const [loading, setLoading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -146,6 +148,8 @@ export default function GeneralSettingsPage() {
                 size="sm"
                 variant="secondary"
                 loading={logoUploading}
+                disabled={!cloudinaryConfigured}
+                title={!cloudinaryConfigured ? "Set up Cloudinary in Settings → Integrations first" : undefined}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload size={12} className="mr-1.5" />Upload logo
@@ -168,7 +172,14 @@ export default function GeneralSettingsPage() {
                 </Button>
               )}
             </div>
-            <div style={{ fontSize: 11, color: T3 }}>PNG, JPG, SVG · max 5 MB · used in invoices, quotations, and app UI</div>
+            {cloudinaryConfigured ? (
+              <div style={{ fontSize: 11, color: T3 }}>PNG, JPG, SVG · max 5 MB · used in invoices, quotations, and app UI</div>
+            ) : (
+              <IntegrationGateNotice
+                title="Image hosting isn't set up"
+                detail="Connect Cloudinary to upload your logo, product photos and bill scans."
+              />
+            )}
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} />
         </div>

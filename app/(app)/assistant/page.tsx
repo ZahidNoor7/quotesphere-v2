@@ -82,6 +82,7 @@ function ThinkingRow() {
 
 export default function AssistantPage() {
   const { settings, isLoading: settingsLoading } = useSettings();
+  const cloudinaryConfigured = !!settings?.cloudinaryConfigured;
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -463,10 +464,16 @@ export default function AssistantPage() {
               }}
             />
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                if (!cloudinaryConfigured) {
+                  toast.error("Set up image storage (Cloudinary) in Settings → Integrations to attach images.");
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
               disabled={chat.isStreaming}
-              title="Attach image"
-              style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: chat.isStreaming ? "default" : "pointer", color: T2, opacity: chat.isStreaming ? 0.5 : 1 }}
+              title={!cloudinaryConfigured ? "Set up image storage in Settings → Integrations to attach images" : "Attach image"}
+              style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: chat.isStreaming ? "default" : "pointer", color: T2, opacity: chat.isStreaming || !cloudinaryConfigured ? 0.5 : 1 }}
             >
               <ImagePlus size={17} />
             </button>

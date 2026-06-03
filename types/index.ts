@@ -315,6 +315,8 @@ export interface CurrencyRates {
   rates: Record<string, number>;
   thresholds: Record<string, number>;
   lastUpdated: string | null;
+  /** False when the in-app Currency exchange integration is off (no live rates). */
+  configured?: boolean;
 }
 
 export interface SocialLinks {
@@ -437,8 +439,12 @@ export interface Settings {
   currencyRates?: CurrencyRates;
   integrations?: Integrations;
   reminders?: ReminderSettings;
-  /** Read-only: server reports whether Resend email is configured (env var). */
+  /** Read-only: server reports whether email is configured (in-app or env). */
   emailConfigured?: boolean;
+  /** Read-only: server reports whether in-app Cloudinary (image hosting) is set up. */
+  cloudinaryConfigured?: boolean;
+  /** Read-only: server reports whether the in-app Currency exchange integration is enabled. */
+  currencyConfigured?: boolean;
 }
 
 export interface DashboardAlert {

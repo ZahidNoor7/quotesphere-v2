@@ -8,14 +8,14 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 
 const RATE_PROVIDERS: Array<{
-  url: (base: string) => string;
+  url: (base: string, apiKey?: string) => string;
   parse: (json: any) => { rates: Record<string, number>; lastUpdated: Date };
 }> = [
   {
-    url: (base) => {
-      const key = process.env.EXCHANGERATE_API_KEY;
-      if (!key) throw new Error("EXCHANGERATE_API_KEY not set");
-      return `https://v6.exchangerate-api.com/v6/${key}/latest/${base}`;
+    url: (base, apiKey) => {
+      // Primary provider — uses the in-app key from Settings → Integrations.
+      if (!apiKey) throw new Error("No exchangerate-api.com API key configured");
+      return `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${base}`;
     },
     parse: (json) => {
       if (json.result !== "success") throw new Error(`exchangerate-api v6: ${json["error-type"] ?? "non-success"}`);
@@ -48,12 +48,12 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   }
 }
 
-async function fetchExternalRates(base: string): Promise<{ rates: Record<string, number>; lastUpdated: Date }> {
+async function fetchExternalRates(base: string, apiKey?: string): Promise<{ rates: Record<string, number>; lastUpdated: Date }> {
   const errors: string[] = [];
   for (const provider of RATE_PROVIDERS) {
     let url: string;
     try {
-      url = provider.url(base);
+      url = provider.url(base, apiKey);
     } catch (err: any) {
       errors.push(`Provider skipped: ${err.message}`);
       continue;
@@ -72,13 +72,15 @@ async function fetchExternalRates(base: string): Promise<{ rates: Record<string,
 
 function serializeCurrencyRates(
   doc: any,
-  base: string
-): { base: string; rates: Record<string, number>; thresholds: Record<string, number>; lastUpdated: string | null } {
+  base: string,
+  configured = true
+): { base: string; rates: Record<string, number>; thresholds: Record<string, number>; lastUpdated: string | null; configured: boolean } {
   return {
     base: doc?.base ?? base,
     rates: doc?.rates ?? {},
     thresholds: doc?.thresholds ?? {},
     lastUpdated: doc?.lastUpdated ? new Date(doc.lastUpdated).toISOString() : null,
+    configured,
   };
 }
 
@@ -95,10 +97,20 @@ export const GET = withLog("GET /api/settings/currency-rates", async (req: NextR
     const requestedBase = searchParams.get("base");
 
     const settings = await Settings.findOne({ user_id: userId })
-      .select("currencyRates default_currency")
+      .select("currencyRates default_currency integrations.currencyApi")
       .lean() as any;
 
     const defaultCurrency: string = requestedBase ?? settings?.default_currency ?? "PKR";
+    const currencyApi = settings?.integrations?.currencyApi;
+
+    // Live rates are gated behind the in-app Currency exchange integration.
+    if (!currencyApi?.enabled) {
+      return NextResponse.json({
+        success: true,
+        data: { base: defaultCurrency, rates: {}, thresholds: {}, lastUpdated: null, configured: false },
+      });
+    }
+    const apiKey: string | undefined = currencyApi?.apiKey || undefined;
     const cached = settings?.currencyRates;
     const now = Date.now();
     const lastUpdatedMs = cached?.lastUpdated ? new Date(cached.lastUpdated).getTime() : 0;
@@ -107,7 +119,7 @@ export const GET = withLog("GET /api/settings/currency-rates", async (req: NextR
 
     if (!cached || isStale || baseChanged) {
       try {
-        const { rates } = await fetchExternalRates(defaultCurrency);
+        const { rates } = await fetchExternalRates(defaultCurrency, apiKey);
         const fetchedAt = new Date();
         const updated = await Settings.findOneAndUpdate(
           { user_id: userId },
@@ -154,10 +166,17 @@ export const POST = withLog("POST /api/settings/currency-rates", async (req: Nex
     const userId = (session.user as any).id as string;
     await connectDB();
 
-    const settings = await Settings.findOne({ user_id: userId }).select("default_currency").lean() as any;
+    const settings = await Settings.findOne({ user_id: userId }).select("default_currency integrations.currencyApi").lean() as any;
     const base: string = settings?.default_currency ?? "PKR";
+    const currencyApi = settings?.integrations?.currencyApi;
+    if (!currencyApi?.enabled) {
+      return NextResponse.json(
+        { success: false, error: "Enable Currency exchange in Settings → Integrations before syncing rates.", code: "currency_not_configured" },
+        { status: 400 }
+      );
+    }
 
-    const { rates } = await fetchExternalRates(base);
+    const { rates } = await fetchExternalRates(base, currencyApi?.apiKey || undefined);
     const fetchedAt = new Date();
 
     const updated = await Settings.findOneAndUpdate(

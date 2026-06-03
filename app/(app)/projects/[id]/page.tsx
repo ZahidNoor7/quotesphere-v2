@@ -19,6 +19,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, TABLE_STYLE, TH_STYLE, TD_STYLE, TABLE_WRAP, ICON_PILL, FIELD_INPUT, GLASS_INPUT } from "@/lib/ds";
 import type { Project, Invoice, Quotation, Expense, Customer, ProjectStatus, ProjectNote, ProjectAttachment, ProjectMilestone } from "@/types";
 import { StickyNote, Paperclip, Plus, Trash2, Upload, FileText, Image as ImageIcon, Film, Clock } from "lucide-react";
+import { useCloudinaryConfigured } from "@/hooks/use-cloudinary-configured";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 const cfetch = (url: string) => fetch(url).then(r => r.json()).then(d => d.data || d);
@@ -483,6 +485,7 @@ export default function ProjectDetailPage() {
   const [addingNote, setAddingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const cloudinaryConfigured = useCloudinaryConfigured();
   const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
   const { data, isLoading, mutate } = useSWR(`/api/projects/${id}`, fetcher);
@@ -923,7 +926,13 @@ export default function ProjectDetailPage() {
             <TabsContent value="attachments" className="mt-3">
               <input ref={attachFileRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar" style={{ display: "none" }} onChange={handleFileUpload} />
               <div className="flex flex-col gap-3">
-                <Button variant="secondary" loading={uploadingFile} onClick={() => attachFileRef.current?.click()} className="self-start">
+                {!cloudinaryConfigured && (
+                  <IntegrationGateNotice
+                    title="Set up storage to upload files"
+                    detail="Connect Cloudinary in Settings → Integrations to attach images, documents and files to this project."
+                  />
+                )}
+                <Button variant="secondary" loading={uploadingFile} disabled={!cloudinaryConfigured} title={!cloudinaryConfigured ? "Set up image storage in Settings → Integrations" : undefined} onClick={() => attachFileRef.current?.click()} className="self-start">
                   <Upload size={13} className="mr-1.5" />Upload file
                 </Button>
                 {(project.attachments ?? []).length === 0 ? (

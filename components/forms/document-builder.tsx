@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { BUILT_IN_DESIGNS, getAllDesigns, getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { TriangleAlert } from "lucide-react";
+import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
 
 // Portrait [w, h] in pt; landscape swaps them
 const PAGE_DIMS: Record<string, [number, number]> = {
@@ -213,6 +214,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { settings, updateLastUsed } = useSettings();
+  const cloudinaryConfigured = !!settings?.cloudinaryConfigured;
   const { getSnapshot } = useCurrencyRates(settings?.default_currency ?? "PKR");
   // Capture original item prices for edit-mode price-change detection
   const originalPricesRef = useRef<Record<number, number>>(
@@ -496,9 +498,13 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
     setItemErrors(p => { const next = new Set(p); next.delete(id); return next; });
   }, []);
   const triggerImageUpload = useCallback((id: number) => {
+    if (!cloudinaryConfigured) {
+      toast.error("Set up image storage (Cloudinary) in Settings → Integrations to attach images.");
+      return;
+    }
     uploadTargetId.current = id;
     fileInputRef.current?.click();
-  }, []);
+  }, [cloudinaryConfigured]);
   function reorderItems(fromIdx: number, toIdx: number) {
     if (fromIdx === toIdx) return;
     setItems(p => {
@@ -1416,9 +1422,17 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     ))}
                   </div>
                 )}
+                {!cloudinaryConfigured && (
+                  <div style={{ marginTop: 14 }}>
+                    <IntegrationGateNotice
+                      title="Set up image storage to attach images"
+                      detail="Connect Cloudinary in Settings → Integrations to upload line-item images."
+                    />
+                  </div>
+                )}
                 <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 11, color: T3 }}>{imgs.length} image{imgs.length !== 1 ? "s" : ""} · First shown in line item</span>
-                  <Button onClick={() => triggerImageUpload(item.id)}>+ Add images</Button>
+                  <Button onClick={() => triggerImageUpload(item.id)} disabled={!cloudinaryConfigured} title={!cloudinaryConfigured ? "Set up image storage in Settings → Integrations" : undefined}>+ Add images</Button>
                 </div>
               </div>
             );
