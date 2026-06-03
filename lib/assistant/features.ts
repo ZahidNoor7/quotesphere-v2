@@ -48,14 +48,14 @@ export const ASSISTANT_FEATURES: AssistantFeature[] = [
   {
     key: "expenses",
     label: "Expenses",
-    description: "List, create and edit expenses",
-    tools: ["list_expenses", "create_expense", "update_expense"],
+    description: "List, create and edit expenses; scan bill photos",
+    tools: ["list_expenses", "create_expense", "update_expense", "scan_bill"],
   },
   {
     key: "projects",
     label: "Projects",
-    description: "List, create and edit projects",
-    tools: ["list_projects", "create_project", "update_project"],
+    description: "List, create and edit projects; attach files and log time",
+    tools: ["list_projects", "create_project", "update_project", "add_project_attachment", "add_project_time_log"],
   },
   {
     key: "reports",

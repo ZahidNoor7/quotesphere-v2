@@ -58,7 +58,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/card";
 import { formatDate, getInitials } from "@/lib/utils";
-import { T1, AC2, TOPBAR_STYLE, ICON_PILL, T3, FIELD_INPUT } from "@/lib/ds";
+import { T1, AC2, TOPBAR_STYLE, ICON_PILL, T3, FIELD_INPUT, TOOLBAR_CONTROL } from "@/lib/ds";
 import {
   TableWrapper,
   DataTable,
@@ -481,7 +481,7 @@ export default function CustomersPage() {
               value={searchInput}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Search by name, phone, email..."
-              style={{ paddingLeft: 28, height: 32 }}
+              style={{ paddingLeft: 28, ...TOOLBAR_CONTROL }}
             />
           </div>
 
@@ -493,7 +493,7 @@ export default function CustomersPage() {
               setPage(1);
             }}
           >
-            <SelectTrigger style={{ width: 130 }}>
+            <SelectTrigger style={{ width: 130, ...TOOLBAR_CONTROL }}>
               <SelectValue placeholder="All status" />
             </SelectTrigger>
             <SelectContent>
@@ -514,7 +514,7 @@ export default function CustomersPage() {
                     display: "flex",
                     alignItems: "center",
                     gap: 5,
-                    height: 32,
+                    ...TOOLBAR_CONTROL,
                   }}
                 >
                   <SlidersHorizontal size={13} /> Columns

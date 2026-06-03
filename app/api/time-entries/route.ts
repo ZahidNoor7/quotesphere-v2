@@ -10,7 +10,7 @@ import { recordAudit } from "@/lib/audit";
 const timeEntrySchema = z.object({
   project_id:  z.string().min(1, "Project is required"),
   date:        z.string().min(1),
-  hours:       z.number().min(0.01).max(24),
+  hours:       z.number().min(0.01),
   description: z.string().min(1, "Description is required").max(500),
   hourly_rate: z.number().min(0).optional(),
   currency:    z.enum(["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const).optional(),

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { formatCurrency } from "@/lib/utils";
-import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
+import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD } from "@/lib/ds";
 import type { Customer, Service, Product, Project, DocTemplate } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
 import { useCurrencyRates } from "@/hooks/use-currency-rates";
@@ -160,52 +160,106 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
 });
 
 function CatalogQuickAdd({
-  services, products, onAdd,
+  services, products, currency, onAdd,
 }: {
   services: Service[];
   products: Product[];
+  currency: string;
   onAdd: (name: string, price: number, product_id?: string) => void;
 }) {
-  const [tab, setTab] = useState<"services" | "products">("services");
-  const activeServices = services.slice(0, 12);
-  const activeProducts = products.slice(0, 12);
+  const [tab, setTab] = useState<"services" | "products">(services.length > 0 ? "services" : "products");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const source: Array<Service | Product> = tab === "services" ? services : products;
+  const q = query.trim().toLowerCase();
+  const filtered = source.filter((x) => {
+    if (!q) return true;
+    if (x.name.toLowerCase().includes(q)) return true;
+    const sku = (x as Product).sku;
+    return sku ? sku.toLowerCase().includes(q) : false;
+  });
   const tabStyle = (active: boolean) => ({
-    fontSize: 11, fontWeight: 500, padding: "3px 10px", borderRadius: 100, cursor: "pointer", border: "none",
+    display: "inline-flex", alignItems: "center", gap: 5,
+    fontSize: 11, fontWeight: 500, padding: "3px 12px", borderRadius: 100, cursor: "pointer", border: "none",
     background: active ? "rgba(99,102,241,0.18)" : "transparent",
-    color: active ? AC2 : T3,
-    transition: "all 0.15s",
+    color: active ? AC2 : T3, transition: "all 0.15s",
   } as const);
-
-  const btnStyle = {
-    display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 11px",
-    background: "rgba(99,102,241,0.11)", border: "0.5px solid rgba(99,102,241,0.22)",
-    color: AC2, borderRadius: 100, fontSize: 11, cursor: "pointer", transition: "all 0.15s", margin: 2,
-  } as const;
+  const countStyle = { fontSize: 9.5, opacity: 0.7 } as const;
 
   return (
-    <div style={{ padding: "10px 16px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: T3 }}>Quick-add from catalog</span>
-        <div style={{ display: "flex", gap: 2, background: "var(--glass)", borderRadius: 100, padding: 2 }}>
-          {services.length > 0 && <button style={tabStyle(tab === "services")} onClick={() => setTab("services")}>Services</button>}
-          {products.length > 0 && <button style={tabStyle(tab === "products")} onClick={() => setTab("products")}>Products</button>}
+    <div style={{ padding: "0 16px 14px" }}>
+      {/* Accordion header */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 12px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, cursor: "pointer" }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--glass-hover)")}
+        onMouseLeave={(e) => (e.currentTarget.style.background = "var(--glass)")}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke={AC2} strokeWidth="1.4"><rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>
+          <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3 }}>Quick-add from catalog</span>
+          <span style={{ fontSize: 10.5, color: T3, fontWeight: 400 }}>· {services.length + products.length} items</span>
+        </span>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={T3} strokeWidth="1.7" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.18s", flexShrink: 0 }}><path d="M4 6l4 4 4-4" /></svg>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 8 }}>
+          {/* Tabs */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 2, background: "var(--glass)", borderRadius: 100, padding: 2 }}>
+              {services.length > 0 && <button type="button" style={tabStyle(tab === "services")} onClick={() => { setTab("services"); setQuery(""); }}>Services <span style={countStyle}>{services.length}</span></button>}
+              {products.length > 0 && <button type="button" style={tabStyle(tab === "products")} onClick={() => { setTab("products"); setQuery(""); }}>Products <span style={countStyle}>{products.length}</span></button>}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: T3 }} width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="7" cy="7" r="4.5" /><path d="M11 11l3 3" /></svg>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+              placeholder={`Search ${tab === "services" ? "services" : "products"}…`}
+              style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px 8px 30px", fontSize: 12, color: T1, background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, outline: "none", fontFamily: "inherit" }}
+            />
+          </div>
+
+          {/* Results */}
+          <div style={{ border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8, overflow: "hidden", maxHeight: 200, overflowY: "auto", background: "var(--glass)" }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: "16px 12px", fontSize: 11.5, color: T3, textAlign: "center" }}>{q ? `No ${tab} match “${query.trim()}”` : `No ${tab} in your catalog`}</div>
+            ) : (
+              filtered.map((item, i) => {
+                const isProduct = tab === "products";
+                const prod = item as Product;
+                return (
+                  <button
+                    key={item._id}
+                    type="button"
+                    onClick={() => onAdd(item.name, item.default_price, isProduct ? item._id : undefined)}
+                    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px", background: "none", border: "none", borderTop: i === 0 ? "none" : "0.5px solid var(--glass-border)", cursor: "pointer", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
+                      {isProduct && (
+                        <div style={{ fontSize: 10, color: T3 }}>{prod.sku ? `SKU ${prod.sku} · ` : ""}Stock {prod.stock_qty} {prod.unit}</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                      <span style={{ fontSize: 11.5, color: T2 }}>{formatCurrency(item.default_price, currency)}</span>
+                      <span style={{ display: "inline-flex", alignItems: "center", fontSize: 11, fontWeight: 600, color: AC2, background: "rgba(99,102,241,0.12)", border: "0.5px solid rgba(99,102,241,0.25)", borderRadius: 100, padding: "3px 10px" }}>+ Add</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, marginBottom: 4 }}>
-        {tab === "services" && activeServices.map(s => (
-          <button key={s._id} onClick={() => onAdd(s.name, s.default_price)} style={btnStyle}
-            onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
-            onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
-          >+ {s.name}</button>
-        ))}
-        {tab === "products" && activeProducts.map(p => (
-          <button key={p._id} onClick={() => onAdd(p.name, p.default_price, p._id)} style={btnStyle}
-            onMouseEnter={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.22)", transform: "scale(1.02)" })}
-            onMouseLeave={e => Object.assign((e.currentTarget as HTMLElement).style, { background: "rgba(99,102,241,0.11)", transform: "none" })}
-            title={p.sku ? `SKU: ${p.sku} | Stock: ${p.stock_qty} ${p.unit}` : `Stock: ${p.stock_qty} ${p.unit}`}
-          >+ {p.name}{p.sku ? <span style={{ opacity: 0.6, fontSize: 9.5 }}>{p.sku}</span> : null}</button>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
@@ -648,6 +702,12 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const typeColor = type === "invoice" ? "#34d399" : "#818cf8";
   const lbl = { fontSize: 10.5, color: T3, fontWeight: 500, marginBottom: 3 } as const;
   const secTitle = { fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: T3, marginBottom: 10, paddingBottom: 6, borderBottom: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", gap: 7 };
+  const sectionCard = { ...CARD, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" };
+  const netDays = (() => {
+    if (!issueDate || !dueDate) return null;
+    const d = Math.round((new Date(dueDate).getTime() - new Date(issueDate).getTime()) / 86_400_000);
+    return d > 0 ? d : null;
+  })();
 
   const PICKER_PREVIEWS: Record<string, { bg: string; text: string }> = {
     "classic-corporate": { bg: "#1a2744", text: "#fff" },
@@ -833,7 +893,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       {/* Builder body */}
       <div ref={bodyRef} style={{ display: "flex", flex: 1, overflow: "hidden", flexDirection: isMobile ? "column" as const : "row" }}>
         {/* Left: form */}
-        <div style={{ width: isMobile ? undefined : showPreview ? `${splitPct}%` : "100%", flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minHeight: 0, borderRight: (!isMobile && showPreview) ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: "auto", background: "var(--glass-surface-bg)" }}>
+        <div style={{ width: isMobile ? undefined : showPreview ? `${splitPct}%` : "100%", flex: isMobile ? 1 : undefined, flexShrink: isMobile ? undefined : 0, minHeight: 0, borderRight: (!isMobile && showPreview) ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: "auto", background: "var(--bg)" }}>
 
           {/* Template banner — shown only for new documents */}
           {!initialData?._id && (
@@ -852,21 +912,22 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           )}
 
           {/* Client & dates */}
-          <div style={{ padding: "14px 16px 0" }}>
+          <div style={{ ...sectionCard, overflow: "visible", margin: "14px 16px 14px", padding: isMobile ? "14px 16px 16px" : "18px 20px 20px" }}>
             <div style={secTitle}>Client & details</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8, alignItems: "start" }}>
               <div ref={clientFieldRef}>
                 <div style={{ ...lbl, color: clientError ? "#f87171" : undefined }}>Client *</div>
                 <div style={{ position: "relative" }} ref={clientDropRef}>
                   {customerId && (customers as Customer[]).find(c => c._id === customerId) ? (
                     /* Selected state: show chip */
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 7 }} onClick={() => setClientError(false)}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 10px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 8 }} onClick={() => setClientError(false)}>
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 12.5, fontWeight: 500, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {(customers as Customer[]).find(c => c._id === customerId)?.name}
-                        </div>
+                        </span>
                         {(customers as Customer[]).find(c => c._id === customerId)?.phone_no && (
-                          <div style={{ fontSize: 10, color: T3 }}>{(customers as Customer[]).find(c => c._id === customerId)?.phone_no}</div>
+                          <span style={{ fontSize: 10.5, color: T3, flexShrink: 0, whiteSpace: "nowrap" }}>{(customers as Customer[]).find(c => c._id === customerId)?.phone_no}</span>
                         )}
                       </div>
                       <button onClick={() => { setCustomerId(""); setClientSearch(""); setShowClientDrop(true); }}
@@ -886,7 +947,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                         onChange={e => { setClientSearch(e.target.value); setShowClientDrop(true); if (e.target.value) setClientError(false); }}
                         onFocus={() => setShowClientDrop(true)}
                         placeholder="Search clients..."
-                        className="h-8 text-xs"
+                        className="h-9 text-xs"
                         style={{ paddingLeft: 28, ...(clientError ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : {}) }}
                       />
                     </div>
@@ -933,7 +994,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   Project <span style={{ opacity: 0.45, fontSize: 9.5, fontWeight: 400 }}>(optional)</span>
                 </div>
                 <Select value={projectId || "_none"} onValueChange={v => setProjectId(v === "_none" ? "" : v)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="No project" />
                   </SelectTrigger>
                   <SelectContent>
@@ -944,6 +1005,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   </SelectContent>
                 </Select>
               </div>
+              </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <div>
@@ -951,7 +1013,10 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <DatePickerInput value={issueDate} onChange={setIssueDate} />
                 </div>
                 <div>
-                  <div style={lbl}>{type === "invoice" ? "Due date" : "Valid until"}</div>
+                  <div style={{ ...lbl, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>{type === "invoice" ? "Due date" : "Valid until"}</span>
+                    {netDays && <span style={{ fontSize: 9, fontWeight: 600, color: AC2, background: "rgba(99,102,241,0.12)", border: "0.5px solid rgba(99,102,241,0.25)", borderRadius: 100, padding: "1px 7px" }}>Net {netDays}</span>}
+                  </div>
                   <DatePickerInput value={dueDate} onChange={setDueDate} placeholder="Optional" />
                 </div>
               </div>
@@ -959,7 +1024,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 <div>
                   <div style={lbl}>Currency</div>
                   <Select value={currency} onValueChange={setCurrency}>
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -973,7 +1038,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <div>
                     <div style={lbl}>Payment method</div>
                     <Select value={paymentMode} onValueChange={setPaymentMode}>
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-9 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -993,13 +1058,14 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             <CatalogQuickAdd
               services={services as Service[]}
               products={products as Product[]}
+              currency={currency}
               onAdd={(name, price, product_id) => setItems(p => [...p, { id: Date.now(), name, quantity: 1, price, product_id }])}
             />
           )}
 
           {/* Line items */}
-          <div style={{ padding: "10px 16px 0" }}>
-            <div style={secTitle}>Line items</div>
+          <div style={{ ...sectionCard, margin: "0 16px 14px", padding: 0 }}>
+            <div style={{ ...secTitle, margin: 0, padding: "14px 18px 9px" }}>Line items</div>
             {/* hidden file input for image attachment */}
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageFile} style={{ display: "none" }} />
 
@@ -1027,7 +1093,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
             ) : (
               /* ── Desktop: table header + rows ── */
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "5px 10px", fontSize: 9, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "var(--glass)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "20px minmax(150px,3fr) 68px 104px 96px 52px", gap: 8, padding: "9px 14px", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: T3, background: "var(--glass)", borderBottom: `0.5px solid ${GLASS_BORDER}` }}>
                   <span /><span>Description</span>
                   <span style={{ textAlign: "center" }}>Qty</span>
                   <span style={{ textAlign: "right" }}>Price</span>
@@ -1043,7 +1109,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     onDrop={() => { reorderItems(dragIdx!, idx); setDragIdx(null); setDragOverIdx(null); }}
                     onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     style={{
-                      display: "grid", gridTemplateColumns: "18px 3fr 60px 90px 78px 48px", gap: 4, padding: "6px 10px",
+                      display: "grid", gridTemplateColumns: "20px minmax(150px,3fr) 68px 104px 96px 52px", gap: 8, padding: "9px 14px",
                       borderBottom: `0.5px solid var(--glass-border)`, alignItems: "center",
                       background: dragOverIdx === idx && dragIdx !== idx ? "rgba(99,102,241,0.12)" : dragIdx === idx ? "rgba(99,102,241,0.06)" : "transparent",
                       opacity: dragIdx === idx ? 0.55 : 1, transition: "background 0.1s",
@@ -1057,7 +1123,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       </svg>
                     </div>
                     <div style={{ position: "relative" }}>
-                      <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-8 text-xs pr-8" style={itemErrors.has(item.id) ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined} />
+                      <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-9 text-xs pr-9" style={itemErrors.has(item.id) ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined} />
                       {item.images?.length ? (
                         <button onClick={() => setImageDialogItemId(item.id)} title={`${item.images.length} image(s) — click to manage`}
                           style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
@@ -1076,9 +1142,9 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                         </button>
                       )}
                     </div>
-                    <Input draggable={false} type="number" min="0" value={item.quantity} onChange={e => updateItem(item.id, "quantity", e.target.value)} className="h-8 text-xs text-center" />
-                    <Input draggable={false} type="number" min="0" value={item.price} onChange={e => updateItem(item.id, "price", e.target.value)} className="h-8 text-xs text-right" />
-                    <span style={{ fontSize: 12, fontWeight: 500, color: T1, textAlign: "right" }}>{formatCurrency(item.quantity * item.price, currency)}</span>
+                    <Input draggable={false} type="number" min="0" value={item.quantity} onChange={e => updateItem(item.id, "quantity", e.target.value)} className="h-9 text-xs text-center" />
+                    <Input draggable={false} type="number" min="0" value={item.price} onChange={e => updateItem(item.id, "price", e.target.value)} className="h-9 text-xs text-right" />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: T1, textAlign: "right" }}>{formatCurrency(item.quantity * item.price, currency)}</span>
                     <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
                       <button onClick={() => duplicateItem(item.id)} title="Duplicate"
                         style={{ width: 20, height: 20, borderRadius: 4, background: "none", border: "none", cursor: "pointer", color: T3, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, opacity: 0.5 }}
@@ -1113,7 +1179,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 <div>
                   <div style={lbl}>Tax</div>
                   <div style={{ display: "flex", gap: 4 }}>
-                    <Input type="number" min="0" value={tax} onChange={e => setTax(e.target.value)} placeholder="0" className="h-8 text-[11px]" style={{ flex: 1 }} />
+                    <Input type="number" min="0" value={tax} onChange={e => setTax(e.target.value)} placeholder="0" className="h-9 text-xs" style={{ flex: 1 }} />
                     <button onClick={() => setTaxType(t => t === "percentage" ? "value" : "percentage")}
                       style={{ padding: "4px 7px", borderRadius: 6, border: `0.5px solid ${GLASS_BORDER}`, background: "var(--glass)", color: T2, fontSize: 10, cursor: "pointer", flexShrink: 0, fontWeight: 600 }}>
                       {taxType === "percentage" ? "%" : "fix"}
@@ -1122,11 +1188,11 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                 </div>
                 <div>
                   <div style={lbl}>Discount</div>
-                  <Input type="number" min="0" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="h-8 text-[11px]" />
+                  <Input type="number" min="0" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="h-9 text-xs" />
                 </div>
                 <div>
                   <div style={lbl}>Delivery</div>
-                  <Input type="number" min="0" value={delivery} onChange={e => setDelivery(e.target.value)} placeholder="0" className="h-8 text-[11px]" />
+                  <Input type="number" min="0" value={delivery} onChange={e => setDelivery(e.target.value)} placeholder="0" className="h-9 text-xs" />
                 </div>
               </div>
               {hasPriceChanged && (
@@ -1150,18 +1216,18 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <span>{label}</span><span style={{ color }}>{val}</span>
                 </div>
               ))}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600, color: T1, borderTop: `0.5px solid ${GLASS_BORDER}`, marginTop: 6, paddingTop: 8 }}>
-                <span>Total</span><span style={{ color: AC2 }}>{formatCurrency(total, currency)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 16, fontWeight: 700, color: T1, borderTop: `0.5px solid ${GLASS_BORDER}`, marginTop: 8, paddingTop: 12 }}>
+                <span>Total</span><span style={{ color: AC2, fontSize: 19, letterSpacing: "-0.02em" }}>{formatCurrency(total, currency)}</span>
               </div>
               {type === "invoice" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, paddingTop: 12, borderTop: `0.5px solid ${GLASS_BORDER}`, alignItems: "end" }}>
                   <div>
                     <div style={lbl}>Advance received</div>
-                    <Input type="number" min="0" value={advance} onChange={e => setAdvance(e.target.value)} className="h-8 text-xs" />
+                    <Input type="number" min="0" value={advance} onChange={e => setAdvance(e.target.value)} className="h-9 text-xs" />
                   </div>
-                  <div style={{ textAlign: "right", paddingTop: 18 }}>
-                    <div style={{ fontSize: 11, color: T3 }}>Outstanding</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: outstanding === 0 ? "#34d399" : "#fbbf24" }}>{formatCurrency(outstanding, currency)}</div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 10, color: T3, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Outstanding</div>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: outstanding === 0 ? "#34d399" : "#fbbf24", letterSpacing: "-0.01em" }}>{formatCurrency(outstanding, currency)}</div>
                   </div>
                 </div>
               )}
@@ -1169,15 +1235,15 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           </div>
 
           {/* Remarks */}
-          <div style={{ padding: "10px 16px 14px" }}>
+          <div style={{ ...sectionCard, margin: "0 16px 14px", padding: isMobile ? "14px 16px" : "18px 20px" }}>
             <div style={secTitle}>Remarks / notes</div>
             <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} rows={3} placeholder="Any additional notes..." className="resize-none text-[11px] min-h-[68px]" />
           </div>
 
           {/* Recurring billing — invoice only */}
           {type === "invoice" && (
-            <div style={{ padding: "0 16px 16px", borderTop: `0.5px solid ${GLASS_BORDER}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, marginBottom: recurrenceEnabled ? 12 : 0 }}>
+            <div style={{ ...sectionCard, margin: "0 16px 18px", padding: isMobile ? "14px 16px" : "16px 20px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: recurrenceEnabled ? 12 : 0 }}>
                 <div>
                   <div style={{ ...secTitle, marginBottom: 2 }}>Recurring invoice</div>
                   <div style={{ fontSize: 10, color: T3 }}>Auto-generate this invoice on a schedule</div>
@@ -1189,7 +1255,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   <div>
                     <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>Frequency</div>
                     <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>
-                      <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
@@ -1200,7 +1266,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                   </div>
                   <div>
                     <div style={{ fontSize: 10, color: T3, marginBottom: 4 }}>End date (optional)</div>
-                    <Input type="date" value={recurrenceEndDate} onChange={e => setRecurrenceEndDate(e.target.value)} className="h-8 text-[11px]" />
+                    <Input type="date" value={recurrenceEndDate} onChange={e => setRecurrenceEndDate(e.target.value)} className="h-9 text-xs" />
                   </div>
                 </div>
               )}
@@ -1450,21 +1516,21 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
             <div>
               <div style={lbl}>Name *</div>
-              <Input autoFocus value={createForm.name} onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name or business name" className="h-8 text-xs" />
+              <Input autoFocus value={createForm.name} onChange={e => setCreateForm(p => ({ ...p, name: e.target.value }))} placeholder="Full name or business name" className="h-9 text-xs" />
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div>
                 <div style={lbl}>Phone</div>
-                <Input value={createForm.phone} onChange={e => setCreateForm(p => ({ ...p, phone: e.target.value }))} placeholder="+92..." className="h-8 text-xs" />
+                <Input value={createForm.phone} onChange={e => setCreateForm(p => ({ ...p, phone: e.target.value }))} placeholder="+92..." className="h-9 text-xs" />
               </div>
               <div>
                 <div style={lbl}>Company</div>
-                <Input value={createForm.company} onChange={e => setCreateForm(p => ({ ...p, company: e.target.value }))} placeholder="Company name" className="h-8 text-xs" />
+                <Input value={createForm.company} onChange={e => setCreateForm(p => ({ ...p, company: e.target.value }))} placeholder="Company name" className="h-9 text-xs" />
               </div>
             </div>
             <div>
               <div style={lbl}>Address</div>
-              <Input value={createForm.address} onChange={e => setCreateForm(p => ({ ...p, address: e.target.value }))} placeholder="Street, city..." className="h-8 text-xs" />
+              <Input value={createForm.address} onChange={e => setCreateForm(p => ({ ...p, address: e.target.value }))} placeholder="Street, city..." className="h-9 text-xs" />
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>

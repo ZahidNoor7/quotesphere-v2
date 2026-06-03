@@ -881,6 +881,70 @@ export const ASSISTANT_TOOLS: ToolDef[] = [
     kind: "write",
     op: "update",
   },
+  {
+    name: "scan_bill",
+    description:
+      "Read a vendor bill / receipt IMAGE the user attached this turn and extract its vendor, date, currency, tax and line items. Use this whenever the user attaches a bill photo and asks to scan it or create an expense from it. After it returns, immediately call create_expense with the extracted vendor_name, bill_date, currency, tax and items. Returns a draft only — it does NOT save anything.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image_index: { type: "number", description: "0-based index of the attached image to scan (default 0 — the first/only attached image)." },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    zod: z.object({ image_index: z.number().int().min(0).optional() }),
+    kind: "read",
+    op: "read",
+  },
+  {
+    name: "add_project_attachment",
+    description:
+      "Attach an IMAGE the user attached this turn to a project's files. Use when the user attaches an image and asks to add/attach it to a project. Resolve the project first with list_projects to get its id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "The project id (from list_projects)." },
+        image_index: { type: "number", description: "0-based index of the attached image (default 0)." },
+        name: { type: "string", description: "Optional file name to show for the attachment." },
+      },
+      required: ["project_id"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      project_id: z.string().min(1),
+      image_index: z.number().int().min(0).optional(),
+      name: z.string().optional(),
+    }),
+    kind: "write",
+    op: "update",
+  },
+  {
+    name: "add_project_time_log",
+    description:
+      "Log billable time on a project: a number of hours at an hourly rate (amount = hours × rate is computed automatically). Use when the user asks to add/log time or hours on a project (e.g. \"add 100 hours at 1000/hour\"). Resolve the project first with list_projects to get its id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_id: { type: "string", description: "The project id (from list_projects)." },
+        hours: { type: "number", description: "Number of hours (>= 0)." },
+        rate: { type: "number", description: "Hourly rate in the project currency (>= 0)." },
+        description: { type: "string", description: "Optional note describing the work." },
+        date: { type: "string", description: "Optional YYYY-MM-DD; defaults to today." },
+      },
+      required: ["project_id", "hours", "rate"],
+      additionalProperties: false,
+    },
+    zod: z.object({
+      project_id: z.string().min(1),
+      hours: z.number().min(0),
+      rate: z.number().min(0),
+      description: z.string().optional(),
+      date: z.string().optional(),
+    }),
+    kind: "write",
+    op: "update",
+  },
 ];
 
 export const TOOL_MAP: Record<string, ToolDef> = Object.fromEntries(

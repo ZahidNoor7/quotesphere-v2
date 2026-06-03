@@ -247,6 +247,55 @@ After any user correction: update `tasks/lessons.md` with the rule that prevents
 
 For broad exploration (3+ file reads): spawn an Explore subagent to keep the main context clean.
 
+### 6. Always Invoke UI Skills for UI Work
+
+For ANY UI/UX work — new pages, component redesigns, layout changes, theming, styling, responsive fixes, accessibility passes — invoke BOTH skills at the start of the task, **before** writing any code:
+
+- `/ui-ux-pro-max` — design intelligence: styles, palettes, font pairings, layout patterns, accessibility checklist
+- `/senior-frontend` — React/Next.js patterns, performance rules, component scaffolding standards
+
+This applies even when the user hasn't typed the slash commands. If the request mentions "UI", "design", "look", "layout", "alignment", "redesign", "polish", "improve the page", a screenshot, or a route to visually fix — both skills are mandatory. Run them in the same turn as your first response, then proceed with the work using their guidance. Also invoke `/tailwind-design-system` and `/shadcn` when touching design tokens (`lib/ds.ts`) or shadcn components.
+
+### 7. Always Invoke Architecture, Backend, and Security Skills for Plan Mode
+
+For ANY task that involves producing a plan, suggesting an approach, designing a feature, or proposing an implementation strategy — invoke ALL THREE skills at the start of the task, **before** writing the plan:
+
+- `/senior-architect` — system design patterns, architecture diagrams, tech stack decisions, integration trade-offs
+- `/senior-backend` — API design, database optimization, business logic, auth/authz, performance tuning
+- `/security-review` — threat modeling, vulnerability assessment, OWASP checks, secure-by-default review
+
+This applies even when the user hasn't typed the slash commands. Triggers include: "plan", "suggest a plan", "how should we approach", "design", "architect", "propose", "what's the best way to build", or any request that requires a multi-step implementation strategy. Run all three skills in the same turn as your first response so the resulting plan reflects:
+
+- **Pros and cons** of each viable approach (architecture, performance, complexity, cost)
+- **Security implications** (auth, data exposure, input validation, per-user data isolation)
+- **Backend trade-offs** (Mongoose schema impact, API contract changes, query patterns)
+- **Architectural fit** with the existing Next.js 16 + MongoDB QuoteSphere system
+
+Only after these skills have informed your thinking should you write to `tasks/todo.md` or present the plan. A plan without architectural, backend, and security context is incomplete — do not skip this step even for "small" features.
+
+### 8. Always Add Dirty Guards and Confirmation Dialogs for Editable Sheets / Drawers / Modals
+
+Any `Sheet`, `Drawer`, `Dialog`, or side-panel that contains **editable fields** (form inputs, textareas, selects, toggles, rich-text editors, line-item builders, anything that mutates state) MUST implement a dirty-state guard. No exceptions.
+
+Required behavior:
+
+- **Track dirty state** — compare current form values against the initial snapshot taken on open. React Hook Form's `formState.isDirty` is the preferred source of truth; for non-RHF forms, hold an initial-snapshot ref and deep-compare.
+- **Intercept all close and exit paths** — every one of the following must funnel through the same guard. Never let one path bypass it:
+  - `onOpenChange`, X button, ESC key, backdrop / outside click, any "Cancel" button
+  - **Page reload / tab close** — register a `beforeunload` listener while the form is dirty and call `event.preventDefault()` so the browser shows its native "Leave site?" prompt. Remove the listener on Save, Discard, or unmount.
+  - **Browser back / forward** — push a sentinel `history.pushState` entry when the form goes dirty and listen for `popstate` to re-show the confirmation dialog; only proceed with navigation after the user confirms Discard.
+  - **In-app link clicks / programmatic navigation** — `next/link`, `router.push`, sidebar nav, breadcrumb clicks must all trigger the guard before unmounting.
+  - Encapsulate all of this inside a shared `useDirtyGuard` hook so feature code never wires `beforeunload` / `popstate` listeners by hand.
+- **Confirmation dialog when dirty** — open an `AlertDialog` with three explicit choices:
+  - **Save** — runs the mutation, closes the surface on success, surfaces a `sonner` toast on error and keeps it open.
+  - **Discard** — resets the form to the initial snapshot and closes.
+  - **Cancel** — keeps the surface open with edits intact.
+- **No silent data loss** — never close, navigate away, or unmount an editable surface that is dirty without showing the dialog.
+- **Reset on close** — once Save or Discard completes, clear dirty state so the next open starts clean.
+- **Submitting / loading state** — while a save is in flight, disable Save/Discard, block close, and show a spinner; do not show the dirty-guard dialog mid-submit.
+
+Extract this as a shared primitive (`hooks/use-dirty-guard.ts` and/or `components/custom-ui/dirty-guard-sheet.tsx`) so every editable surface consumes the same implementation. If you find yourself writing the guard logic inline in a feature file, STOP and lift it to the shared primitive first.
+
 ---
 
 ## Task Management

@@ -302,6 +302,28 @@ export async function executeReadTool(
         },
       };
     }
+    case "scan_bill": {
+      const idx = a.image_index ?? 0;
+      const imageUrl = ctx.attachments?.[idx];
+      if (!imageUrl) {
+        return { ok: false, summary: "No image attached", data: { error: "No image is attached to this message. Ask the user to attach the bill photo, then try again." } };
+      }
+      const r = await selfFetch(ctx, "POST", "/api/expenses/scan", { imageUrl });
+      if (!r.ok) return { ok: false, summary: "Bill scan failed", data: { error: errMsg(r.json, r.status) } };
+      const d = r.json.data ?? {};
+      return {
+        ok: true,
+        summary: `Scanned bill${d.vendor_name ? ` from ${d.vendor_name}` : ""}`,
+        data: {
+          vendor_name: d.vendor_name ?? "",
+          bill_date: d.bill_date ?? "",
+          currency: d.currency ?? ctx.defaultCurrency,
+          tax: d.tax ?? 0,
+          items: (d.items ?? []).map((it: any) => ({ name: it.name, quantity: it.quantity, unit_price: it.unit_price })),
+          next_step: "Now call create_expense with this vendor_name, bill_date, currency, tax and items (each item: name, quantity, unit_price). Do NOT ask the user to re-enter anything.",
+        },
+      };
+    }
     default:
       return { ok: false, summary: "Not a read tool", data: { error: `${name} is not a read tool` } };
   }
@@ -839,6 +861,57 @@ export async function buildPendingAction(
       };
     }
 
+    case "add_project_attachment": {
+      const idx = a.image_index ?? 0;
+      const url = ctx.attachments?.[idx];
+      if (!url) return { error: "No image is attached to this message. Ask the user to attach the image first, then try again." };
+      const proj = await selfFetch(ctx, "GET", `/api/projects/${a.project_id}`);
+      if (!proj.ok) return { error: `Couldn't find project ${a.project_id}. Use list_projects first.` };
+      const project = proj.json.data ?? {};
+      const fileName = a.name || `attachment-${idx + 1}.jpg`;
+      return {
+        ...base, tool: name, method: "POST", endpoint: `/api/projects/${a.project_id}/attachments`,
+        payload: { url, name: fileName, type: "image", size: 0 },
+        docType: "project",
+        title: "Attach image to project",
+        summary: `Attach an image to ${project.name ?? "the project"}.`,
+        preview: [
+          { label: "Project", value: project.name ?? a.project_id },
+          { label: "File", value: fileName },
+          { label: "Image", value: url },
+        ],
+      };
+    }
+
+    case "add_project_time_log": {
+      const proj = await selfFetch(ctx, "GET", `/api/projects/${a.project_id}`);
+      if (!proj.ok) return { error: `Couldn't find project ${a.project_id}. Use list_projects first.` };
+      const project = proj.json.data ?? {};
+      const currency = project.currency ?? ctx.defaultCurrency;
+      const amount = (Number(a.hours) || 0) * (Number(a.rate) || 0);
+      return {
+        ...base, tool: name, method: "POST", endpoint: `/api/time-entries`,
+        payload: {
+          project_id: a.project_id,
+          date: a.date || new Date().toISOString().slice(0, 10),
+          hours: a.hours,
+          hourly_rate: a.rate,
+          description: a.description || `${a.hours}h @ ${a.rate}/hr`,
+          currency,
+        },
+        docType: "project",
+        title: "Log time on project",
+        summary: `Log ${a.hours}h @ ${fmt(a.rate, currency)}/hr — ${fmt(amount, currency)} on ${project.name ?? "the project"}.`,
+        preview: [
+          { label: "Project", value: project.name ?? a.project_id },
+          { label: "Hours", value: String(a.hours) },
+          { label: "Rate", value: `${fmt(a.rate, currency)}/hr` },
+          { label: "Amount", value: fmt(amount, currency) },
+          ...(a.description ? [{ label: "Note", value: a.description }] : []),
+        ],
+      };
+    }
+
     default:
       return { error: `Unsupported write tool ${name}` };
   }
@@ -1056,6 +1129,23 @@ export async function runPendingAction(
         summary: `Updated expense ${data.expense_no ?? ""}`.trim(),
         documentLink: `/expenses/${data._id}`,
         documentLabel: data.expense_no ?? "expense",
+      };
+    }
+    case "add_project_attachment": {
+      const pid = action.endpoint.match(/\/projects\/([^/]+)\//)?.[1];
+      return {
+        ok: true,
+        data: { success: true },
+        summary: "Image attached to the project",
+        ...(pid ? { documentLink: `/projects/${pid}`, documentLabel: "project" } : {}),
+      };
+    }
+    case "add_project_time_log": {
+      return {
+        ok: true,
+        data: { success: true, id: data?._id, hours: data?.hours },
+        summary: `Logged ${data?.hours ?? ""}h on the project`.replace(/\s+/g, " ").trim(),
+        ...(data?.project_id ? { documentLink: `/projects/${data.project_id}`, documentLabel: "project" } : {}),
       };
     }
     default:

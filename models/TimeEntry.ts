@@ -20,7 +20,7 @@ const timeEntrySchema = new Schema<ITimeEntry>(
     user_id:     { type: Schema.Types.ObjectId, ref: "User" },
     user_name:   { type: String },
     date:        { type: Date, required: true, default: Date.now },
-    hours:       { type: Number, required: true, min: 0.01, max: 24 },
+    hours:       { type: Number, required: true, min: 0.01 },
     description: { type: String, required: true, maxlength: 500 },
     hourly_rate: { type: Number, default: 0, min: 0 },
     currency:    { type: String, default: "PKR" },

@@ -1,6 +1,7 @@
 "use client";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { TOOLBAR_CONTROL } from "@/lib/ds";
 
 interface SearchFilterBarProps {
   search: string;
@@ -16,12 +17,12 @@ export function SearchFilterBar({
   children,
 }: SearchFilterBarProps) {
   return (
-    <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
       <Input
         value={search}
         onChange={(e) => onSearch(e.target.value)}
         placeholder={searchPlaceholder}
-        style={{ flex: 1, minWidth: 140, borderRadius: 100 }}
+        style={{ flex: 1, minWidth: 140, ...TOOLBAR_CONTROL }}
       />
       {children}
     </div>
@@ -51,7 +52,7 @@ interface FilterSelectProps {
 export function FilterSelect({ value, onValueChange, placeholder, className, children }: FilterSelectProps) {
   return (
     <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className={`w-auto min-w-27.5 ${className ?? ""}`}>
+      <SelectTrigger style={{ ...TOOLBAR_CONTROL }} className={`w-auto min-w-27.5 ${className ?? ""}`}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

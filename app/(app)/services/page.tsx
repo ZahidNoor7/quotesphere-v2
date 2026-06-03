@@ -17,7 +17,7 @@ import { ServiceSheet } from "@/components/services/service-sheet";
 import { ImportSheet, IMPORT_CONFIGS } from "@/components/import/ImportSheet";
 
 import { formatCurrency } from "@/lib/utils";
-import { T1, T2, T3, AC2, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
+import { T1, T2, T3, AC2, GLASS_BORDER, TOPBAR_STYLE, TOOLBAR_CONTROL } from "@/lib/ds";
 import type { Service } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data as Service[]);
@@ -127,7 +127,7 @@ export default function ServicesPage() {
             <SelectItem value="price-asc">Price (low → high)</SelectItem>
           </FilterSelect>
           {filtersActive && (
-            <Button variant="outline" size="sm" onClick={clearFilters}><FilterX className="size-3.5" />Clear</Button>
+            <Button variant="outline" size="sm" onClick={clearFilters} style={{ ...TOOLBAR_CONTROL }}><FilterX className="size-3.5" />Clear</Button>
           )}
         </SearchFilterBar>
 

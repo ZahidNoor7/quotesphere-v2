@@ -22,20 +22,40 @@ type ResolvedEmail =
 function toResolved(e: Partial<EmailConfig> | null | undefined): ResolvedEmail {
   if (!e) return null;
   const from = e.fromEmail ? (e.fromName ? `${e.fromName} <${e.fromEmail}>` : e.fromEmail) : ENV_FROM;
-  if (e.provider === "smtp" && e.smtpHost && e.smtpUser && e.smtpPassword) {
-    return { provider: "smtp", from, smtp: { host: e.smtpHost, port: e.smtpPort ?? 465, secure: e.smtpSecure ?? true, user: e.smtpUser, pass: e.smtpPassword } };
+  // SMTP requires the full host/user/password triple.
+  if (e.provider === "smtp") {
+    if (e.smtpHost && e.smtpUser && e.smtpPassword) {
+      return { provider: "smtp", from, smtp: { host: e.smtpHost, port: e.smtpPort ?? 465, secure: e.smtpSecure ?? true, user: e.smtpUser, pass: e.smtpPassword } };
+    }
+    return null;
   }
-  if ((e.provider ?? "resend") === "resend" && e.apiKey) {
+  // Any other provider (including unset/empty) is treated as Resend and just needs an API key.
+  if (e.apiKey) {
     return { provider: "resend", from, apiKey: e.apiKey };
   }
   return null;
+}
+
+/**
+ * Whether the given in-app email integration is enabled AND has complete credentials.
+ * Single source of truth shared with the settings API so the UI gate and the actual
+ * sender can never disagree.
+ */
+export function emailConfiguredFrom(e: Partial<EmailConfig> | null | undefined): boolean {
+  return !!(e?.enabled && toResolved(e));
 }
 
 /** Resolve the active provider + credentials from in-app Settings (env Resend fallback). */
 async function resolveEmailConfig(): Promise<ResolvedEmail> {
   try {
     await connectDB();
-    const e = ((await Settings.findOne().lean()) as any)?.integrations?.email;
+    // Settings are stored per user_id, so more than one doc can exist. A bare
+    // findOne() may return one without email set up — prefer the doc that actually
+    // has email enabled, then fall back to any doc.
+    const doc =
+      ((await Settings.findOne({ "integrations.email.enabled": true }).lean()) as any) ??
+      ((await Settings.findOne().lean()) as any);
+    const e = doc?.integrations?.email;
     if (e?.enabled) {
       const r = toResolved(e);
       if (r) return r;
@@ -52,11 +72,23 @@ interface SendOptions {
   subject: string;
   html: string;
   replyTo?: string;
+  /** Optional file attachments; `content` is base64-encoded. */
+  attachments?: Array<{ filename: string; content: string }>;
+}
+
+/** Escape user-provided text for safe inline HTML, preserving line breaks. */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function messageToHtml(message: string): string {
+  return escapeHtml(message.trim()).split("\n").map((l) => (l ? `<p style="margin:0 0 8px">${l}</p>` : "<div style=\"height:8px\"></div>")).join("");
 }
 
 /** Send via an already-resolved provider. */
 async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: string; error?: string }> {
   if (!cfg) {
+    // Silent skip (no error) so background flows stay safe in local/dev. User-initiated
+    // sends must check for a missing id and surface "not configured" themselves.
     console.warn("[email] No email provider configured (Settings → Integrations) — skipped:", opts.subject);
     return {};
   }
@@ -74,6 +106,7 @@ async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: s
       const info = await transport.sendMail({
         from: cfg.from, to, subject: opts.subject, html: opts.html,
         ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+        ...(opts.attachments?.length ? { attachments: opts.attachments.map(a => ({ filename: a.filename, content: Buffer.from(a.content, "base64") })) } : {}),
       });
       return { id: info.messageId };
     } catch (err: any) {
@@ -90,6 +123,7 @@ async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: s
       body: JSON.stringify({
         from: cfg.from, to, subject: opts.subject, html: opts.html,
         ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
+        ...(opts.attachments?.length ? { attachments: opts.attachments.map(a => ({ filename: a.filename, content: a.content })) } : {}),
       }),
     });
     const data = await res.json();
@@ -122,25 +156,27 @@ export async function sendTestEmail(config: Partial<EmailConfig>, to: string): P
 // ─── Pre-built email templates ────────────────────────────────────────────────
 
 export async function sendInvoiceEmail({
-  to, customerName, invoiceNo, issueDate, dueDate, totalAmount, currency, companyName, invoiceUrl,
+  to, customerName, invoiceNo, issueDate, dueDate, totalAmount, currency, companyName, invoiceUrl, message, pdfBase64,
 }: {
   to: string; customerName: string; invoiceNo: string; issueDate: string;
   dueDate?: string; totalAmount: number; currency: string; companyName: string; invoiceUrl?: string;
+  message?: string; pdfBase64?: string;
 }) {
   const formatted = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(totalAmount);
   const sym: Record<string, string> = { PKR: "Rs.", USD: "$", EUR: "€", GBP: "£", AED: "AED", SAR: "SAR" };
   const amount = `${sym[currency] ?? currency} ${formatted}`;
+  const intro = message?.trim()
+    ? `<div style="margin:0 0 24px;color:#333;line-height:1.6">${messageToHtml(message)}</div>`
+    : `<p style="margin:0 0 8px">Hi ${customerName},</p><p style="margin:0 0 24px;color:#555">Please find your invoice from <strong>${companyName}</strong> below.</p>`;
 
   return sendEmail({
     to,
     subject: `Invoice ${invoiceNo} from ${companyName}`,
+    ...(pdfBase64 ? { attachments: [{ filename: `Invoice-${invoiceNo}.pdf`, content: pdfBase64 }] } : {}),
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111">
         <h2 style="margin:0 0 16px;font-size:20px">Invoice ${invoiceNo}</h2>
-        <p style="margin:0 0 8px">Hi ${customerName},</p>
-        <p style="margin:0 0 24px;color:#555">
-          Please find your invoice from <strong>${companyName}</strong> below.
-        </p>
+        ${intro}
         <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
           <tr><td style="padding:8px 0;color:#777;width:140px">Invoice No.</td><td style="padding:8px 0;font-weight:600">${invoiceNo}</td></tr>
           <tr><td style="padding:8px 0;color:#777">Issue Date</td><td style="padding:8px 0">${issueDate}</td></tr>
@@ -187,25 +223,27 @@ export async function sendPaymentReminderEmail({
 }
 
 export async function sendQuotationEmail({
-  to, customerName, quotationNo, issueDate, validUntil, totalAmount, currency, companyName,
+  to, customerName, quotationNo, issueDate, validUntil, totalAmount, currency, companyName, message, pdfBase64,
 }: {
   to: string; customerName: string; quotationNo: string; issueDate: string;
   validUntil?: string; totalAmount: number; currency: string; companyName: string;
+  message?: string; pdfBase64?: string;
 }) {
   const formatted = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2 }).format(totalAmount);
   const sym: Record<string, string> = { PKR: "Rs.", USD: "$", EUR: "€", GBP: "£", AED: "AED", SAR: "SAR" };
   const amount = `${sym[currency] ?? currency} ${formatted}`;
+  const intro = message?.trim()
+    ? `<div style="margin:0 0 24px;color:#333;line-height:1.6">${messageToHtml(message)}</div>`
+    : `<p style="margin:0 0 8px">Hi ${customerName},</p><p style="margin:0 0 24px;color:#555">Please find your quotation from <strong>${companyName}</strong> below.</p>`;
 
   return sendEmail({
     to,
     subject: `Quotation ${quotationNo} from ${companyName}`,
+    ...(pdfBase64 ? { attachments: [{ filename: `Quotation-${quotationNo}.pdf`, content: pdfBase64 }] } : {}),
     html: `
       <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;color:#111">
         <h2 style="margin:0 0 16px;font-size:20px">Quotation ${quotationNo}</h2>
-        <p style="margin:0 0 8px">Hi ${customerName},</p>
-        <p style="margin:0 0 24px;color:#555">
-          Please find your quotation from <strong>${companyName}</strong> below.
-        </p>
+        ${intro}
         <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
           <tr><td style="padding:8px 0;color:#777;width:140px">Quotation No.</td><td style="padding:8px 0;font-weight:600">${quotationNo}</td></tr>
           <tr><td style="padding:8px 0;color:#777">Issue Date</td><td style="padding:8px 0">${issueDate}</td></tr>

@@ -15,7 +15,7 @@ import { DatePickerInput } from "@/components/ui/date-picker";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, GLASS_INPUT, ICON_PILL, FIELD_INPUT } from "@/lib/ds";
+import { T1, T2, T3, GLASS, GLASS_BORDER, TOPBAR_STYLE, GLASS_INPUT, ICON_PILL, FIELD_INPUT, TOOLBAR_CONTROL } from "@/lib/ds";
 import type { Project, Customer, ProjectStatus } from "@/types";
 import { ErrorState } from "@/components/shared/error-state";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -269,7 +269,7 @@ export default function ProjectsPage() {
             {/* Status filter — hidden on mobile (appears in filter row) */}
             <div className="hidden sm:block">
               <Select value={status || "_all"} onValueChange={v => { setStatus(v === "_all" ? "" : v); setPage(1); }}>
-                <SelectTrigger style={{ ...GLASS_INPUT, height: 32, fontSize: 12 }} className="w-[130px] rounded-full focus-visible:ring-indigo-500/30">
+                <SelectTrigger style={{ ...GLASS_INPUT, ...TOOLBAR_CONTROL }} className="w-[130px] focus-visible:ring-indigo-500/30">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -311,14 +311,14 @@ export default function ProjectsPage() {
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search projects…"
-              style={{ ...GLASS_INPUT, height: 32 }}
+              style={{ ...GLASS_INPUT, ...TOOLBAR_CONTROL }}
               className="flex-1 min-w-0 focus-visible:ring-indigo-500/30 sm:min-w-[140px]"
               aria-label="Search projects"
             />
             {/* Status filter — mobile only */}
             <div className="sm:hidden">
               <Select value={status || "_all"} onValueChange={v => { setStatus(v === "_all" ? "" : v); setPage(1); }}>
-                <SelectTrigger style={{ ...GLASS_INPUT, height: 32, fontSize: 12 }} className="w-full rounded-full focus-visible:ring-indigo-500/30">
+                <SelectTrigger style={{ ...GLASS_INPUT, ...TOOLBAR_CONTROL }} className="w-full focus-visible:ring-indigo-500/30">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -333,7 +333,7 @@ export default function ProjectsPage() {
             </div>
             <div className="flex gap-2 items-center">
               <Select value={customerId || "_all"} onValueChange={v => { setCustomerId(v === "_all" ? "" : v); setPage(1); }}>
-                <SelectTrigger style={{ ...GLASS_INPUT, height: 32, fontSize: 12 }} className="w-[130px] rounded-full focus-visible:ring-indigo-500/30">
+                <SelectTrigger style={{ ...GLASS_INPUT, ...TOOLBAR_CONTROL }} className="w-[130px] focus-visible:ring-indigo-500/30">
                   <SelectValue placeholder="All clients" />
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +342,7 @@ export default function ProjectsPage() {
                 </SelectContent>
               </Select>
               <Select value={sort} onValueChange={setSort}>
-                <SelectTrigger style={{ ...GLASS_INPUT, height: 32, fontSize: 12 }} className="w-[110px] rounded-full focus-visible:ring-indigo-500/30">
+                <SelectTrigger style={{ ...GLASS_INPUT, ...TOOLBAR_CONTROL }} className="w-[110px] focus-visible:ring-indigo-500/30">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -357,8 +357,8 @@ export default function ProjectsPage() {
                   <button
                     aria-label={order === "desc" ? "Sort descending" : "Sort ascending"}
                     onClick={() => setOrder(o => o === "desc" ? "asc" : "desc")}
-                    style={{ ...ICON_PILL, width: 32, height: 32, flexShrink: 0 }}
-                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-full"
+                    style={{ ...ICON_PILL, width: 38, height: 38, flexShrink: 0, borderRadius: 10 }}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                   >
                     {order === "desc"
                       ? <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M8 3v10M4 9l4 4 4-4" /></svg>

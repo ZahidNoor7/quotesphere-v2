@@ -9,19 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
-import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, FIELD_INPUT } from "@/lib/ds";
+import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE } from "@/lib/ds";
 import { SpinnerCenter } from "@/components/loaders";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import type { Customer, Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
-
-import { EXPENSE_CATEGORIES } from "@/lib/constants";
 
 interface ExpItem { id: number; name: string; quantity: number; unit_price: number; category: string; }
 
 export default function EditExpensePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const { data: expense, isLoading: loadingExp } = useSWR<Expense>(`/api/expenses/${id}`, fetcher);
   const { data: customers = [] } = useSWR<Customer[]>("/api/customers?limit=200", fetcher);
@@ -123,17 +124,51 @@ export default function EditExpensePage() {
     textTransform: "uppercase" as const, color: T3,
     marginBottom: 10, paddingBottom: 6, borderBottom: `0.5px solid ${GLASS_BORDER}`,
   };
+  const cellInput = { padding: "6px 9px", fontSize: 11.5 } as const;
 
   if (loadingExp || !hydrated) return <SpinnerCenter height={300} />;
 
+  const itemsCols = "minmax(150px,1fr) 128px 52px 96px 84px 26px";
+
+  const summaryCard = (
+    <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, padding: "14px 16px", background: "var(--glass)", display: "flex", flexDirection: "column", gap: 9 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: T3, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Summary</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T2 }}>
+        <span>Subtotal</span><span>{formatCurrency(subTotal, currency)}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 64px 84px", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: T2 }}>Tax (%)</span>
+        <Input type="number" min="0" value={tax} onChange={(e) => setTax(e.target.value)} className="h-7 text-xs text-right" />
+        <span style={{ fontSize: 11.5, color: T2, textAlign: "right" }}>{formatCurrency(taxAmt, currency)}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 64px 84px", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: T2 }}>Discount</span>
+        <Input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} className="h-7 text-xs text-right" />
+        <span style={{ fontSize: 11.5, color: T2, textAlign: "right" }}>−{formatCurrency(parseFloat(discount || "0"), currency)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 17, fontWeight: 700, color: T1, borderTop: `0.5px solid ${GLASS_BORDER}`, paddingTop: 10, marginTop: 3 }}>
+        <span>Total</span><span style={{ color: AC2 }}>{formatCurrency(total, currency)}</span>
+      </div>
+      <div style={{ fontSize: 11, color: T3 }}>{items.length} item{items.length !== 1 ? "s" : ""}</div>
+    </div>
+  );
+
+  const formActions = (
+    <div style={{ display: "flex", gap: 8 }}>
+      <Button loading={loading} onClick={save} style={{ flex: 1 }}>Save changes</Button>
+      <Button asChild variant="outline"><Link href={`/expenses/${id}`}>Cancel</Link></Button>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={TOPBAR_STYLE}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+      {/* Topbar */}
+      <div style={{ ...TOPBAR_STYLE, flexWrap: isMobile ? "wrap" : "nowrap", gap: isMobile ? 6 : undefined }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
           <Link
             href={`/expenses/${id}`}
             style={{
-              display: "flex", alignItems: "center", gap: 5,
+              display: "flex", alignItems: "center", gap: 5, flexShrink: 0,
               padding: "5px 11px", borderRadius: 100,
               background: GLASS, border: `0.5px solid ${GLASS_BORDER}`,
               color: T2, fontSize: 11.5, textDecoration: "none",
@@ -146,203 +181,198 @@ export default function EditExpensePage() {
           </Link>
           <div style={{ fontSize: 14, fontWeight: 600, color: T1 }}>Edit expense</div>
         </div>
-        <Button loading={loading} onClick={save}>Save changes</Button>
+        <Button loading={loading} onClick={save} size="sm">Save changes</Button>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "18px 20px", maxWidth: 700 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Body — natural scroll; centered two-pane (form + sticky summary rail) */}
+      <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 12px" : "22px 24px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, alignItems: "flex-start" }}>
 
-          {/* Details */}
-          <div>
-            <div style={secTitle}>Expense details</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              <div>
-                <label style={lbl}>Client *</label>
-                <Select value={customerId} onValueChange={setCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {(customers as Customer[]).map(c => <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>)}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
-                <div><label style={lbl}>Bill date</label><Input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} /></div>
-                <div>
-                  <label style={lbl}>Currency</label>
-                  <Select value={currency} onValueChange={setCurrency}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {["PKR", "USD", "EUR", "GBP", "AED"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
-                <div><label style={lbl}>Vendor name</label><Input value={vendorName} onChange={e => setVendorName(e.target.value)} placeholder="Vendor or supplier" /></div>
-                <div><label style={lbl}>Bill / Invoice #</label><Input value={billNumber} onChange={e => setBillNumber(e.target.value)} placeholder="BILL-001" /></div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
-                <div>
-                  <label style={lbl}>Payment method</label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {[["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["cheque", "Cheque"], ["online", "Online"]].map(([v, l]) => (
-                          <SelectItem key={v} value={v}>{l}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label style={lbl}>Payment status</label>
-                  <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="partial">Partial</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* LEFT: form */}
+          <div style={{ flex: 1, minWidth: 0, width: "100%", display: "flex", flexDirection: "column", gap: 18 }}>
 
-          {/* Items */}
-          <div>
-            <div style={{ ...secTitle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span>Expense items</span>
-              <button
-                onClick={addItem}
-                style={{
-                  fontSize: 11, color: AC2,
-                  background: "rgba(99,102,241,0.11)",
-                  border: `0.5px solid rgba(99,102,241,0.22)`,
-                  padding: "2px 10px", borderRadius: 100, cursor: "pointer",
-                }}
-              >
-                + Add row
-              </button>
-            </div>
-            <div style={{ borderRadius: 10, border: `0.5px solid ${GLASS_BORDER}`, overflow: "hidden" }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "3fr 52px 85px 75px 26px",
-                gap: 5, padding: "6px 10px",
-                fontSize: 9.5, fontWeight: 500, letterSpacing: "0.05em",
-                textTransform: "uppercase", color: T3,
-                background: "var(--glass)",
-              }}>
-                <span>Description</span>
-                <span style={{ textAlign: "center" }}>Qty</span>
-                <span style={{ textAlign: "right" }}>Unit price</span>
-                <span style={{ textAlign: "right" }}>Total</span>
-                <span />
-              </div>
-              {items.map(item => (
-                <div
-                  key={item.id}
-                  style={{
-                    display: "grid", gridTemplateColumns: "3fr 52px 85px 75px 26px",
-                    gap: 5, padding: "6px 10px",
-                    borderTop: `0.5px solid var(--glass-border)`,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                    <Input
-                      value={item.name}
-                      onChange={e => upd(item.id, "name", e.target.value)}
-                      placeholder="Item description"
-                      style={{ padding: "4px 7px", fontSize: 11 }}
-                    />
-                    <Select value={item.category} onValueChange={val => upd(item.id, "category", val)}>
-                      <SelectTrigger style={{ height: "auto", minHeight: "unset", fontSize: 10, padding: "2px 8px 2px 5px" }}>
-                        <SelectValue />
-                      </SelectTrigger>
+            {/* Details */}
+            <div>
+              <div style={secTitle}>Expense details</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                <div>
+                  <label style={lbl}>Client *</label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {(customers as Customer[]).map(c => <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>)}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
+                  <div><label style={lbl}>Bill date</label><Input type="date" value={billDate} onChange={e => setBillDate(e.target.value)} /></div>
+                  <div>
+                    <label style={lbl}>Currency</label>
+                    <Select value={currency} onValueChange={setCurrency}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c} style={{ fontSize: 10 }}>{c}</SelectItem>)}
+                          {["PKR", "USD", "EUR", "GBP", "AED"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
                   </div>
-                  <Input
-                    type="number" min="0" value={item.quantity}
-                    onChange={e => upd(item.id, "quantity", e.target.value)}
-                    style={{ padding: "4px 5px", fontSize: 11, textAlign: "center" }}
-                  />
-                  <Input
-                    type="number" min="0" value={item.unit_price}
-                    onChange={e => upd(item.id, "unit_price", e.target.value)}
-                    style={{ padding: "4px 7px", fontSize: 11, textAlign: "right" }}
-                  />
-                  <span style={{ fontSize: 11, fontWeight: 500, color: T1, textAlign: "right" }}>
-                    {formatCurrency(item.quantity * item.unit_price, currency)}
-                  </span>
-                  <button
-                    onClick={() => removeItem(item.id)}
-                    disabled={items.length === 1}
-                    style={{ width: 22, height: 22, borderRadius: 5, background: "none", border: "none", cursor: "pointer", color: items.length === 1 ? "var(--glass-border-strong)" : T3, display: "flex", alignItems: "center", justifyContent: "center" }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M3 3l10 10M13 3L3 13"/>
-                    </svg>
-                  </button>
                 </div>
-              ))}
-              <div style={{ padding: "10px 14px", borderTop: `0.5px solid ${GLASS_BORDER}`, background: "var(--glass)", display: "flex", flexDirection: "column", gap: 4 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: T2 }}>
-                  <span>Subtotal</span><span>{formatCurrency(subTotal, currency)}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
+                  <div><label style={lbl}>Vendor name</label><Input value={vendorName} onChange={e => setVendorName(e.target.value)} placeholder="Vendor or supplier" /></div>
+                  <div><label style={lbl}>Bill / Invoice #</label><Input value={billNumber} onChange={e => setBillNumber(e.target.value)} placeholder="BILL-001" /></div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 11.5, color: T2 }}>Tax (%)</span>
-                  <Input
-                    type="number" min="0" value={tax}
-                    onChange={e => setTax(e.target.value)}
-                    style={{ width: 60, padding: "3px 6px", fontSize: 11, textAlign: "right" }}
-                  />
-                  <span style={{ fontSize: 11, color: T2, minWidth: 80, textAlign: "right" }}>{formatCurrency(taxAmt, currency)}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 11.5, color: T2 }}>Discount</span>
-                  <Input
-                    type="number" min="0" value={discount}
-                    onChange={e => setDiscount(e.target.value)}
-                    style={{ width: 60, padding: "3px 6px", fontSize: 11, textAlign: "right" }}
-                  />
-                  <span style={{ fontSize: 11, color: T2, minWidth: 80, textAlign: "right" }}>−{formatCurrency(parseFloat(discount || "0"), currency)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: T1, borderTop: `0.5px solid ${GLASS_BORDER}`, paddingTop: 8, marginTop: 4 }}>
-                  <span>Total</span><span style={{ color: AC2 }}>{formatCurrency(total, currency)}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 9 }}>
+                  <div>
+                    <label style={lbl}>Payment method</label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {[["cash", "Cash"], ["bank_transfer", "Bank transfer"], ["card", "Card"], ["cheque", "Cheque"], ["online", "Online"]].map(([v, l]) => (
+                            <SelectItem key={v} value={v}>{l}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Payment status</label>
+                    <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="partial">Partial</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Items */}
+            <div>
+              <div style={{ ...secTitle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Expense items</span>
+                <button
+                  onClick={addItem}
+                  style={{
+                    fontSize: 11, color: AC2,
+                    background: "rgba(99,102,241,0.11)",
+                    border: `0.5px solid rgba(99,102,241,0.22)`,
+                    padding: "3px 11px", borderRadius: 100, cursor: "pointer",
+                  }}
+                >
+                  + Add row
+                </button>
+              </div>
+              <div style={{ borderRadius: 10, border: `0.5px solid ${GLASS_BORDER}`, overflow: "hidden" }}>
+                <div style={{ overflowX: "auto" }}>
+                  <div style={{ minWidth: 576 }}>
+                    <div style={{
+                      display: "grid", gridTemplateColumns: itemsCols,
+                      gap: 8, padding: "8px 12px",
+                      fontSize: 10, fontWeight: 500, letterSpacing: "0.05em",
+                      textTransform: "uppercase", color: T3,
+                      background: "var(--glass)",
+                    }}>
+                      <span>Description</span>
+                      <span>Category</span>
+                      <span style={{ textAlign: "center" }}>Qty</span>
+                      <span style={{ textAlign: "right" }}>Unit price</span>
+                      <span style={{ textAlign: "right" }}>Total</span>
+                      <span />
+                    </div>
+                    {items.map(item => (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: "grid", gridTemplateColumns: itemsCols,
+                          gap: 8, padding: "9px 12px",
+                          borderTop: `0.5px solid var(--glass-border)`,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Input
+                          value={item.name}
+                          onChange={e => upd(item.id, "name", e.target.value)}
+                          placeholder="Item description"
+                          style={cellInput}
+                        />
+                        <Select value={item.category} onValueChange={val => upd(item.id, "category", val)}>
+                          <SelectTrigger className="w-full" style={{ fontSize: 11.5 }}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c} style={{ fontSize: 11.5 }}>{c}</SelectItem>)}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number" min="0" value={item.quantity}
+                          onChange={e => upd(item.id, "quantity", e.target.value)}
+                          style={{ ...cellInput, padding: "6px 6px", textAlign: "center" }}
+                        />
+                        <Input
+                          type="number" min="0" value={item.unit_price}
+                          onChange={e => upd(item.id, "unit_price", e.target.value)}
+                          style={{ ...cellInput, textAlign: "right" }}
+                        />
+                        <span style={{ fontSize: 11.5, fontWeight: 600, color: T1, textAlign: "right" }}>
+                          {formatCurrency(item.quantity * item.unit_price, currency)}
+                        </span>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          disabled={items.length === 1}
+                          title="Remove row"
+                          style={{ width: 24, height: 24, borderRadius: 6, background: "none", border: "none", cursor: items.length === 1 ? "default" : "pointer", color: items.length === 1 ? "var(--glass-border-strong)" : T3, display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M3 3l10 10M13 3L3 13"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <div style={secTitle}>Notes</div>
+              <Textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Any additional notes..."
+                className="resize-none text-sm"
+                style={{ height: 72 }}
+              />
+            </div>
+
+            {/* Mobile: summary + actions inline (desktop uses the right rail) */}
+            {isMobile && (
+              <>
+                {summaryCard}
+                {formActions}
+              </>
+            )}
           </div>
 
-          {/* Notes */}
-          <div>
-            <div style={secTitle}>Notes</div>
-            <Textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Any additional notes..."
-              style={{ height: 68 }}
-            />
-          </div>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <Button loading={loading} onClick={save}>Save changes</Button>
-            <Button asChild variant="outline"><Link href={`/expenses/${id}`}>Cancel</Link></Button>
-          </div>
+          {/* RIGHT: sticky summary rail (desktop only) */}
+          {!isMobile && (
+            <aside style={{ width: 320, flexShrink: 0, position: "sticky", top: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+              {summaryCard}
+              {formActions}
+            </aside>
+          )}
         </div>
       </div>
     </div>

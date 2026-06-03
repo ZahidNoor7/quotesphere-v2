@@ -5,7 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Download, MessageCircle, Mail, Copy, MoreHorizontal, LayoutTemplate } from "lucide-react";
+import { FileText, Download, MessageCircle, Mail, Copy, MoreHorizontal, LayoutTemplate, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -16,15 +16,15 @@ import { QuotationStatusBadge } from "@/components/shared/status-badges";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { downloadFile } from "@/lib/pdf-export";
 import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
 import { buildDocumentData } from "@/lib/doc-data";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
-import type { Quotation } from "@/types";
+import type { Quotation, Customer } from "@/types";
 import { WhatsAppSendModal, buildQuotationMessage } from "@/components/shared/whatsapp-send-modal";
+import { EmailSendModal, buildQuotationEmailBody } from "@/components/shared/email-send-modal";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
@@ -32,6 +32,7 @@ export default function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: quotation, mutate, isLoading } = useSWR<Quotation>(`/api/quotations/${id}`, fetcher);
+  const { data: customerData } = useSWR<{ customer?: Customer }>(quotation?.customer_id ? `/api/customers/${quotation.customer_id}` : null, fetcher);
   const { settings } = useSettings();
   const isMobile = useIsMobile();
   const [showConvert, setShowConvert] = useState(false);
@@ -39,7 +40,9 @@ export default function QuotationDetailPage() {
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [sharing, setSharing] = useState<"whatsapp" | "email" | "download" | null>(null);
   const [showWAModal, setShowWAModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const waConfigured = !!(settings?.integrations?.whatsapp?.enabled && settings?.integrations?.whatsapp?.apiKey);
+  const emailConfigured = !!settings?.emailConfigured;
   const [converting, setConverting] = useState(false);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [convForm, setConvForm] = useState({ issue_date: new Date().toISOString().slice(0, 10), due_date: "", payment_mode: "cash" });
@@ -70,9 +73,9 @@ export default function QuotationDetailPage() {
         </div>
       </div>
       {/* Body skeleton */}
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 280px" }}>
+      <div style={{ flex: 1, overflowY: "auto", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 280px", alignItems: isMobile ? undefined : "start" }}>
         {/* Left */}
-        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ overflowY: "visible", padding: isMobile ? "14px 12px" : "18px 24px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           {/* Items card */}
           <div style={{ ...CARD }}>
             <div style={{ padding: "12px 16px 10px" }}>
@@ -109,7 +112,7 @@ export default function QuotationDetailPage() {
           </div>
         </div>
         {/* Right panel */}
-        <div style={{ display: isMobile ? "none" : "flex", borderLeft: `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: isMobile ? "none" : "flex", borderLeft: `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", flexDirection: "column", gap: 12, position: "sticky" as const, top: 0, alignSelf: "start", maxHeight: "calc(100dvh - 58px)" }}>
           {/* Client card */}
           <div style={{ ...CARD, padding: "14px 15px" }}>
             <div className="sk" style={{ width: 44, height: 10, marginBottom: 12 }} />
@@ -199,6 +202,36 @@ export default function QuotationDetailPage() {
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
+              <Button size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Send size={13} /> Send
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 200 }}>
+              <DropdownMenuItem onClick={() => {
+                if (waConfigured) setShowWAModal(true);
+                else toast.error("WhatsApp isn't set up.", { description: "Configure it in Settings → Integrations to send directly.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <MessageCircle size={13} color="#25D366" /> Send via WhatsApp
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (emailConfigured) setShowEmailModal(true);
+                else toast.error("Email isn't set up.", { description: "Configure it in Settings → Integrations to send by email.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Mail size={13} /> Send via Email
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={sharing === "download"} onClick={async () => {
+                setSharing("download");
+                try { await downloadServerPdf("quotation", quotation._id, `Quotation-${quotation.quotation_no}.pdf`); }
+                catch (err) { toast.error(err instanceof Error ? err.message : "Failed to generate PDF."); }
+                finally { setSharing(null); }
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Download size={13} /> Download PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ width: 32, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <MoreHorizontal size={14} />
               </Button>
@@ -237,8 +270,8 @@ export default function QuotationDetailPage() {
         </div>
       )}
 
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 280px" }}>
-        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ flex: 1, overflowY: "auto", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 280px", alignItems: isMobile ? undefined : "start" }}>
+        <div style={{ overflowY: "visible", padding: isMobile ? "14px 12px" : "18px 24px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
 
           {/* Line items */}
           <div style={CARD}>
@@ -261,17 +294,17 @@ export default function QuotationDetailPage() {
                   <thead>
                     <tr style={{ background: "var(--glass)" }}>
                       {["Description", "Qty", "Rate", "Total"].map(h => (
-                        <th key={h} style={{ padding: "7px 12px", textAlign: h !== "Description" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
+                        <th key={h} style={{ padding: "9px 16px", textAlign: h !== "Description" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {quotation.items.map((item, i) => (
                       <tr key={i}>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, quotation.currency)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, quotation.currency)}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, quotation.currency)}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, quotation.currency)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -298,7 +331,7 @@ export default function QuotationDetailPage() {
         </div>
 
         {/* Right panel */}
-        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, borderTop: isMobile ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, borderTop: isMobile ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 16px", display: "flex", flexDirection: "column", gap: 12, ...(isMobile ? {} : { position: "sticky" as const, top: 0, alignSelf: "start", maxHeight: "calc(100dvh - 58px)" }) }}>
           <div style={{ ...CARD, padding: "14px 15px" }}>
             <div style={{ fontSize: 11, fontWeight: 500, color: T3, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Client</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: T1 }}>{quotation.customer_name}</div>
@@ -421,68 +454,21 @@ export default function QuotationDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                loading={sharing === "whatsapp"}
                 style={{ display: "flex", alignItems: "center", gap: 5, color: "#25D366", borderColor: "rgba(37,211,102,0.3)", background: "rgba(37,211,102,0.06)" }}
-                onClick={async () => {
-                  if (waConfigured) {
-                    setShowWAModal(true);
-                    return;
-                  }
-                  setSharing("whatsapp");
-                  try {
-                    const blob = await fetchServerPdfBlob("quotation", quotation._id);
-                    const file = new File([blob], `Quotation-${quotation.quotation_no}.pdf`, { type: "application/pdf" });
-                    const phone = quotation.customer_phone?.replace(/\D/g, "") ?? "";
-                    const message = `Hello ${quotation.customer_name},\n\nYour quotation ${quotation.quotation_no} for ${formatCurrency(quotation.total_amount, quotation.currency)} is ready.\n\nPlease let us know if you have any questions.`;
-                    if (navigator.canShare?.({ files: [file] })) {
-                      try { await navigator.share({ files: [file], text: message }); } catch (e: unknown) { if ((e as { name?: string })?.name !== "AbortError") throw e; }
-                    } else {
-                      downloadFile(file);
-                      const msg = encodeURIComponent(message);
-                      window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
-                      toast.info("PDF downloaded — attach it in WhatsApp.");
-                    }
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
-                  } finally { setSharing(null); }
+                onClick={() => {
+                  if (waConfigured) setShowWAModal(true);
+                  else toast.error("WhatsApp isn't set up.", { description: "Configure it in Settings → Integrations to send directly.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
                 }}
               >
                 <MessageCircle size={13} /> WhatsApp
               </Button>
-              {quotation && (
-                <WhatsAppSendModal
-                  open={showWAModal}
-                  onClose={() => setShowWAModal(false)}
-                  defaultPhone={quotation.customer_phone?.replace(/\D/g, "") ?? ""}
-                  defaultMessage={buildQuotationMessage({
-                    customerName: quotation.customer_name,
-                    quotationNo: quotation.quotation_no,
-                    amount: formatCurrency(quotation.total_amount, quotation.currency),
-                    companyName: settings?.company_name,
-                  })}
-                  docFilename={`Quotation-${quotation.quotation_no}.pdf`}
-                  isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
-                  getPdfBlob={() => fetchServerPdfBlob("quotation", quotation._id)}
-                />
-              )}
               <Button
                 variant="outline"
                 size="sm"
-                loading={sharing === "email"}
                 style={{ display: "flex", alignItems: "center", gap: 5 }}
-                onClick={async () => {
-                  setSharing("email");
-                  try {
-                    const blob = await fetchServerPdfBlob("quotation", quotation._id);
-                    const file = new File([blob], `Quotation-${quotation.quotation_no}.pdf`, { type: "application/pdf" });
-                    const subject = encodeURIComponent(`Quotation ${quotation.quotation_no}`);
-                    const body = encodeURIComponent(`Hello ${quotation.customer_name},\n\nPlease find your quotation ${quotation.quotation_no} for ${formatCurrency(quotation.total_amount, quotation.currency)} attached.\n\nThank you!`);
-                    downloadFile(file);
-                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                    toast.info("PDF downloaded — attach it to your email.");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Failed to generate PDF.");
-                  } finally { setSharing(null); }
+                onClick={() => {
+                  if (emailConfigured) setShowEmailModal(true);
+                  else toast.error("Email isn't set up.", { description: "Configure it in Settings → Integrations to send by email.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
                 }}
               >
                 <Mail size={13} /> Email
@@ -509,6 +495,45 @@ export default function QuotationDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Send modals (page-level so the topbar Send menu works without the preview open) */}
+      <WhatsAppSendModal
+        open={showWAModal}
+        onClose={() => setShowWAModal(false)}
+        defaultPhone={quotation.customer_phone?.replace(/\D/g, "") ?? ""}
+        defaultMessage={buildQuotationMessage({
+          customerName: quotation.customer_name,
+          quotationNo: quotation.quotation_no,
+          amount: formatCurrency(quotation.total_amount, quotation.currency),
+          companyName: settings?.company_name,
+        })}
+        docFilename={`Quotation-${quotation.quotation_no}.pdf`}
+        isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+        getPdfBlob={() => fetchServerPdfBlob("quotation", quotation._id)}
+      />
+      <EmailSendModal
+        open={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        defaultEmail={customerData?.customer?.email}
+        payload={{
+          type: "quotation",
+          customerName: quotation.customer_name,
+          docNo: quotation.quotation_no,
+          issueDate: formatDate(quotation.issue_date),
+          secondDate: quotation.valid_until ? formatDate(quotation.valid_until) : undefined,
+          totalAmount: quotation.total_amount,
+          currency: quotation.currency,
+          companyName: settings?.company_name || "Your business",
+        }}
+        defaultMessage={buildQuotationEmailBody({
+          customerName: quotation.customer_name,
+          quotationNo: quotation.quotation_no,
+          amount: formatCurrency(quotation.total_amount, quotation.currency),
+          validUntil: quotation.valid_until ? formatDate(quotation.valid_until) : undefined,
+          companyName: settings?.company_name,
+        })}
+        getPdfBlob={() => fetchServerPdfBlob("quotation", quotation._id)}
+      />
 
       {/* Save as template dialog */}
       <SaveTemplateDialog

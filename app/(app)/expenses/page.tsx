@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/input";
 import { ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { T1, T3, AC2, TOPBAR_STYLE, ICON_PILL } from "@/lib/ds";
+import { T1, T3, AC2, TOPBAR_STYLE, ICON_PILL, TOOLBAR_CONTROL } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
 import { TableSkeleton } from "@/components/loaders";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -222,12 +222,12 @@ export default function ExpensesPage() {
               value={searchInput}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Search expenses, vendors..."
-              style={{ paddingLeft: 28, height: 32 }}
+              style={{ paddingLeft: 28, ...TOOLBAR_CONTROL }}
             />
           </div>
 
           <Select value={status || "_all"} onValueChange={v => { setStatus(v === "_all" ? "" : v); setPage(1); }}>
-            <SelectTrigger style={{ width: 148 }}><SelectValue /></SelectTrigger>
+            <SelectTrigger style={{ width: 148, ...TOOLBAR_CONTROL }}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_all">All status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
@@ -240,7 +240,7 @@ export default function ExpensesPage() {
           {/* Column visibility — desktop only */}
           {!isMobile && <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, height: 32 }}>
+              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, ...TOOLBAR_CONTROL }}>
                 <SlidersHorizontal size={13} /> Columns
               </Button>
             </DropdownMenuTrigger>

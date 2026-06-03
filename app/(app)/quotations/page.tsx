@@ -32,7 +32,7 @@ import { downloadFile } from "@/lib/pdf-export";
 import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
 import { buildDocumentData } from "@/lib/doc-data";
 import { applyPeriodParams } from "@/lib/date-utils";
-import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER } from "@/lib/ds";
+import { T1, AC2, TOPBAR_STYLE, ICON_PILL, GLASS_BORDER, TOOLBAR_CONTROL } from "@/lib/ds";
 import { TableWrapper, DataTable, Th, Td, Tr, PaginationBar } from "@/components/custom-ui";
 import { TableSkeleton } from "@/components/loaders";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -253,13 +253,13 @@ export default function QuotationsPage() {
               value={searchInput}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Search quotations or clients..."
-              style={{ paddingLeft: 28, height: 32 }}
+              style={{ paddingLeft: 28, ...TOOLBAR_CONTROL }}
             />
           </div>
 
           {/* Status filter */}
           <Select value={status || "_all"} onValueChange={v => { setStatus(v === "_all" ? "" : v); setPage(1); }}>
-            <SelectTrigger style={{ width: 148 }}><SelectValue /></SelectTrigger>
+            <SelectTrigger style={{ width: 148, ...TOOLBAR_CONTROL }}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="_all">All status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
@@ -283,16 +283,7 @@ export default function QuotationsPage() {
               setPage(1);
             }}
           >
-            <SelectTrigger
-              className="h-auto w-auto min-w-0 rounded-full px-[10px] py-[5px] text-[11px] gap-1.5 [&>svg]:size-3 focus:ring-0 focus:ring-offset-0 focus:ring-transparent"
-              style={{
-                background: "var(--glass)",
-                border: "0.5px solid var(--glass-border)",
-                color: "var(--t2)",
-                height: 32,
-                minWidth: 120,
-              }}
-            >
+            <SelectTrigger style={{ width: 136, ...TOOLBAR_CONTROL }}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -321,14 +312,12 @@ export default function QuotationsPage() {
                     gap: 6,
                     background: "var(--glass)",
                     border: "0.5px solid var(--glass-border)",
-                    borderRadius: 100,
-                    padding: "5px 12px",
+                    padding: "0 12px",
                     color: dateRange?.from ? "var(--t2)" : "var(--t3)",
-                    fontSize: 11,
                     outline: "none",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
-                    height: 32,
+                    ...TOOLBAR_CONTROL,
                   }}
                 >
                   <CalendarIcon size={12} style={{ opacity: 0.6 }} />
@@ -396,7 +385,7 @@ export default function QuotationsPage() {
           {/* Column visibility toggle — desktop only */}
           {!isMobile && <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, height: 32 }}>
+              <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5, ...TOOLBAR_CONTROL }}>
                 <SlidersHorizontal size={13} /> Columns
               </Button>
             </DropdownMenuTrigger>

@@ -47,6 +47,13 @@ export const TABLE_WRAP: React.CSSProperties = {
   backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
 };
 
+// Shared sizing for filter-toolbar controls (search input, selects, date picker, buttons)
+// so height / border-radius / typography stay uniform across all list pages.
+// Spread last into a control's inline style to win over component defaults.
+export const TOOLBAR_CONTROL: React.CSSProperties = {
+  height: 38, borderRadius: 10, fontSize: 12,
+};
+
 export const ICON_PILL: React.CSSProperties = {
   width: 26, height: 26, borderRadius: 100, display: "flex", alignItems: "center",
   justifyContent: "center", background: "var(--glass)", border: "0.5px solid var(--glass-border)",

@@ -24,8 +24,9 @@ export function DatePickerInput({ value, onChange, placeholder = "Pick a date", 
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          style={{ border: "1px solid var(--glass-border-strong)", background: "var(--glass)", borderRadius: 8, height: 36 }}
           className={cn(
-            "w-full justify-start text-left font-normal text-xs h-8",
+            "w-full justify-start text-left font-normal text-xs h-9",
             !validDate && "text-muted-foreground",
             className
           )}

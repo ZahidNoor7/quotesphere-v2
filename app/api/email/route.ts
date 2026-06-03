@@ -17,6 +17,8 @@ const sendSchema = z.discriminatedUnion("type", [
     currency: z.string(),
     companyName: z.string().min(1),
     invoiceUrl: z.string().optional(),
+    message: z.string().max(4000).optional(),
+    pdfBase64: z.string().optional(),
   }),
   z.object({
     type: z.literal("quotation"),
@@ -28,6 +30,8 @@ const sendSchema = z.discriminatedUnion("type", [
     totalAmount: z.number(),
     currency: z.string(),
     companyName: z.string().min(1),
+    message: z.string().max(4000).optional(),
+    pdfBase64: z.string().optional(),
   }),
   z.object({
     type: z.literal("payment_reminder"),
@@ -68,6 +72,14 @@ export const POST = withLog("POST /api/email", async (req: NextRequest) => {
 
     if (result.error) {
       return NextResponse.json({ success: false, error: result.error }, { status: 502 });
+    }
+    // No id + no error means the send was skipped because email isn't configured.
+    // For a user-initiated send that's a failure, not a silent success.
+    if (!result.id) {
+      return NextResponse.json(
+        { success: false, error: "Email isn't configured. Set up a provider in Settings → Integrations → Email." },
+        { status: 503 },
+      );
     }
     return NextResponse.json({ success: true, data: { id: result.id } });
   } catch (err) {

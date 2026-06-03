@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { withLog } from "@/lib/logger";
 import { recordAudit } from "@/lib/audit";
+import { emailConfiguredFrom } from "@/lib/email";
 
 // Keys that change silently on every interaction — skip audit logging for these-only updates
 const SILENT_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates", "integrations"]);
@@ -37,12 +38,7 @@ export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
     // can gate the reminder email channel. Boolean only; never exposes the key.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const emailCfg = (settings as any)?.integrations?.email;
-    const inAppEmail = !!(emailCfg?.enabled && (
-      emailCfg.provider === "smtp"
-        ? emailCfg.smtpHost && emailCfg.smtpUser && emailCfg.smtpPassword
-        : emailCfg.apiKey
-    ));
-    const emailConfigured = inAppEmail || !!process.env.RESEND_API_KEY;
+    const emailConfigured = emailConfiguredFrom(emailCfg) || !!process.env.RESEND_API_KEY;
 
     // Cloudinary + currency now live entirely in-app — surface boolean "configured"
     // flags (never the secrets) so the UI can gate features and link to setup.

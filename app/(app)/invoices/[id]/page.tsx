@@ -4,7 +4,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { FileText, Download, MessageCircle, Mail, Copy, MoreHorizontal, LayoutTemplate } from "lucide-react";
+import { FileText, Download, MessageCircle, Mail, Copy, MoreHorizontal, LayoutTemplate, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -19,8 +19,9 @@ import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
 import { buildDocumentData } from "@/lib/doc-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
-import type { Invoice, PaymentMethod, PaymentEntry } from "@/types";
+import type { Invoice, PaymentMethod, PaymentEntry, Customer } from "@/types";
 import { WhatsAppSendModal, buildInvoiceMessage } from "@/components/shared/whatsapp-send-modal";
+import { EmailSendModal, buildInvoiceEmailBody } from "@/components/shared/email-send-modal";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
@@ -39,6 +40,7 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: invoice, mutate, isLoading } = useSWR<Invoice>(`/api/invoices/${id}`, fetcher);
+  const { data: customerData } = useSWR<{ customer?: Customer }>(invoice?.customer_id ? `/api/customers/${invoice.customer_id}` : null, fetcher);
   const { settings } = useSettings();
   const [showPayment, setShowPayment] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -46,7 +48,9 @@ export default function InvoiceDetailPage() {
   const [receiptPayment, setReceiptPayment] = useState<PaymentEntry | null>(null);
   const [saving, setSaving] = useState(false);
   const [showWAModal, setShowWAModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const waConfigured = !!(settings?.integrations?.whatsapp?.enabled && settings?.integrations?.whatsapp?.apiKey);
+  const emailConfigured = !!settings?.emailConfigured;
 
   const isMobile = useIsMobile();
   const [downloading, setDownloading] = useState(false);
@@ -78,9 +82,9 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
       {/* Body skeleton */}
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px" }}>
+      <div style={{ flex: 1, overflowY: "auto", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px", alignItems: isMobile ? undefined : "start" }}>
         {/* Left */}
-        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ overflowY: "visible", padding: isMobile ? "14px 12px" : "18px 24px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
           {/* Collection progress card */}
           <div style={{ ...CARD, padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
@@ -147,7 +151,7 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
         {/* Right panel */}
-        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", display: isMobile ? "none" : "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, overflowY: "auto", padding: "18px 16px", display: isMobile ? "none" : "flex", flexDirection: "column", gap: 12, position: "sticky" as const, top: 0, alignSelf: "start", maxHeight: "calc(100dvh - 58px)" }}>
           {/* Client card */}
           <div style={{ ...CARD, padding: "14px 15px" }}>
             <div className="sk" style={{ width: 44, height: 10, marginBottom: 12 }} />
@@ -240,6 +244,36 @@ export default function InvoiceDetailPage() {
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
+              <Button size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <Send size={13} /> Send
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 200 }}>
+              <DropdownMenuItem onClick={() => {
+                if (waConfigured) setShowWAModal(true);
+                else toast.error("WhatsApp isn't set up.", { description: "Configure it in Settings → Integrations to send directly.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <MessageCircle size={13} color="#25D366" /> Send via WhatsApp
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (emailConfigured) setShowEmailModal(true);
+                else toast.error("Email isn't set up.", { description: "Configure it in Settings → Integrations to send by email.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Mail size={13} /> Send via Email
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={downloading} onClick={async () => {
+                setDownloading(true);
+                try { await downloadServerPdf("invoice", invoice._id, `Invoice-${invoice.invoice_no}.pdf`); }
+                catch (err) { toast.error(err instanceof Error ? err.message : "Failed to generate PDF."); }
+                finally { setDownloading(false); }
+              }} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Download size={13} /> Download PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ width: 32, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <MoreHorizontal size={14} />
               </Button>
@@ -259,9 +293,9 @@ export default function InvoiceDetailPage() {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px", gap: 0 }}>
+      <div style={{ flex: 1, overflowY: "auto", display: isMobile ? "flex" : "grid", flexDirection: "column" as const, gridTemplateColumns: isMobile ? undefined : "1fr 300px", alignItems: isMobile ? undefined : "start", gap: 0 }}>
         {/* Left: main content */}
-        <div style={{ overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ overflowY: "visible", padding: isMobile ? "14px 12px" : "18px 24px", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
 
           {/* Collection progress */}
           <div style={{ ...CARD, padding: "16px 18px" }}>
@@ -293,17 +327,17 @@ export default function InvoiceDetailPage() {
               <thead>
                 <tr style={{ background: "var(--glass)" }}>
                   {["Description", "Qty", "Rate", "Total"].map(h => (
-                    <th key={h} style={{ padding: "7px 12px", textAlign: h === "Qty" || h === "Rate" || h === "Total" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
+                    <th key={h} style={{ padding: "9px 16px", textAlign: h === "Qty" || h === "Rate" || h === "Total" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {invoice.items.map((item, i) => (
                   <tr key={i}>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, invoice.currency)}</td>
-                    <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, invoice.currency)}</td>
+                    <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 500 }}>{item.name}</td>
+                    <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{item.quantity}</td>
+                    <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T2, textAlign: "right" }}>{formatCurrency(item.price, invoice.currency)}</td>
+                    <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T1, fontWeight: 600, textAlign: "right" }}>{formatCurrency(item.price * item.quantity, invoice.currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -340,7 +374,7 @@ export default function InvoiceDetailPage() {
                   <thead>
                     <tr style={{ background: "var(--glass)" }}>
                       {["Date", "Description / Ref", "Method", "Amount", ""].map(h => (
-                        <th key={h} style={{ padding: "7px 12px", textAlign: h === "Amount" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
+                        <th key={h} style={{ padding: "9px 16px", textAlign: h === "Amount" ? "right" : "left", fontSize: 10, fontWeight: 500, color: T3, letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -350,16 +384,16 @@ export default function InvoiceDetailPage() {
                         onMouseEnter={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = "var(--glass-hover)"))}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).querySelectorAll("td").forEach(td => (td.style.background = ""))}
                       >
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: T3, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: T3, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)" }}>
                           <div style={{ fontSize: 12, fontWeight: 500, color: T2 }}>{p.note || "Payment received"}</div>
                           {p.reference && <div style={{ fontSize: 10.5, color: T3 }}>Ref: {p.reference}</div>}
                         </td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)" }}>
                           <span style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 100, background: "var(--glass)", color: T2, border: `0.5px solid ${GLASS_BORDER}`, textTransform: "capitalize" }}>{p.method.replace("_", " ")}</span>
                         </td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)", color: "#34d399", fontWeight: 600, textAlign: "right" }}>+{formatCurrency(p.amount, invoice.currency)}</td>
-                        <td style={{ padding: "9px 12px", borderTop: "0.5px solid var(--glass-border)" }}>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)", color: "#34d399", fontWeight: 600, textAlign: "right" }}>+{formatCurrency(p.amount, invoice.currency)}</td>
+                        <td style={{ padding: "11px 16px", borderTop: "0.5px solid var(--glass-border)" }}>
                           <div style={{ display: "flex", gap: 4 }}>
                             <button onClick={() => setReceiptPayment(p)} style={{ ...ICON_PILL, width: 22, height: 22 }}
                               title="Print receipt"
@@ -401,7 +435,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Right: info panel */}
-        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, borderTop: isMobile ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ borderLeft: isMobile ? "none" : `0.5px solid ${GLASS_BORDER}`, borderTop: isMobile ? `0.5px solid ${GLASS_BORDER}` : "none", overflowY: isMobile ? "visible" : "auto", padding: isMobile ? "14px 12px" : "18px 16px", display: "flex", flexDirection: "column", gap: 12, ...(isMobile ? {} : { position: "sticky" as const, top: 0, alignSelf: "start", maxHeight: "calc(100dvh - 58px)" }) }}>
           {/* Client */}
           <div style={{ ...CARD, padding: "14px 15px" }}>
             <div style={{ fontSize: 11, fontWeight: 500, color: T3, marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Client</div>
@@ -553,42 +587,19 @@ export default function InvoiceDetailPage() {
                 size="sm"
                 style={{ display: "flex", alignItems: "center", gap: 5, color: "#25D366", borderColor: "rgba(37,211,102,0.3)", background: "rgba(37,211,102,0.06)" }}
                 onClick={() => {
-                  if (waConfigured) {
-                    setShowWAModal(true);
-                  } else {
-                    toast.info("Configure WhatsApp in Settings → Integrations to send directly.");
-                    const phone = invoice.customer_phone?.replace(/\D/g, "") ?? "";
-                    const msg = encodeURIComponent(`Hello ${invoice.customer_name},\n\nYour invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)} is ready.`);
-                    window.open(`https://api.whatsapp.com/send?${phone ? `phone=${phone}&` : ""}text=${msg}`, "_blank");
-                  }
+                  if (waConfigured) setShowWAModal(true);
+                  else toast.error("WhatsApp isn't set up.", { description: "Configure it in Settings → Integrations to send directly.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
                 }}
               >
                 <MessageCircle size={13} /> WhatsApp
               </Button>
-              {invoice && (
-                <WhatsAppSendModal
-                  open={showWAModal}
-                  onClose={() => setShowWAModal(false)}
-                  defaultPhone={invoice.customer_phone?.replace(/\D/g, "") ?? ""}
-                  defaultMessage={buildInvoiceMessage({
-                    customerName: invoice.customer_name,
-                    invoiceNo: invoice.invoice_no,
-                    amount: formatCurrency(invoice.total_amount, invoice.currency),
-                    companyName: settings?.company_name,
-                  })}
-                  docFilename={`Invoice-${invoice.invoice_no}.pdf`}
-                  isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
-                  getPdfBlob={() => fetchServerPdfBlob("invoice", invoice._id)}
-                />
-              )}
               <Button
                 variant="outline"
                 size="sm"
                 style={{ display: "flex", alignItems: "center", gap: 5 }}
                 onClick={() => {
-                  const subject = encodeURIComponent(`Invoice ${invoice.invoice_no}`);
-                  const body = encodeURIComponent(`Hello ${invoice.customer_name},\n\nPlease find your invoice ${invoice.invoice_no} for ${formatCurrency(invoice.total_amount, invoice.currency)}.\n\nThank you for your business!`);
-                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                  if (emailConfigured) setShowEmailModal(true);
+                  else toast.error("Email isn't set up.", { description: "Configure it in Settings → Integrations to send by email.", action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } } });
                 }}
               >
                 <Mail size={13} /> Email
@@ -615,6 +626,45 @@ export default function InvoiceDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Send modals (page-level so the topbar Send menu works without the preview open) */}
+      <WhatsAppSendModal
+        open={showWAModal}
+        onClose={() => setShowWAModal(false)}
+        defaultPhone={invoice.customer_phone?.replace(/\D/g, "") ?? ""}
+        defaultMessage={buildInvoiceMessage({
+          customerName: invoice.customer_name,
+          invoiceNo: invoice.invoice_no,
+          amount: formatCurrency(invoice.total_amount, invoice.currency),
+          companyName: settings?.company_name,
+        })}
+        docFilename={`Invoice-${invoice.invoice_no}.pdf`}
+        isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+        getPdfBlob={() => fetchServerPdfBlob("invoice", invoice._id)}
+      />
+      <EmailSendModal
+        open={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        defaultEmail={customerData?.customer?.email}
+        payload={{
+          type: "invoice",
+          customerName: invoice.customer_name,
+          docNo: invoice.invoice_no,
+          issueDate: formatDate(invoice.issue_date),
+          secondDate: invoice.due_date ? formatDate(invoice.due_date) : undefined,
+          totalAmount: invoice.total_amount,
+          currency: invoice.currency,
+          companyName: settings?.company_name || "Your business",
+        }}
+        defaultMessage={buildInvoiceEmailBody({
+          customerName: invoice.customer_name,
+          invoiceNo: invoice.invoice_no,
+          amount: formatCurrency(invoice.total_amount, invoice.currency),
+          dueDate: invoice.due_date ? formatDate(invoice.due_date) : undefined,
+          companyName: settings?.company_name,
+        })}
+        getPdfBlob={() => fetchServerPdfBlob("invoice", invoice._id)}
+      />
 
       {/* Receipt Preview Modal */}
       {receiptPayment && invoice && (
