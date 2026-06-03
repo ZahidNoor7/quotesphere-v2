@@ -354,6 +354,7 @@ export default function AssistantPage() {
                     <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: 12 }}>
                       <div style={{ width: "82%", maxWidth: 520 }}>
                         <textarea
+                          dir="auto"
                           value={editDraft}
                           onChange={(e) => setEditDraft(e.target.value)}
                           autoFocus
@@ -384,7 +385,10 @@ export default function AssistantPage() {
                   );
                 }
                 const canEdit = m.role === "user" && m.id === lastUserId && !chat.isStreaming;
-                const canRetry = m.role === "assistant" && !!m.error && m.id === lastMsg?.id && !chat.isStreaming;
+                // Retry the latest assistant turn whenever it's finished and not awaiting a
+                // confirmation — covers hard errors AND graceful tool failures (e.g. a lookup
+                // that failed but the model replied with text). retry() re-runs the last user message.
+                const canRetry = m.role === "assistant" && m.id === lastMsg?.id && !chat.isStreaming && !chat.pendingAction;
                 const canSuggest = m.role === "assistant" && m.id === lastMsg?.id && !chat.isStreaming && !chat.pendingAction;
                 return (
                   <AssistantMessageBubble
@@ -467,6 +471,7 @@ export default function AssistantPage() {
               <ImagePlus size={17} />
             </button>
             <textarea
+              dir="auto"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {

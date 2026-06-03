@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       return;
     }
 
-    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(), role, defaultCurrency, attachments: turnAttachments, enabledTools };
+    const toolCtx: ToolContext = { cookie, baseUrl: getBaseUrl(req), role, defaultCurrency, attachments: turnAttachments, enabledTools };
     const params: AgentRunParams = {
       provider,
       system: buildSystemPrompt({
@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
         enabledFeatures,
         disabledFeatures,
         customInstructions: cfg?.customInstructions,
+        responseLanguage: cfg?.responseLanguage,
       }),
       toolCtx,
       messages,

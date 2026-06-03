@@ -21,7 +21,7 @@ const lbl: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 5
 const input: React.CSSProperties = { width: "100%", padding: "8px 12px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 9, fontSize: 13, color: T1, outline: "none", fontFamily: "inherit", boxSizing: "border-box" };
 
 const CHANNELS = {
-  email: { label: "Email", hint: "Sent to the client's email (needs an email on the customer record).", notSetUp: "Email sending isn't set up. Add a RESEND_API_KEY on the server.", href: null as string | null },
+  email: { label: "Email", hint: "Sent to the client's email (needs an email on the customer record).", notSetUp: "Email isn't connected yet.", href: "/settings/integrations" },
   whatsapp: { label: "WhatsApp", hint: "Sent to the invoice phone via your 360dialog connection.", notSetUp: "WhatsApp isn't connected yet.", href: "/settings/integrations" },
 } as const;
 
@@ -123,9 +123,9 @@ export default function RemindersSettingsPage() {
           <div style={{ margin: "0 16px 14px", padding: "10px 12px", borderRadius: 9, background: "rgba(245,158,11,0.1)", border: `0.5px solid rgba(245,158,11,0.3)`, fontSize: 12, color: WARN, lineHeight: 1.55, display: "flex", gap: 8 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>
-              Set up a channel before turning on reminders: connect{" "}
-              <Link href="/settings/integrations" style={{ color: WARN, textDecoration: "underline", fontWeight: 600 }}>WhatsApp</Link>{" "}
-              in Integrations, or add a <strong>RESEND_API_KEY</strong> for email.
+              Set up a channel before turning on reminders — connect{" "}
+              <Link href="/settings/integrations" style={{ color: WARN, textDecoration: "underline", fontWeight: 600 }}>Email or WhatsApp</Link>{" "}
+              in Settings → Integrations.
             </span>
           </div>
         )}

@@ -337,6 +337,8 @@ export interface IntegrationConfig {
   clientSecret?: string;
   provider?: string;
   uri?: string;
+  fromName?: string;
+  fromEmail?: string;
 }
 
 export interface WhatsAppConfig {
@@ -352,8 +354,23 @@ export interface Integrations {
   googleAuth?: IntegrationConfig;
   currencyApi?: IntegrationConfig;
   mongodb?: IntegrationConfig;
+  email?: EmailConfig;
   whatsapp?: WhatsAppConfig;
   aiAssistant?: AiAssistantConfig;
+}
+
+/** Email integration — one provider active at a time (Resend OR SMTP/Gmail). */
+export interface EmailConfig {
+  enabled: boolean;
+  provider: "resend" | "smtp";
+  apiKey?: string;        // Resend
+  smtpHost?: string;      // SMTP (e.g. smtp.gmail.com)
+  smtpPort?: number;      // 465 (SSL) or 587 (STARTTLS)
+  smtpUser?: string;
+  smtpPassword?: string;  // Gmail: an App Password
+  smtpSecure?: boolean;   // true for port 465
+  fromName?: string;      // shared sender identity
+  fromEmail?: string;
 }
 
 export interface WhatsAppMessage {
@@ -489,6 +506,8 @@ export interface AiAssistantConfig {
   features?: Record<string, boolean>;
   /** Extra user instructions appended to the assistant's system prompt. */
   customInstructions?: string;
+  /** Reply language: "auto" (mirror the user's language) or a language name like "Urdu", "Arabic". */
+  responseLanguage?: string;
 }
 
 /** A tool the model asked to run, in provider-neutral form. */

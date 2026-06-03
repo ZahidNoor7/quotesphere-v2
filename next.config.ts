@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Ship the help-center markdown with the serverless functions that read it.
+  outputFileTracingIncludes: {
+    "/docs/[[...slug]]": ["./content/docs/**/*"],
+    "/docs": ["./content/docs/**/*"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "res.cloudinary.com" },

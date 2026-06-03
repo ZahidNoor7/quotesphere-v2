@@ -5,6 +5,8 @@ export interface SystemPromptOptions {
   enabledFeatures?: string[];
   disabledFeatures?: string[];
   customInstructions?: string;
+  /** "auto" / empty → mirror the user's language; otherwise a language name to always reply in. */
+  responseLanguage?: string;
 }
 
 /** Humanize a label list, e.g. ["Quotations","Invoices","Clients"] → "quotations, invoices and clients". */
@@ -23,8 +25,19 @@ export function buildSystemPrompt({
   enabledFeatures,
   disabledFeatures,
   customInstructions,
+  responseLanguage,
 }: SystemPromptOptions): string {
   const scope = humanizeScope(enabledFeatures);
+  const fixedLang = responseLanguage?.trim() && responseLanguage.trim().toLowerCase() !== "auto" ? responseLanguage.trim() : "";
+  const languageRule = fixedLang
+    ? `## Language (applies to every reply)
+- Always write your replies in ${fixedLang}, whatever language the user writes in. Phrase everything — greetings, answers, refusals and confirmations — naturally in ${fixedLang}.
+- Do NOT translate the user's own data: customer and item names, addresses, currency codes (PKR, USD, …) and document numbers (e.g. INV-00042) stay exactly as given.
+- Keep machine markers literal and in English — in particular the \`SUGGESTIONS:\` line prefix.`
+    : `## Language (applies to every reply)
+- Always reply in the SAME language the user wrote their latest message in — English → English, Urdu → Urdu, Arabic → Arabic, French → French, and so on. Match it naturally for greetings, answers, refusals and confirmations alike; if a message mixes languages, follow the one most of it is written in.
+- Do NOT translate the user's own data: customer and item names, addresses, currency codes (PKR, USD, …) and document numbers (e.g. INV-00042) stay exactly as given.
+- Keep machine markers literal and in English — in particular the \`SUGGESTIONS:\` line prefix.`;
   const disabledNote = disabledFeatures?.length
     ? `\n- These capabilities are DISABLED for this workspace — politely decline requests for them and never use their tools: ${disabledFeatures.join(", ")}.`
     : "";
@@ -35,6 +48,8 @@ export function buildSystemPrompt({
   return `You are the QuoteSphere AI assistant${userName ? `, helping ${userName}` : ""}. You help with ${scope} inside QuoteSphere — and nothing else.
 
 Today's date is ${today}. The default currency is ${defaultCurrency}.
+
+${languageRule}
 
 ## Scope (this rule overrides everything else)
 - A greeting, thanks, or brief small talk ("hi", "hello", "thanks", "who are you") is welcome — reply warmly in ONE short line and offer to help, mentioning ONLY your enabled capabilities, e.g. "Hi! I can help you with ${scope} — what would you like to do?". Never name a disabled capability, and never use the refusal line for a greeting.

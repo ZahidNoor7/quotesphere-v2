@@ -36,6 +36,7 @@ const NAV = [
     items: [
       { href: "/reports", label: "Reports", icon: "reports" },
       { href: "/settings", label: "Settings", icon: "settings" },
+      { href: "/docs", label: "Help & Guides", icon: "help" },
     ],
   },
 ];
@@ -53,6 +54,7 @@ const ICONS: Record<string, React.ReactNode> = {
   settings: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.5 3.5l1.3 1.3M11.2 11.2l1.3 1.3M11.2 4.8l1.3-1.3M3.5 12.5l1.3-1.3"/></svg>,
   messaging: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H6l-3 2V3z"/><path d="M5 6h6M5 8.5h4"/></svg>,
   assistant: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><path d="M8 2l1.5 4L14 7.5 9.5 9 8 13.5 6.5 9 2 7.5 6.5 6z"/><path d="M12.5 2.2l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/></svg>,
+  help: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><path d="M8 3.5C6.8 2.7 5.4 2.5 4 2.5H2.2v9.5H4c1.4 0 2.8.2 4 1 1.2-.8 2.6-1 4-1h1.8v-9.5H12c-1.4 0-2.8.2-4 1z"/><path d="M8 3.5v9.5"/></svg>,
 };
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {

@@ -33,9 +33,17 @@ export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
     if (!settings) {
       settings = (await Settings.create({ user_id: userId })).toObject();
     }
-    // Surface whether server-side email (Resend) is configured so the UI can
-    // gate the reminder email channel. Boolean only — never exposes the key.
-    return NextResponse.json({ success: true, data: { ...settings, emailConfigured: !!process.env.RESEND_API_KEY } });
+    // Surface whether email is configured (in-app integration OR env) so the UI
+    // can gate the reminder email channel. Boolean only; never exposes the key.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const emailCfg = (settings as any)?.integrations?.email;
+    const inAppEmail = !!(emailCfg?.enabled && (
+      emailCfg.provider === "smtp"
+        ? emailCfg.smtpHost && emailCfg.smtpUser && emailCfg.smtpPassword
+        : emailCfg.apiKey
+    ));
+    const emailConfigured = inAppEmail || !!process.env.RESEND_API_KEY;
+    return NextResponse.json({ success: true, data: { ...settings, emailConfigured } });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to fetch settings" }, { status: 500 });
   }

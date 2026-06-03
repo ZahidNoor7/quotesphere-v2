@@ -32,12 +32,20 @@ async function selfFetch(
   path: string,
   body?: unknown
 ): Promise<SelfFetchResult> {
-  const res = await fetch(`${ctx.baseUrl}${path}`, {
-    method,
-    headers: { cookie: ctx.cookie, "content-type": "application/json" },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${ctx.baseUrl}${path}`, {
+      method,
+      headers: { cookie: ctx.cookie, "content-type": "application/json" },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    });
+  } catch (e) {
+    // Network-level failure (wrong origin/port, server down) — surface it cleanly
+    // instead of throwing, so the tool reports a graceful error.
+    console.error(`[assistant selfFetch] ${method} ${ctx.baseUrl}${path} threw:`, e);
+    return { ok: false, status: 0, json: { error: e instanceof Error ? e.message : "Could not reach the app API." } };
+  }
   let json: any = null;
   try {
     json = await res.json();
@@ -45,6 +53,7 @@ async function selfFetch(
     json = null;
   }
   const ok = res.ok && json?.success !== false;
+  if (!ok) console.error(`[assistant selfFetch] ${method} ${ctx.baseUrl}${path} -> HTTP ${res.status}`, json);
   return { ok, status: res.status, json };
 }
 

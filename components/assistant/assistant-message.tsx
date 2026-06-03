@@ -57,6 +57,7 @@ export function AssistantMessageBubble({
           )}
           {msg.content ? (
             <div
+              dir="auto"
               style={{
                 padding: "9px 13px",
                 borderRadius: "16px 16px 4px 16px",
@@ -97,7 +98,8 @@ export function AssistantMessageBubble({
       >
         <Sparkles size={14} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Shrink-to-fit, capped & left-anchored so RTL replies stay on the left (not the far-right edge like user messages). */}
+      <div style={{ flex: "0 1 auto", minWidth: 0, maxWidth: "82%", marginRight: "auto" }}>
         {msg.toolEvents && <ToolActivity events={msg.toolEvents} />}
         {msg.content && <MarkdownMessage content={msg.content} />}
         {msg.error && (
@@ -143,6 +145,7 @@ export function AssistantMessageBubble({
             {msg.suggestions.map((s, i) => (
               <button
                 key={i}
+                dir="auto"
                 onClick={() => onSuggestion(s)}
                 style={{ padding: "5px 12px", borderRadius: 999, background: `color-mix(in srgb, ${AC} 12%, transparent)`, border: `0.5px solid color-mix(in srgb, ${AC} 30%, transparent)`, color: AC, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
               >
@@ -151,7 +154,20 @@ export function AssistantMessageBubble({
             ))}
           </div>
         ) : null}
-        {stamp && <div style={stampStyle}>{stamp}</div>}
+        {(stamp || (onRetry && !msg.error)) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+            {stamp && <div style={{ ...stampStyle, marginTop: 0 }}>{stamp}</div>}
+            {onRetry && !msg.error && (
+              <button
+                onClick={onRetry}
+                title="Regenerate this reply"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: 0, cursor: "pointer", color: T3, fontSize: 11, fontWeight: 500 }}
+              >
+                <RotateCcw size={11} /> Retry
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

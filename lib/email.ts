@@ -1,14 +1,51 @@
 /**
- * Email delivery via Resend.
- * Install:  pnpm add resend
- * Env var:  RESEND_API_KEY=re_...
- *           RESEND_FROM="QuoteSphere <no-reply@yourdomain.com>"
- *
- * If RESEND_API_KEY is not set, all sends are silently skipped (safe for local dev).
+ * Email delivery — provider is configured in-app (Settings → Integrations → Email).
+ * Exactly one provider is active at a time: Resend (HTTP API) or SMTP (e.g. Gmail,
+ * via nodemailer). Falls back to RESEND_API_KEY env only when email isn't set up
+ * in-app. If neither is configured, sends are silently skipped (safe for local dev).
  */
+import nodemailer from "nodemailer";
+import { connectDB } from "@/lib/mongoose";
+import Settings from "@/models/Settings";
+import type { EmailConfig } from "@/types";
 
-const API_KEY = process.env.RESEND_API_KEY;
-const FROM = process.env.RESEND_FROM ?? "QuoteSphere <no-reply@quotesphere.app>";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const ENV_FROM = process.env.RESEND_FROM ?? "QuoteSphere <no-reply@quotesphere.app>";
+
+type ResolvedEmail =
+  | { provider: "resend"; from: string; apiKey: string }
+  | { provider: "smtp"; from: string; smtp: { host: string; port: number; secure: boolean; user: string; pass: string } }
+  | null;
+
+/** Map an email integration config → a resolved provider (ignores `enabled`; used by the test sender). */
+function toResolved(e: Partial<EmailConfig> | null | undefined): ResolvedEmail {
+  if (!e) return null;
+  const from = e.fromEmail ? (e.fromName ? `${e.fromName} <${e.fromEmail}>` : e.fromEmail) : ENV_FROM;
+  if (e.provider === "smtp" && e.smtpHost && e.smtpUser && e.smtpPassword) {
+    return { provider: "smtp", from, smtp: { host: e.smtpHost, port: e.smtpPort ?? 465, secure: e.smtpSecure ?? true, user: e.smtpUser, pass: e.smtpPassword } };
+  }
+  if ((e.provider ?? "resend") === "resend" && e.apiKey) {
+    return { provider: "resend", from, apiKey: e.apiKey };
+  }
+  return null;
+}
+
+/** Resolve the active provider + credentials from in-app Settings (env Resend fallback). */
+async function resolveEmailConfig(): Promise<ResolvedEmail> {
+  try {
+    await connectDB();
+    const e = ((await Settings.findOne().lean()) as any)?.integrations?.email;
+    if (e?.enabled) {
+      const r = toResolved(e);
+      if (r) return r;
+    }
+  } catch {
+    /* fall through to env */
+  }
+  if (process.env.RESEND_API_KEY) return { provider: "resend", from: ENV_FROM, apiKey: process.env.RESEND_API_KEY };
+  return null;
+}
 
 interface SendOptions {
   to: string | string[];
@@ -17,28 +54,44 @@ interface SendOptions {
   replyTo?: string;
 }
 
-export async function sendEmail(opts: SendOptions): Promise<{ id?: string; error?: string }> {
-  if (!API_KEY) {
-    console.warn("[email] RESEND_API_KEY not set — email skipped:", opts.subject);
+/** Send via an already-resolved provider. */
+async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: string; error?: string }> {
+  if (!cfg) {
+    console.warn("[email] No email provider configured (Settings → Integrations) — skipped:", opts.subject);
     return {};
   }
+  const to = Array.isArray(opts.to) ? opts.to : [opts.to];
 
+  // ── SMTP (e.g. Gmail) ──
+  if (cfg.provider === "smtp") {
+    try {
+      const transport = nodemailer.createTransport({
+        host: cfg.smtp.host,
+        port: cfg.smtp.port,
+        secure: cfg.smtp.secure,
+        auth: { user: cfg.smtp.user, pass: cfg.smtp.pass },
+      });
+      const info = await transport.sendMail({
+        from: cfg.from, to, subject: opts.subject, html: opts.html,
+        ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+      });
+      return { id: info.messageId };
+    } catch (err: any) {
+      console.error("[email] SMTP error:", err?.message ?? err);
+      return { error: err?.message ?? "Email send failed" };
+    }
+  }
+
+  // ── Resend ──
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${cfg.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: FROM,
-        to: Array.isArray(opts.to) ? opts.to : [opts.to],
-        subject: opts.subject,
-        html: opts.html,
+        from: cfg.from, to, subject: opts.subject, html: opts.html,
         ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
       }),
     });
-
     const data = await res.json();
     if (!res.ok) {
       console.error("[email] Resend error:", data);
@@ -49,6 +102,21 @@ export async function sendEmail(opts: SendOptions): Promise<{ id?: string; error
     console.error("[email] Network error:", err);
     return { error: "Email send failed" };
   }
+}
+
+export async function sendEmail(opts: SendOptions): Promise<{ id?: string; error?: string }> {
+  return dispatch(await resolveEmailConfig(), opts);
+}
+
+/** Send a one-off test email using an explicit (possibly unsaved) integration config. */
+export async function sendTestEmail(config: Partial<EmailConfig>, to: string): Promise<{ id?: string; error?: string }> {
+  const cfg = toResolved(config);
+  if (!cfg) return { error: "Fill in the selected provider's required fields first." };
+  return dispatch(cfg, {
+    to,
+    subject: "QuoteSphere test email ✓",
+    html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:28px 24px;color:#111"><h2 style="margin:0 0 12px">It works! ✅</h2><p style="margin:0 0 8px;color:#555">Your QuoteSphere email is configured correctly via <strong>${cfg.provider === "smtp" ? "SMTP" : "Resend"}</strong>.</p><p style="margin:0;color:#555">Invoices, quotations and payment reminders will send from this address.</p></div>`,
+  });
 }
 
 // ─── Pre-built email templates ────────────────────────────────────────────────

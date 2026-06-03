@@ -7,9 +7,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
-import type { IntegrationConfig, WhatsAppConfig, AiAssistantConfig } from "@/types";
+import type { IntegrationConfig, WhatsAppConfig, AiAssistantConfig, EmailConfig } from "@/types";
 import {
-  Cloud, ShieldCheck, DollarSign, Database,
+  Cloud, ShieldCheck, DollarSign, Database, Mail, Send,
   Eye, EyeOff, Save, MessageCircle, Zap, Link2, Sparkles,
 } from "lucide-react";
 
@@ -90,6 +90,159 @@ function SecretInput({ value, onChange, placeholder }: { value: string; onChange
       >
         {show ? <EyeOff size={14} /> : <Eye size={14} />}
       </button>
+    </div>
+  );
+}
+
+// ─── Email Card ───────────────────────────────────────────────────────────────
+
+const EMAIL_COLOR = "#e11d48";
+
+function EmailCard({ initialCfg, onSaved }: { initialCfg: EmailConfig; onSaved: () => void }) {
+  const [cfg, setCfg] = useState<EmailConfig>(initialCfg);
+  const [saving, setSaving] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testing, setTesting] = useState(false);
+  useEffect(() => { setCfg(initialCfg); }, [initialCfg]);
+
+  const set = (patch: Partial<EmailConfig>) => setCfg(prev => ({ ...prev, ...patch }));
+  const provider = cfg.provider ?? "resend";
+  const lbl = { fontSize: 11, color: T3, fontWeight: 500, marginBottom: 4, display: "block" } as const;
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrations: { email: cfg } }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Email settings saved.");
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sendTest() {
+    if (!testTo.trim()) { toast.error("Enter a recipient email."); return; }
+    setTesting(true);
+    try {
+      const res = await fetch("/api/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testTo.trim(), config: cfg }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success(`Test email sent to ${testTo.trim()} — check the inbox.`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <div style={{ borderRadius: 12, border: `0.5px solid ${cfg.enabled ? `color-mix(in srgb,${EMAIL_COLOR} 35%,var(--glass-border))` : GLASS_BORDER}`, background: GLASS, overflow: "hidden", transition: "border-color 0.2s" }}>
+      <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: cfg.enabled ? `0.5px solid ${GLASS_BORDER}` : "none" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: `${EMAIL_COLOR}18`, border: `0.5px solid ${EMAIL_COLOR}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: EMAIL_COLOR }}>
+          <Mail size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T1 }}>Email</div>
+          <div style={{ fontSize: 11, color: T3, marginTop: 1 }}>Send invoices, quotations, receipts and payment reminders by email.</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <Label htmlFor="toggle-email" style={{ fontSize: 11, color: cfg.enabled ? T2 : T3 }}>{cfg.enabled ? "Enabled" : "Disabled"}</Label>
+          <Switch id="toggle-email" checked={cfg.enabled} onCheckedChange={v => set({ enabled: v })} />
+        </div>
+      </div>
+
+      {cfg.enabled && (
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Provider — only one active at a time */}
+          <div>
+            <label style={lbl}>Provider</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {([["resend", "Resend (API)"], ["smtp", "SMTP / Gmail"]] as const).map(([p, label]) => (
+                <button key={p} type="button" onClick={() => set({ provider: p })}
+                  style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: `0.5px solid ${provider === p ? EMAIL_COLOR : GLASS_BORDER}`, background: provider === p ? `${EMAIL_COLOR}18` : "transparent", color: provider === p ? EMAIL_COLOR : T3, fontSize: 12, fontWeight: provider === p ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {provider === "resend" ? (
+            <div>
+              <label style={lbl}>Resend API key</label>
+              <SecretInput value={cfg.apiKey ?? ""} onChange={v => set({ apiKey: v })} placeholder="re_xxxxxxxxxxxxxxxx" />
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={lbl}>SMTP host</label>
+                  <Input value={cfg.smtpHost ?? ""} onChange={e => set({ smtpHost: e.target.value })} placeholder="smtp.gmail.com" />
+                </div>
+                <div>
+                  <label style={lbl}>Port</label>
+                  <Input value={cfg.smtpPort != null ? String(cfg.smtpPort) : ""} onChange={e => set({ smtpPort: parseInt(e.target.value, 10) || undefined })} placeholder="465" />
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Username (your email)</label>
+                <Input value={cfg.smtpUser ?? ""} onChange={e => set({ smtpUser: e.target.value })} placeholder="you@gmail.com" />
+              </div>
+              <div>
+                <label style={lbl}>Password (Gmail: an App Password)</label>
+                <SecretInput value={cfg.smtpPassword ?? ""} onChange={v => set({ smtpPassword: v })} placeholder="16-character app password" />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Switch id="smtp-secure" checked={cfg.smtpSecure ?? true} onCheckedChange={v => set({ smtpSecure: v })} />
+                <Label htmlFor="smtp-secure" style={{ fontSize: 12, color: T2 }}>Use SSL (port 465) — turn off for STARTTLS (587)</Label>
+              </div>
+              <div style={{ fontSize: 11, color: T3, lineHeight: 1.5 }}>
+                Gmail: enable 2-Step Verification, then create an App Password (Google Account → Security → App passwords). Limit ≈ 500 emails/day.
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={lbl}>From name</label>
+              <Input value={cfg.fromName ?? ""} onChange={e => set({ fromName: e.target.value })} placeholder="Your Company" />
+            </div>
+            <div>
+              <label style={lbl}>From email</label>
+              <Input value={cfg.fromEmail ?? ""} onChange={e => set({ fromEmail: e.target.value })} placeholder={provider === "smtp" ? "you@gmail.com" : "no-reply@yourdomain.com"} />
+            </div>
+          </div>
+
+          {/* Send a test email using the current (possibly unsaved) settings */}
+          <div>
+            <label style={lbl}>Send a test email</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="you@example.com" style={{ flex: 1 }} />
+              <Button size="sm" variant="outline" disabled={testing} onClick={sendTest}>
+                <Send size={12} className="mr-1.5" />{testing ? "Sending…" : "Send test"}
+              </Button>
+            </div>
+            <div style={{ fontSize: 11, color: T3, marginTop: 5 }}>Uses the settings above — no need to save first.</div>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+            <Button size="sm" disabled={saving} onClick={save}>
+              <Save size={12} className="mr-1.5" />{saving ? "Saving…" : "Save Email"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -650,6 +803,7 @@ export default function IntegrationsPage() {
   });
   const [waCfg, setWaCfg] = useState<WhatsAppConfig>({ enabled: false, mode: "sandbox" });
   const [aiCfg, setAiCfg] = useState<AiAssistantConfig>({ enabled: false, provider: "openai" });
+  const [emailCfg, setEmailCfg] = useState<EmailConfig>({ enabled: false, provider: "resend" });
   const [saving, setSaving] = useState<IntKey | null>(null);
 
   useEffect(() => {
@@ -668,6 +822,9 @@ export default function IntegrationsPage() {
       }
       if (settings.integrations.aiAssistant) {
         setAiCfg(settings.integrations.aiAssistant as AiAssistantConfig);
+      }
+      if (settings.integrations.email) {
+        setEmailCfg(settings.integrations.email as EmailConfig);
       }
     }
   }, [settings]);
@@ -764,6 +921,9 @@ export default function IntegrationsPage() {
           </div>
         );
       })}
+
+      {/* Email card */}
+      <EmailCard initialCfg={emailCfg} onSaved={mutate} />
 
       {/* WhatsApp card */}
       <WhatsAppCard initialCfg={waCfg} onSaved={mutate} />

@@ -6,15 +6,35 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
 import { ASSISTANT_FEATURES, isFeatureEnabled } from "@/lib/assistant/features";
 import { T1, T3, GLASS_BORDER, AC } from "@/lib/ds";
+
+/** "auto" mirrors the user's language; the rest pin every reply to that language. */
+const LANGUAGES = [
+  { value: "auto", label: "Auto — match the customer's language" },
+  { value: "English", label: "English" },
+  { value: "Urdu", label: "Urdu (اردو)" },
+  { value: "Arabic", label: "Arabic (العربية)" },
+  { value: "French", label: "French (Français)" },
+  { value: "Spanish", label: "Spanish (Español)" },
+  { value: "German", label: "German (Deutsch)" },
+  { value: "Hindi", label: "Hindi (हिन्दी)" },
+  { value: "Portuguese", label: "Portuguese (Português)" },
+  { value: "Turkish", label: "Turkish (Türkçe)" },
+  { value: "Indonesian", label: "Indonesian (Bahasa)" },
+  { value: "Russian", label: "Russian (Русский)" },
+  { value: "Chinese", label: "Chinese (中文)" },
+  { value: "Bengali", label: "Bengali (বাংলা)" },
+];
 
 export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const { settings, mutate } = useSettings();
   const cfg = settings?.integrations?.aiAssistant;
   const [features, setFeatures] = useState<Record<string, boolean>>({});
   const [instructions, setInstructions] = useState("");
+  const [language, setLanguage] = useState("auto");
   const [saving, setSaving] = useState(false);
   const [rewriting, setRewriting] = useState(false);
 
@@ -24,6 +44,7 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
     for (const feat of ASSISTANT_FEATURES) f[feat.key] = isFeatureEnabled(cfg?.features, feat.key);
     setFeatures(f);
     setInstructions(cfg?.customInstructions ?? "");
+    setLanguage(cfg?.responseLanguage ?? "auto");
   }, [open, cfg]);
 
   async function save() {
@@ -32,7 +53,7 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
       const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ integrations: { aiAssistant: { features, customInstructions: instructions } } }),
+        body: JSON.stringify({ integrations: { aiAssistant: { features, customInstructions: instructions, responseLanguage: language } } }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(typeof data.error === "string" ? data.error : "Save failed");
@@ -96,6 +117,24 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Response language */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T1, marginBottom: 3 }}>Response language</div>
+            <div style={{ fontSize: 12, color: T3, marginBottom: 10, lineHeight: 1.5 }}>
+              The language the assistant replies in. <span style={{ color: T1, fontWeight: 600 }}>Auto</span> mirrors each message — ask in Urdu, Arabic or French and it answers in the same language.
+            </div>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Custom instructions */}

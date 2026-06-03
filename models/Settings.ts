@@ -64,6 +64,18 @@ export interface ISettings extends Document {
     googleAuth?: { enabled: boolean; clientId?: string; clientSecret?: string };
     currencyApi?: { enabled: boolean; apiKey?: string; provider?: string };
     mongodb?: { enabled: boolean; uri?: string };
+    email?: {
+      enabled: boolean;
+      provider?: "resend" | "smtp";
+      apiKey?: string;
+      smtpHost?: string;
+      smtpPort?: number;
+      smtpUser?: string;
+      smtpPassword?: string;
+      smtpSecure?: boolean;
+      fromName?: string;
+      fromEmail?: string;
+    };
     whatsapp?: { enabled: boolean; mode: "sandbox" | "production"; apiKey?: string; phoneNumber?: string; webhookBaseUrl?: string };
     aiAssistant?: {
       enabled: boolean;
@@ -77,6 +89,7 @@ export interface ISettings extends Document {
       baseUrl?: string;
       features?: Record<string, boolean>;
       customInstructions?: string;
+      responseLanguage?: string;
     };
   };
   currencyRates?: {
@@ -186,6 +199,18 @@ const settingsSchema = new Schema<ISettings>(
       googleAuth: { enabled: { type: Boolean, default: false }, clientId: String, clientSecret: String },
       currencyApi: { enabled: { type: Boolean, default: false }, apiKey: String, provider: { type: String, default: "exchangerate-api" } },
       mongodb: { enabled: { type: Boolean, default: false }, uri: String },
+      email: {
+        enabled: { type: Boolean, default: false },
+        provider: { type: String, enum: ["resend", "smtp"], default: "resend" },
+        apiKey: String,
+        smtpHost: String,
+        smtpPort: Number,
+        smtpUser: String,
+        smtpPassword: String,
+        smtpSecure: { type: Boolean, default: true },
+        fromName: String,
+        fromEmail: String,
+      },
       whatsapp: {
         enabled: { type: Boolean, default: false },
         mode: { type: String, enum: ["sandbox", "production"], default: "sandbox" },
@@ -205,6 +230,7 @@ const settingsSchema = new Schema<ISettings>(
         baseUrl: String,
         features: { type: Schema.Types.Mixed, default: undefined },
         customInstructions: String,
+        responseLanguage: String,
       },
     },
     currencyRates: {
