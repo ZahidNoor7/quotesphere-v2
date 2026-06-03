@@ -375,6 +375,9 @@ export interface EmailConfig {
   fromEmail?: string;
 }
 
+export type WhatsAppMessageType =
+  | "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts" | "template";
+
 export interface WhatsAppMessage {
   _id: string;
   direction: "in" | "out";
@@ -382,6 +385,13 @@ export interface WhatsAppMessage {
   to: string;
   body: string;
   type: "text" | "template";
+  messageType?: WhatsAppMessageType;
+  mediaUrl?: string;
+  mediaId?: string;
+  mediaMime?: string;
+  mediaFilename?: string;
+  caption?: string;
+  location?: { lat: number; lng: number; name?: string; address?: string };
   messageId: string;
   status: "sent" | "delivered" | "read" | "failed";
   isRead: boolean;

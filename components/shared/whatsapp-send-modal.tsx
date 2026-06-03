@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { MessageCircle, Send, X, Paperclip, AlertTriangle, Info } from "lucide-react";
+import { MessageCircle, Send, X, Paperclip, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
@@ -11,26 +11,30 @@ interface Props {
   onClose: () => void;
   defaultPhone: string;
   defaultMessage: string;
-  /** If provided, enables "Attach PDF" checkbox */
+  /** If provided, enables the "Attach PDF" option */
   getPdfBlob?: () => Promise<Blob>;
   docFilename?: string;
-  /** True when WhatsApp is in sandbox mode (PDF not supported) */
+  /** Kept for back-compat; no longer gates PDF (media goes via Cloudinary in any mode). */
   isSandbox?: boolean;
+  /** Whether Cloudinary (file hosting) is configured — required to attach the PDF. */
+  cloudinaryConfigured?: boolean;
   onSent?: () => void;
 }
 
 export function WhatsAppSendModal({
   open, onClose, defaultPhone, defaultMessage,
-  getPdfBlob, docFilename, isSandbox, onSent,
+  getPdfBlob, docFilename, cloudinaryConfigured, onSent,
 }: Props) {
   const [phone, setPhone] = useState(defaultPhone.replace(/\D/g, ""));
   const [message, setMessage] = useState(defaultMessage);
-  const [attachPdf, setAttachPdf] = useState(false);
+  const canAttachPdf = !!getPdfBlob && !!cloudinaryConfigured;
+  const [attachPdf, setAttachPdf] = useState(canAttachPdf);
   const [sending, setSending] = useState(false);
 
-  if (!open) return null;
+  // Default the PDF on whenever the modal opens (and once Cloudinary readiness is known).
+  useEffect(() => { setAttachPdf(canAttachPdf); }, [open, canAttachPdf]);
 
-  const canAttachPdf = !!getPdfBlob && !isSandbox;
+  if (!open) return null;
 
   async function send() {
     if (!phone.trim() || !message.trim()) {
@@ -39,39 +43,32 @@ export function WhatsAppSendModal({
     }
     setSending(true);
     try {
-      let pdfBase64: string | undefined;
+      let attachment: { dataUri: string; filename: string; mime: string } | undefined;
 
       if (attachPdf && getPdfBlob) {
         toast.info("Generating PDF…");
         const blob = await getPdfBlob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
+        const bytes = new Uint8Array(await blob.arrayBuffer());
         let binary = "";
         for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-        pdfBase64 = btoa(binary);
+        attachment = {
+          dataUri: `data:application/pdf;base64,${btoa(binary)}`,
+          filename: docFilename ?? "document.pdf",
+          mime: "application/pdf",
+        };
       }
 
-      const endpoint = pdfBase64 ? "/api/whatsapp/send-document" : "/api/whatsapp/messages";
-      const body = pdfBase64
-        ? { phone: phone.trim(), message: message.trim(), pdfBase64, filename: docFilename ?? "document.pdf" }
-        : { to: phone.trim(), body: message.trim() };
-
-      const res = await fetch(endpoint, {
+      // Unified path: the PDF is sent as a real WhatsApp document (hosted on
+      // Cloudinary) with the message as its caption — works in sandbox AND production.
+      const res = await fetch("/api/whatsapp/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ to: phone.trim(), body: message.trim(), ...(attachment ? { attachment } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Send failed");
 
-      if (data.data?.pdfSkipped) {
-        toast.warning(`Message sent. PDF skipped: ${data.data.pdfSkipped}`);
-      } else if (pdfBase64) {
-        toast.success("Message and PDF sent via WhatsApp!");
-      } else {
-        toast.success("Message sent via WhatsApp!");
-      }
-
+      toast.success(attachment ? "Document sent via WhatsApp!" : "Message sent via WhatsApp!");
       onSent?.();
       onClose();
     } catch (err: unknown) {
@@ -170,11 +167,11 @@ export function WhatsAppSendModal({
               padding: "10px 12px", borderRadius: 9,
               background: attachPdf ? "rgba(37,211,102,0.06)" : GLASS,
               border: `0.5px solid ${attachPdf ? "rgba(37,211,102,0.3)" : GLASS_BORDER}`,
-              display: "flex", alignItems: "center", gap: 10, cursor: isSandbox ? "default" : "pointer",
-              opacity: isSandbox ? 0.5 : 1,
+              display: "flex", alignItems: "center", gap: 10, cursor: canAttachPdf ? "pointer" : "default",
+              opacity: canAttachPdf ? 1 : 0.6,
               transition: "all 0.15s",
             }}
-              onClick={() => { if (!isSandbox) setAttachPdf(v => !v); }}
+              onClick={() => { if (canAttachPdf) setAttachPdf(v => !v); }}
             >
               <div style={{
                 width: 18, height: 18, borderRadius: 4, flexShrink: 0,
@@ -189,17 +186,17 @@ export function WhatsAppSendModal({
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 500, color: attachPdf ? "#25d366" : T1 }}>
                   Attach PDF document
-                  {isSandbox && <span style={{ color: T3, fontWeight: 400 }}> (sandbox not supported)</span>}
+                  {!cloudinaryConfigured && <span style={{ color: T3, fontWeight: 400 }}> (set up Cloudinary first)</span>}
                 </div>
-                {docFilename && (
+                {docFilename && cloudinaryConfigured && (
                   <div style={{ fontSize: 11, color: T3 }}>{docFilename}</div>
                 )}
+                {!cloudinaryConfigured && (
+                  <a href="/settings/integrations" style={{ fontSize: 11, color: "#25d366", textDecoration: "none" }} onClick={e => e.stopPropagation()}>
+                    Enable file hosting in Settings → Integrations
+                  </a>
+                )}
               </div>
-              {!isSandbox && (
-                <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: T3 }}>
-                  <Info size={10} /> production only
-                </div>
-              )}
             </div>
           )}
 

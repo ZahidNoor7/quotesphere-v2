@@ -4,8 +4,16 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import Customer from "@/models/Customer";
-import { sendWhatsAppMessage, normalizePhone } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, sendWhatsAppMediaLink, mediaKindFromMime, normalizePhone, WA_MEDIA_LIMITS } from "@/lib/whatsapp";
+import { resolveCloudinaryConfig, uploadToCloudinary, CLOUDINARY_NOT_CONFIGURED } from "@/lib/cloudinary";
 import type { WhatsAppConfig } from "@/types";
+
+/** Rough byte size of a base64 data URI payload. */
+function dataUriBytes(dataUri: string): number {
+  const b64 = dataUri.includes(",") ? dataUri.slice(dataUri.indexOf(",") + 1) : dataUri;
+  const padding = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+  return Math.floor((b64.length * 3) / 4) - padding;
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -46,32 +54,94 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "WhatsApp not configured" }, { status: 400 });
   }
 
-  const { to, body } = await req.json();
-  if (!to || !body) {
-    return NextResponse.json({ error: "to and body are required" }, { status: 400 });
+  const { to, body, attachment } = await req.json() as {
+    to?: string;
+    body?: string;
+    attachment?: { dataUri: string; filename: string; mime: string };
+  };
+
+  if (!to) return NextResponse.json({ error: "to is required" }, { status: 400 });
+  if (!attachment && !body?.trim()) {
+    return NextResponse.json({ error: "A message body or an attachment is required" }, { status: 400 });
   }
 
   const normalized = normalizePhone(to);
+  const caption = body?.trim() || undefined;
 
   const customer = await Customer.findOne({
     user_id: userId,
     phone_no: { $regex: normalized.slice(-9) },
   }).lean();
 
-  const { messageId } = await sendWhatsAppMessage(waCfg, normalized, body);
-
-  const msg = await WhatsAppMessage.create({
-    user_id: settings!._id,  // use settings ObjectId as stable user reference
-    direction: "out",
+  const baseDoc = {
+    user_id: settings!._id, // settings ObjectId as a stable user reference
+    direction: "out" as const,
     from: waCfg.phoneNumber ?? "business",
     to: normalized,
-    body,
-    type: "text",
-    messageId,
-    status: "sent",
+    status: "sent" as const,
     customer_id: customer ? customer._id : undefined,
     customer_name: customer ? (customer as { name: string }).name : undefined,
     timestamp: new Date(),
+  };
+
+  // ── Media attachment: host on Cloudinary, send to WhatsApp by link ──
+  if (attachment?.dataUri) {
+    const cloud = await resolveCloudinaryConfig(userId);
+    if (!cloud) return NextResponse.json({ error: CLOUDINARY_NOT_CONFIGURED }, { status: 400 });
+
+    const kind = mediaKindFromMime(attachment.mime);
+    const limit = WA_MEDIA_LIMITS[kind];
+    if (dataUriBytes(attachment.dataUri) > limit.maxBytes) {
+      return NextResponse.json({ error: `${kind} files must be ${limit.label} or smaller for WhatsApp.` }, { status: 400 });
+    }
+
+    let secureUrl: string;
+    try {
+      // Documents (esp. PDFs) go as `raw` so Cloudinary delivers the file as-is —
+      // PDFs uploaded as `image` are blocked by Cloudinary's default delivery setting.
+      // For raw uploads from a data URI we must put the filename (with extension) in
+      // the public_id, otherwise the delivery URL has no extension and the file
+      // downloads as an unopenable, randomly-named blob.
+      const isDoc = kind === "document";
+      const safeName = attachment.filename.replace(/[^\w.\-]+/g, "_");
+      const uploaded = await uploadToCloudinary(cloud, attachment.dataUri, {
+        resource_type: isDoc ? "raw" : "auto",
+        ...(isDoc ? { public_id: `whatsapp/${Date.now()}-${safeName}` } : { folder: "whatsapp" }),
+      });
+      secureUrl = uploaded.secure_url;
+    } catch {
+      return NextResponse.json({ error: "Failed to upload the attachment. Check your Cloudinary settings." }, { status: 502 });
+    }
+
+    const { messageId } = await sendWhatsAppMediaLink(waCfg, normalized, {
+      kind,
+      link: secureUrl,
+      caption,
+      filename: attachment.filename,
+    });
+
+    const msg = await WhatsAppMessage.create({
+      ...baseDoc,
+      body: caption ?? "",
+      type: "text",
+      messageType: kind,
+      mediaUrl: secureUrl,
+      mediaMime: attachment.mime,
+      mediaFilename: attachment.filename,
+      caption,
+      messageId,
+    });
+    return NextResponse.json({ data: msg });
+  }
+
+  // ── Plain text ──
+  const { messageId } = await sendWhatsAppMessage(waCfg, normalized, caption!);
+  const msg = await WhatsAppMessage.create({
+    ...baseDoc,
+    body: caption!,
+    type: "text",
+    messageType: "text",
+    messageId,
   });
 
   return NextResponse.json({ data: msg });

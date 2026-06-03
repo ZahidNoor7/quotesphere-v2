@@ -509,6 +509,7 @@ export default function QuotationDetailPage() {
         })}
         docFilename={`Quotation-${quotation.quotation_no}.pdf`}
         isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+        cloudinaryConfigured={!!settings?.cloudinaryConfigured}
         getPdfBlob={() => fetchServerPdfBlob("quotation", quotation._id)}
       />
       <EmailSendModal

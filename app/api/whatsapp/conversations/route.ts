@@ -13,7 +13,24 @@ type ConversationRow = {
   customer_id?: unknown;
   customer_name?: string;
   unreadCount: number;
+  lastType?: string;
+  lastFilename?: string;
 };
+
+/** Human-friendly preview for the conversation list (caption/text wins; otherwise a media label). */
+function previewLabel(type: string | undefined, body: string, filename?: string): string {
+  if (body && body.trim()) return body;
+  switch (type) {
+    case "image": return "📷 Photo";
+    case "video": return "🎬 Video";
+    case "audio": return "🎤 Voice message";
+    case "document": return `📄 ${filename ?? "Document"}`;
+    case "sticker": return "🌟 Sticker";
+    case "location": return "📍 Location";
+    case "contacts": return "👤 Contact";
+    default: return body ?? "";
+  }
+}
 
 export async function GET() {
   const session = await auth();
@@ -34,6 +51,8 @@ export async function GET() {
       $group: {
         _id: "$contactPhone",
         lastMessage: { $first: "$body" },
+        lastType: { $first: "$messageType" },
+        lastFilename: { $first: "$mediaFilename" },
         lastMessageAt: { $first: "$timestamp" },
         direction: { $first: "$direction" },
         customer_id: { $first: "$customer_id" },
@@ -55,6 +74,8 @@ export async function GET() {
         _id: 0,
         phone: "$_id",
         lastMessage: 1,
+        lastType: 1,
+        lastFilename: 1,
         lastMessageAt: 1,
         direction: 1,
         customer_id: 1,
@@ -80,6 +101,7 @@ export async function GET() {
     const match = customerByPhone.get(normalizePhone(conv.phone));
     return {
       ...conv,
+      lastMessage: previewLabel(conv.lastType, conv.lastMessage, conv.lastFilename),
       customer_id: match?.id ?? conv.customer_id,
       customer_name: match?.name ?? conv.customer_name,
     };

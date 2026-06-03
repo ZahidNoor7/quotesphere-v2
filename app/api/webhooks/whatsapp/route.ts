@@ -64,13 +64,14 @@ async function processWebhook(raw: string) {
 
   for (const msg of messages) {
     const from = normalizePhone(msg.from ?? "");
-    const body = msg.text?.body ?? "";
     const messageId = msg.id ?? `wh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const timestamp = msg.timestamp ? new Date(Number(msg.timestamp) * 1000) : new Date();
+    const parsed = parseInbound(msg);
 
-    console.log(`[webhook/whatsapp] msg id=${messageId} from=${from} body="${body}"`);
+    console.log(`[webhook/whatsapp] msg id=${messageId} from=${from} type=${parsed.messageType}`);
 
-    if (!from || !body) { console.log("[webhook/whatsapp] skipping — missing from or body"); continue; }
+    if (!from) { console.log("[webhook/whatsapp] skipping — missing from"); continue; }
+    if (parsed.messageType === "text" && !parsed.body) { console.log("[webhook/whatsapp] skipping — empty text"); continue; }
 
     const exists = await WhatsAppMessage.exists({ messageId });
     if (exists) { console.log("[webhook/whatsapp] duplicate, skipping"); continue; }
@@ -83,8 +84,14 @@ async function processWebhook(raw: string) {
       direction: "in",
       from,
       to: waPhone,
-      body,
+      body: parsed.body,
       type: "text",
+      messageType: parsed.messageType,
+      mediaId: parsed.mediaId,
+      mediaMime: parsed.mediaMime,
+      mediaFilename: parsed.mediaFilename,
+      caption: parsed.caption,
+      location: parsed.location,
       messageId,
       status: "sent",
       customer_id: customer ? customer._id : undefined,
@@ -92,14 +99,79 @@ async function processWebhook(raw: string) {
       timestamp,
     });
 
-    console.log(`[webhook/whatsapp] saved _id=${created._id} from=${from}`);
+    console.log(`[webhook/whatsapp] saved _id=${created._id} from=${from} type=${parsed.messageType}`);
   }
+}
+
+type InboundType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts";
+
+interface ParsedInbound {
+  messageType: InboundType;
+  body: string;
+  caption?: string;
+  mediaId?: string;
+  mediaMime?: string;
+  mediaFilename?: string;
+  location?: { lat: number; lng: number; name?: string; address?: string };
+}
+
+/** Normalise an inbound WhatsApp message of any type into our storage shape. */
+function parseInbound(msg: RawMessage): ParsedInbound {
+  const type = (msg.type ?? "text") as string;
+
+  if (type === "image" || type === "video" || type === "audio" || type === "document" || type === "sticker") {
+    const media = (msg as Record<string, RawMediaObj | undefined>)[type];
+    const caption = media?.caption;
+    return {
+      messageType: type,
+      body: caption ?? "",
+      caption,
+      mediaId: media?.id,
+      mediaMime: media?.mime_type,
+      mediaFilename: media?.filename,
+    };
+  }
+
+  if (type === "location") {
+    const loc = msg.location;
+    return {
+      messageType: "location",
+      body: loc?.name ?? "Location",
+      location: { lat: Number(loc?.latitude), lng: Number(loc?.longitude), name: loc?.name, address: loc?.address },
+    };
+  }
+
+  if (type === "contacts") {
+    const c = msg.contacts?.[0];
+    const name = c?.name?.formatted_name ?? "Contact";
+    const phone = c?.phones?.[0]?.phone ?? "";
+    return { messageType: "contacts", body: `${name}${phone ? ` · ${phone}` : ""}` };
+  }
+
+  // text and any unknown/unsupported types fall back to text
+  return { messageType: "text", body: msg.text?.body ?? (type !== "text" ? `[${type} message]` : "") };
+}
+
+interface RawMediaObj {
+  id?: string;
+  mime_type?: string;
+  caption?: string;
+  filename?: string;
+  sha256?: string;
 }
 
 interface RawMessage {
   from?: string;
   id?: string;
+  type?: string;
   text?: { body?: string };
+  image?: RawMediaObj;
+  video?: RawMediaObj;
+  audio?: RawMediaObj;
+  document?: RawMediaObj;
+  sticker?: RawMediaObj;
+  location?: { latitude?: number; longitude?: number; name?: string; address?: string };
+  contacts?: Array<{ name?: { formatted_name?: string }; phones?: Array<{ phone?: string }> }>;
   timestamp?: string | number;
 }
 

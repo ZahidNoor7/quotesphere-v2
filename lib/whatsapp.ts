@@ -51,6 +51,109 @@ export async function sendWhatsAppMessage(
   return { messageId };
 }
 
+export type WhatsAppMediaKind = "image" | "video" | "audio" | "document" | "sticker";
+
+// 360dialog / WhatsApp Cloud API media constraints (per docs).
+export const WA_MEDIA_LIMITS: Record<WhatsAppMediaKind, { maxBytes: number; label: string }> = {
+  image: { maxBytes: 5 * 1024 * 1024, label: "5MB" },
+  video: { maxBytes: 16 * 1024 * 1024, label: "16MB" },
+  audio: { maxBytes: 16 * 1024 * 1024, label: "16MB" },
+  document: { maxBytes: 100 * 1024 * 1024, label: "100MB" },
+  sticker: { maxBytes: 500 * 1024, label: "500KB" },
+};
+
+/**
+ * Map a MIME type to the WhatsApp media kind we'll send it as. Only JPEG/PNG go
+ * as `image` (WhatsApp rejects other image types); everything not video/audio is
+ * sent as a `document` for reliable delivery (webp/gif included).
+ */
+export function mediaKindFromMime(mime: string): WhatsAppMediaKind {
+  const m = (mime || "").toLowerCase();
+  if (m === "image/jpeg" || m === "image/png") return "image";
+  if (m.startsWith("video/")) return "video";
+  if (m.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+// Send a media message by public link (works in sandbox AND production — no /media upload needed).
+export async function sendWhatsAppMediaLink(
+  cfg: WhatsAppConfig,
+  to: string,
+  opts: { kind: WhatsAppMediaKind; link: string; caption?: string; filename?: string }
+): Promise<{ messageId: string }> {
+  if (!cfg.apiKey) throw new Error("WhatsApp API key not configured");
+
+  const base = getBaseUrl(cfg.mode);
+  const path = getMessagesPath(cfg.mode);
+
+  const mediaObj: Record<string, unknown> = { link: opts.link };
+  // Captions are only valid on image / video / document.
+  if (opts.caption && (opts.kind === "image" || opts.kind === "video" || opts.kind === "document")) {
+    mediaObj.caption = opts.caption;
+  }
+  if (opts.kind === "document" && opts.filename) mediaObj.filename = opts.filename;
+
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "D360-API-KEY": cfg.apiKey },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: opts.kind,
+      [opts.kind]: mediaObj,
+    }),
+    signal: AbortSignal.timeout(20000),
+  });
+
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.detail ?? ""; } catch { detail = await res.text().catch(() => ""); }
+    if (res.status === 429) throw new Error("Sandbox message limit reached (200 messages). Upgrade to a production API key to continue.");
+    throw new Error(`360dialog media send failed ${res.status}${detail ? `: ${detail}` : ""}`);
+  }
+
+  const data = await res.json();
+  return { messageId: data?.messages?.[0]?.id ?? `media-${Date.now()}` };
+}
+
+/**
+ * Fetch inbound media bytes from 360dialog by media id. 360 may return the binary
+ * directly, or JSON containing a `url` that must then be fetched with the API key.
+ */
+export async function fetchWhatsAppMedia(
+  cfg: WhatsAppConfig,
+  mediaId: string
+): Promise<{ buffer: ArrayBuffer; contentType: string }> {
+  if (!cfg.apiKey) throw new Error("WhatsApp API key not configured");
+  const base = getBaseUrl(cfg.mode);
+
+  const res = await fetch(`${base}/${mediaId}`, {
+    method: "GET",
+    headers: { "D360-API-KEY": cfg.apiKey },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) throw new Error(`Media fetch failed ${res.status}`);
+
+  const ct = res.headers.get("content-type") ?? "";
+  // Cloud-API style: JSON pointing at the real download URL.
+  if (ct.includes("application/json")) {
+    const meta = await res.json();
+    const url: string | undefined = meta?.url;
+    if (!url) throw new Error("Media metadata had no url");
+    const bin = await fetch(url, {
+      method: "GET",
+      headers: { "D360-API-KEY": cfg.apiKey },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!bin.ok) throw new Error(`Media download failed ${bin.status}`);
+    return { buffer: await bin.arrayBuffer(), contentType: meta?.mime_type ?? bin.headers.get("content-type") ?? "application/octet-stream" };
+  }
+
+  // 360dialog style: the binary is returned directly.
+  return { buffer: await res.arrayBuffer(), contentType: ct || "application/octet-stream" };
+}
+
 export async function testWhatsAppConnection(
   cfg: WhatsAppConfig
 ): Promise<{ success: boolean; webhookUrl?: string; error?: string }> {

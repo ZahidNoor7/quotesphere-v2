@@ -640,6 +640,7 @@ export default function InvoiceDetailPage() {
         })}
         docFilename={`Invoice-${invoice.invoice_no}.pdf`}
         isSandbox={settings?.integrations?.whatsapp?.mode === "sandbox"}
+        cloudinaryConfigured={!!settings?.cloudinaryConfigured}
         getPdfBlob={() => fetchServerPdfBlob("invoice", invoice._id)}
       />
       <EmailSendModal

@@ -1,14 +1,50 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import { MessageCircle, Send, Search, ArrowRight, CheckCheck, Check, Phone, Trash2, AlertTriangle, X, AlertCircle, ChevronLeft } from "lucide-react";
+import { MessageCircle, Send, Search, ArrowRight, CheckCheck, Check, Phone, Trash2, AlertTriangle, X, AlertCircle, ChevronLeft, Paperclip } from "lucide-react";
 import { T1, T2, T3, GLASS, GLASS_BORDER, AC } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MessagingListSkeleton, MessageThreadSkeleton } from "@/components/messaging/skeletons";
+import { MediaBubble } from "@/components/messaging/MediaBubble";
 import type { WhatsAppConversation, WhatsAppMessage } from "@/types";
 import Link from "next/link";
+
+// WhatsApp-style "blue tick" for read; muted for sent/delivered.
+const TICK_READ = "#38bdf8";
+
+function sameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function dayLabel(dateStr: string) {
+  const d = new Date(dateStr);
+  const today = new Date();
+  const yest = new Date(); yest.setDate(today.getDate() - 1);
+  if (sameDay(d, today)) return "Today";
+  if (sameDay(d, yest)) return "Yesterday";
+  return d.toLocaleDateString([], { month: "short", day: "numeric", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) });
+}
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", margin: "6px 0 12px" }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, color: T3, background: GLASS, border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 100, padding: "3px 12px" }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function readFileAsDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data ?? []);
 
@@ -192,37 +228,55 @@ function ConversationItem({
 
 // ─── Chat bubble ─────────────────────────────────────────────────────────────
 
+function StatusTicks({ status, isOut }: { status: WhatsAppMessage["status"]; isOut: boolean }) {
+  if (!isOut) return null;
+  if (status === "failed") return <AlertCircle size={12} color="#ef4444" />;
+  const muted = "rgba(255,255,255,0.6)";
+  if (status === "sent") return <Check size={12} color={muted} />;
+  // delivered = muted double tick; read = blue double tick
+  return <CheckCheck size={12} color={status === "read" ? TICK_READ : muted} />;
+}
+
 function Bubble({ msg }: { msg: WhatsAppMessage }) {
   const isOut = msg.direction === "out";
   const isFailed = msg.status === "failed";
+  const mt = msg.messageType ?? "text";
+  const isMedia = mt !== "text" && mt !== "template";
+  // For media we store the caption in `body` too; show it under the media.
+  const caption = isMedia ? (msg.caption ?? "") : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: isOut ? "flex-end" : "flex-start", marginBottom: 10 }}>
       <div style={{
-        maxWidth: "72%", padding: "9px 13px",
+        maxWidth: "78%", padding: isMedia ? 5 : "9px 13px",
         borderRadius: isOut ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
         background: isFailed ? "rgba(239,68,68,0.08)" : isOut ? AC : GLASS,
         border: `0.5px solid ${isFailed ? "rgba(239,68,68,0.4)" : isOut ? "transparent" : GLASS_BORDER}`,
       }}>
-        <div style={{ fontSize: 13, color: isFailed ? "#ef4444" : isOut ? "#fff" : T1, lineHeight: 1.5, wordBreak: "break-word" }}>
-          {msg.body}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 4 }}>
+        {isMedia ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: caption ? 6 : 0 }}>
+            <MediaBubble msg={msg} isOut={isOut} />
+            {caption && (
+              <div style={{ fontSize: 13, color: isOut ? "#fff" : T1, lineHeight: 1.5, wordBreak: "break-word", padding: "0 6px" }}>
+                {caption}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: isFailed ? "#ef4444" : isOut ? "#fff" : T1, lineHeight: 1.5, wordBreak: "break-word" }}>
+            {msg.body}
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 4, paddingRight: isMedia ? 6 : 0, paddingBottom: isMedia ? 2 : 0 }}>
           <span style={{ fontSize: 10, color: isFailed ? "rgba(239,68,68,0.7)" : isOut ? "rgba(255,255,255,0.6)" : T3 }}>
             {formatTime(msg.timestamp)}
           </span>
-          {isOut && (
-            isFailed
-              ? <AlertCircle size={12} color="#ef4444" />
-              : <span style={{ color: msg.status === "read" ? "#25d366" : "rgba(255,255,255,0.5)" }}>
-                  {msg.status === "sent" ? <Check size={12} /> : <CheckCheck size={12} />}
-                </span>
-          )}
+          <StatusTicks status={msg.status} isOut={isOut} />
         </div>
       </div>
       {/* Error details below bubble */}
       {isFailed && (msg.errorDetails || msg.errorCode) && (
-        <div style={{ fontSize: 10, color: "#ef4444", marginTop: 3, maxWidth: "72%", lineHeight: 1.4 }}>
+        <div style={{ fontSize: 10, color: "#ef4444", marginTop: 3, maxWidth: "78%", lineHeight: 1.4 }}>
           ⚠ {msg.errorDetails ?? `Error ${msg.errorCode}`}
           {msg.errorCode === "131047" && " — customer must message you first (24-hour window)"}
         </div>
@@ -242,10 +296,12 @@ async function postStatus(action: "read" | "typing", messageId: string) {
 }
 
 function ChatPanel({
-  phone, customerName, onDeleted, onReadAll, isMobile, onBack,
-}: { phone: string; customerName?: string; onDeleted: () => void; onReadAll: () => void; isMobile?: boolean; onBack?: () => void }) {
+  phone, customerName, onDeleted, onReadAll, isMobile, onBack, cloudinaryConfigured,
+}: { phone: string; customerName?: string; onDeleted: () => void; onReadAll: () => void; isMobile?: boolean; onBack?: () => void; cloudinaryConfigured: boolean }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachment, setAttachment] = useState<{ file: File; dataUri: string; previewUrl?: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -307,17 +363,22 @@ function ChatPanel({
   }
 
   async function send() {
-    if (!text.trim()) return;
+    if (!text.trim() && !attachment) return;
     setSending(true);
     const body = text.trim();
+    const att = attachment;
     setText("");
+    setAttachment(null);
     // Stop any pending typing debounce when message is actually sent
     if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
     try {
+      const payload: Record<string, unknown> = { to: phone };
+      if (body) payload.body = body;
+      if (att) payload.attachment = { dataUri: att.dataUri, filename: att.file.name, mime: att.file.type || "application/octet-stream" };
       const res = await fetch("/api/whatsapp/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: phone, body }),
+        body: JSON.stringify(payload),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error ?? "Failed to send");
@@ -325,10 +386,38 @@ function ChatPanel({
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Send failed");
       setText(body);
+      if (att) setAttachment(att);
     } finally {
       setSending(false);
     }
   }
+
+  function openFilePicker() {
+    if (!cloudinaryConfigured) {
+      toast.error("File hosting isn't set up.", {
+        description: "Enable Cloudinary in Settings → Integrations to send photos and files.",
+        action: { label: "Configure", onClick: () => { window.location.href = "/settings/integrations"; } },
+      });
+      return;
+    }
+    fileInputRef.current?.click();
+  }
+
+  async function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (file.size > 100 * 1024 * 1024) { toast.error("File is too large (max 100MB)."); return; }
+    try {
+      const dataUri = await readFileAsDataUri(file);
+      const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined;
+      setAttachment({ file, dataUri, previewUrl });
+    } catch {
+      toast.error("Couldn't read that file.");
+    }
+  }
+
+  const canSend = !!text.trim() || !!attachment;
 
   async function deleteChat() {
     setDeleting(true);
@@ -430,48 +519,95 @@ function ChatPanel({
               No messages yet. Send the first one below.
             </div>
           ) : (
-            messages.map(msg => <Bubble key={msg._id} msg={msg} />)
+            messages.map((msg, i) => {
+              const prev = messages[i - 1];
+              const showSep = !prev || !sameDay(new Date(prev.timestamp), new Date(msg.timestamp));
+              return (
+                <Fragment key={msg._id}>
+                  {showSep && <DateSeparator label={dayLabel(msg.timestamp)} />}
+                  <Bubble msg={msg} />
+                </Fragment>
+              );
+            })
           )}
         </div>
 
         {/* Input */}
-        <div style={{
-          padding: "12px 16px", borderTop: `0.5px solid ${GLASS_BORDER}`,
-          display: "flex", gap: 10, alignItems: "flex-end", flexShrink: 0,
-          background: GLASS,
-        }}>
-          <textarea
-            value={text}
-            onChange={e => handleTyping(e.target.value)}
-            onKeyDown={e => {
-              // Desktop: Enter sends. Mobile: Enter is a newline, tap Send to submit.
-              if (!isMobile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
-            }}
-            placeholder={isMobile ? "Type a message…" : "Type a message… (Enter to send, Shift+Enter for new line)"}
-            rows={1}
-            style={{
-              flex: 1, minWidth: 0, resize: "none", background: "var(--glass)",
-              border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 12,
-              padding: isMobile ? "11px 14px" : "10px 14px", fontSize: isMobile ? 16 : 13, color: T1,
-              outline: "none", fontFamily: "inherit", lineHeight: 1.5,
-              maxHeight: 120, overflowY: "auto",
-            }}
-          />
-          <button
-            onClick={send}
-            disabled={sending || !text.trim()}
-            style={{
-              width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-              background: text.trim() ? "#25d366" : GLASS,
-              border: `0.5px solid ${text.trim() ? "#25d366" : GLASS_BORDER}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: text.trim() ? "pointer" : "default",
-              color: text.trim() ? "#fff" : T3,
-              transition: "all 0.15s",
-            }}
-          >
-            <Send size={16} />
-          </button>
+        <div style={{ borderTop: `0.5px solid ${GLASS_BORDER}`, flexShrink: 0, background: GLASS }}>
+          {/* Attachment preview tray */}
+          {attachment && (
+            <div style={{ padding: "10px 16px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "var(--glass)", border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 10, maxWidth: 320 }}>
+                {attachment.previewUrl ? (
+                  <img src={attachment.previewUrl} alt="" style={{ width: 40, height: 40, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 40, height: 40, borderRadius: 7, flexShrink: 0, background: "rgba(99,102,241,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Paperclip size={16} color="#818cf8" />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachment.file.name}</div>
+                  <div style={{ fontSize: 10.5, color: T3 }}>{(attachment.file.size / 1024 < 1024 ? `${Math.round(attachment.file.size / 1024)} KB` : `${(attachment.file.size / 1048576).toFixed(1)} MB`)}{text.trim() ? " · with caption" : ""}</div>
+                </div>
+                <button onClick={() => { if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl); setAttachment(null); }} disabled={sending} title="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: T3, display: "flex", flexShrink: 0 }}>
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ padding: "12px 16px", display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <input ref={fileInputRef} type="file" onChange={pickFile} hidden
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
+            <button
+              onClick={openFilePicker}
+              disabled={sending}
+              title={cloudinaryConfigured ? "Attach a file" : "Configure Cloudinary to attach files"}
+              aria-label="Attach a file"
+              style={{
+                width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                background: GLASS, border: `0.5px solid ${GLASS_BORDER}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: sending ? "default" : "pointer",
+                color: cloudinaryConfigured ? T2 : T3, opacity: cloudinaryConfigured ? 1 : 0.6,
+                transition: "all 0.15s",
+              }}
+            >
+              <Paperclip size={16} />
+            </button>
+            <textarea
+              value={text}
+              onChange={e => handleTyping(e.target.value)}
+              onKeyDown={e => {
+                // Desktop: Enter sends. Mobile: Enter is a newline, tap Send to submit.
+                if (!isMobile && e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+              }}
+              placeholder={attachment ? "Add a caption…" : isMobile ? "Type a message…" : "Type a message… (Enter to send, Shift+Enter for new line)"}
+              rows={1}
+              style={{
+                flex: 1, minWidth: 0, resize: "none", background: "var(--glass)",
+                border: `0.5px solid ${GLASS_BORDER}`, borderRadius: 12,
+                padding: isMobile ? "11px 14px" : "10px 14px", fontSize: isMobile ? 16 : 13, color: T1,
+                outline: "none", fontFamily: "inherit", lineHeight: 1.5,
+                maxHeight: 120, overflowY: "auto",
+              }}
+            />
+            <button
+              onClick={send}
+              disabled={sending || !canSend}
+              style={{
+                width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                background: canSend ? "#25d366" : GLASS,
+                border: `0.5px solid ${canSend ? "#25d366" : GLASS_BORDER}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: canSend && !sending ? "pointer" : "default",
+                color: canSend ? "#fff" : T3,
+                transition: "all 0.15s",
+              }}
+            >
+              <Send size={16} />
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -513,6 +649,7 @@ export default function MessagingPage() {
     settings?.integrations?.whatsapp?.enabled &&
     settings?.integrations?.whatsapp?.apiKey
   );
+  const cloudinaryConfigured = !!settings?.cloudinaryConfigured;
 
   const { data: conversations = [], mutate: mutateConversations, isLoading: conversationsLoading } = useSWR<WhatsAppConversation[]>(
     isConfigured ? "/api/whatsapp/conversations" : null,
@@ -605,7 +742,7 @@ export default function MessagingPage() {
       {/* Right: chat panel (full-screen single pane on mobile) */}
       <div style={{ flex: 1, display: !isMobile || mobileView === "chat" ? "flex" : "none", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         {activePhone
-          ? <ChatPanel key={activePhone} phone={activePhone} customerName={activeConv?.customer_name} onDeleted={handleDeleted} onReadAll={mutateConversations} isMobile={isMobile} onBack={() => setMobileView("list")} />
+          ? <ChatPanel key={activePhone} phone={activePhone} customerName={activeConv?.customer_name} onDeleted={handleDeleted} onReadAll={mutateConversations} isMobile={isMobile} onBack={() => setMobileView("list")} cloudinaryConfigured={cloudinaryConfigured} />
           : <NoChatSelected />
         }
       </div>
