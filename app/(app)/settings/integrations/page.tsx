@@ -805,6 +805,7 @@ export default function IntegrationsPage() {
   const [aiCfg, setAiCfg] = useState<AiAssistantConfig>({ enabled: false, provider: "openai" });
   const [emailCfg, setEmailCfg] = useState<EmailConfig>({ enabled: false, provider: "resend" });
   const [saving, setSaving] = useState<IntKey | null>(null);
+  const [testingCloud, setTestingCloud] = useState(false);
 
   useEffect(() => {
     if (settings?.integrations) {
@@ -849,6 +850,29 @@ export default function IntegrationsPage() {
       toast.error(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function testCloudinary() {
+    const c = configs.cloudinary as { cloudName?: string; apiKey?: string; apiSecret?: string };
+    if (!c.cloudName || !c.apiKey || !c.apiSecret) {
+      toast.error("Enter cloud name, API key and API secret first.");
+      return;
+    }
+    setTestingCloud(true);
+    try {
+      const res = await fetch("/api/cloudinary/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cloudName: c.cloudName, apiKey: c.apiKey, apiSecret: c.apiSecret }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Connection failed");
+      toast.success(data.message || "Cloudinary connection successful.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Connection failed");
+    } finally {
+      setTestingCloud(false);
     }
   }
 
@@ -907,7 +931,17 @@ export default function IntegrationsPage() {
                     )}
                   </div>
                 ))}
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+                  {svc.key === "cloudinary" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={testingCloud}
+                      onClick={testCloudinary}
+                    >
+                      <Link2 size={12} className="mr-1.5" />{testingCloud ? "Testing…" : "Test connection"}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     disabled={saving === svc.key}

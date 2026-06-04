@@ -10,7 +10,20 @@ export interface TenantStore {
   bypass: boolean;
 }
 
-const storage = new AsyncLocalStorage<TenantStore>();
+// The AsyncLocalStorage instance MUST be a single process-wide singleton. Under
+// Next.js dev (HMR / Turbopack) a module can be evaluated more than once — if the
+// Mongoose model's tenant plugin and a route's runWithOrg ended up referencing
+// different instances, a store set by one would be invisible to the other
+// ("queried with no tenant context"). Pinning it to globalThis (same pattern as
+// lib/db.ts) guarantees every reference resolves to the same store.
+const globalForTenant = globalThis as typeof globalThis & {
+  __qsTenant?: { storage: AsyncLocalStorage<TenantStore>; testDefaultOrg: string | null };
+};
+const tenant = (globalForTenant.__qsTenant ??= {
+  storage: new AsyncLocalStorage<TenantStore>(),
+  testDefaultOrg: null,
+});
+const storage = tenant.storage;
 
 /** Run `fn` scoped to a single organization. Used by `withTenant`. */
 export function runWithOrg<T>(orgId: string, fn: () => T): T {
@@ -48,9 +61,8 @@ export function getTenantStore(): TenantStore | undefined {
 // TEST ONLY: a fallback org used when no AsyncLocalStorage context is active, so
 // unit tests can do direct model operations without wrapping each in runWithOrg.
 // Ignored entirely outside NODE_ENV === "test", so production stays fail-closed.
-let testDefaultOrg: string | null = null;
 export function setTestDefaultOrg(orgId: string | null): void {
-  testDefaultOrg = orgId;
+  tenant.testDefaultOrg = orgId;
 }
 
 /**
@@ -64,7 +76,7 @@ export function setTestDefaultOrg(orgId: string | null): void {
 export function resolveOrgScope(modelName: string): string | null {
   const store = storage.getStore();
   if (!store) {
-    if (process.env.NODE_ENV === "test" && testDefaultOrg) return testDefaultOrg;
+    if (process.env.NODE_ENV === "test" && tenant.testDefaultOrg) return tenant.testDefaultOrg;
     throw new Error(
       `[tenant] "${modelName}" was queried with no tenant context. ` +
         `Wrap the route in withTenant(), or bypassTenant() for system paths.`,

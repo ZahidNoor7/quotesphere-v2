@@ -53,5 +53,25 @@ export async function uploadToCloudinary(
   });
 }
 
+/**
+ * Verify a set of Cloudinary credentials by pinging the Admin API. Uses per-call
+ * credentials (no global config mutation), so it can validate an unsaved config.
+ */
+export async function testCloudinaryConnection(
+  cfg: CloudinaryConfig,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = (await cloudinary.api.ping({
+      cloud_name: cfg.cloudName,
+      api_key: cfg.apiKey,
+      api_secret: cfg.apiSecret,
+    })) as { status?: string };
+    return { ok: res?.status === "ok" };
+  } catch (err) {
+    const e = err as { error?: { message?: string }; message?: string };
+    return { ok: false, error: e?.error?.message || e?.message || "Connection failed" };
+  }
+}
+
 export const CLOUDINARY_NOT_CONFIGURED =
   "Image hosting isn't set up. Enable Cloudinary in Settings → Integrations to upload images.";
