@@ -3,10 +3,10 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/settings/document-designs", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/settings/document-designs", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -20,7 +20,7 @@ export const GET = withLog("GET /api/settings/document-designs", async (req: Nex
   }
 });
 
-export const POST = withLog("POST /api/settings/document-designs", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/settings/document-designs", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -38,7 +38,7 @@ export const POST = withLog("POST /api/settings/document-designs", async (req: N
 
     if (isDefault) {
       await Settings.updateOne(
-        { user_id: userId, "documentDesigns.0": { $exists: true } },
+        { "documentDesigns.0": { $exists: true } },
         { $set: { "documentDesigns.$[elem].isDefault": false } },
         { arrayFilters: [{ "elem.type": { $in: [type, "all"] } }] }
       );
@@ -46,7 +46,7 @@ export const POST = withLog("POST /api/settings/document-designs", async (req: N
     }
 
     await Settings.findOneAndUpdate(
-      { user_id: userId },
+      {},
       { $push: { documentDesigns: newDesign } },
       { new: true, upsert: true }
     ).lean();

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IProduct extends Document {
   name: string;
@@ -11,6 +12,7 @@ export interface IProduct extends Document {
   stock_qty: number;
   low_stock_threshold: number;
   is_active: boolean;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,8 @@ const productSchema = new Schema<IProduct>(
 productSchema.index({ category: 1, is_active: 1 });
 productSchema.index({ sku: 1 }, { sparse: true });
 productSchema.index({ name: "text", description: "text", sku: "text" });
+
+productSchema.plugin(tenantScope);
 
 const Product: Model<IProduct> =
   mongoose.models.Product || mongoose.model<IProduct>("Product", productSchema);

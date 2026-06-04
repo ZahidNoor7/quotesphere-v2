@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface ITemplateItem {
   id: number;
@@ -19,6 +20,7 @@ export interface ITemplate extends Document {
   remarks?: string;
   payment_mode?: string;
   designId?: string;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +54,8 @@ const templateSchema = new Schema<ITemplate>(
 
 templateSchema.index({ name: "text" });
 templateSchema.index({ type: 1, createdAt: -1 });
+
+templateSchema.plugin(tenantScope);
 
 const Template: Model<ITemplate> =
   mongoose.models.Template || mongoose.model<ITemplate>("Template", templateSchema);

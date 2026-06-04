@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
@@ -84,7 +84,7 @@ function serializeCurrencyRates(
   };
 }
 
-export const GET = withLog("GET /api/settings/currency-rates", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/settings/currency-rates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -96,7 +96,7 @@ export const GET = withLog("GET /api/settings/currency-rates", async (req: NextR
     const { searchParams } = new URL(req.url);
     const requestedBase = searchParams.get("base");
 
-    const settings = await Settings.findOne({ user_id: userId })
+    const settings = await Settings.findOne({})
       .select("currencyRates default_currency integrations.currencyApi")
       .lean() as any;
 
@@ -122,7 +122,7 @@ export const GET = withLog("GET /api/settings/currency-rates", async (req: NextR
         const { rates } = await fetchExternalRates(defaultCurrency, apiKey);
         const fetchedAt = new Date();
         const updated = await Settings.findOneAndUpdate(
-          { user_id: userId },
+          {},
           {
             $set: {
               "currencyRates.base": defaultCurrency,
@@ -157,7 +157,7 @@ export const GET = withLog("GET /api/settings/currency-rates", async (req: NextR
   }
 });
 
-export const POST = withLog("POST /api/settings/currency-rates", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/settings/currency-rates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -166,7 +166,7 @@ export const POST = withLog("POST /api/settings/currency-rates", async (req: Nex
     const userId = (session.user as any).id as string;
     await connectDB();
 
-    const settings = await Settings.findOne({ user_id: userId }).select("default_currency integrations.currencyApi").lean() as any;
+    const settings = await Settings.findOne({}).select("default_currency integrations.currencyApi").lean() as any;
     const base: string = settings?.default_currency ?? "PKR";
     const currencyApi = settings?.integrations?.currencyApi;
     if (!currencyApi?.enabled) {
@@ -180,7 +180,7 @@ export const POST = withLog("POST /api/settings/currency-rates", async (req: Nex
     const fetchedAt = new Date();
 
     const updated = await Settings.findOneAndUpdate(
-      { user_id: userId },
+      {},
       {
         $set: {
           "currencyRates.base": base,

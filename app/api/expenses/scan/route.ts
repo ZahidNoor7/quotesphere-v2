@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { extractBillFromImage } from "@/lib/assistant/vision";
 import type { AiAssistantConfig } from "@/types";
@@ -20,7 +20,7 @@ const schema = z.object({ imageUrl: z.url() });
  * structured expense draft. Does NOT persist — the user reviews then saves
  * through POST /api/expenses.
  */
-export const POST = withLog("POST /api/expenses/scan", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/expenses/scan", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

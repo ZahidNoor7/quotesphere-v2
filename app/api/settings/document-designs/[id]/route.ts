@@ -3,18 +3,18 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
 async function clearDefaultsForType(userId: string, docType: string) {
   await Settings.updateOne(
-    { user_id: userId, "documentDesigns.0": { $exists: true } },
+    { "documentDesigns.0": { $exists: true } },
     { $set: { "documentDesigns.$[elem].isDefault": false } },
     { arrayFilters: [{ "elem.type": { $in: [docType, "all"] } }] }
   );
 }
 
-export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -30,7 +30,7 @@ export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req
     const { name, type, config, isDefault } = body;
 
     if (isDefault === true) {
-      const docType = type ?? (await Settings.findOne({ user_id: userId, "documentDesigns.id": id }).lean() as any)
+      const docType = type ?? (await Settings.findOne({ "documentDesigns.id": id }).lean() as any)
         ?.documentDesigns?.find((d: any) => d.id === id)?.type ?? "all";
       await clearDefaultsForType(userId, docType);
     }
@@ -46,12 +46,12 @@ export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req
     }
 
     await Settings.findOneAndUpdate(
-      { user_id: userId },
+      {},
       { $set },
       { arrayFilters: [{ "elem.id": id }] }
     );
 
-    const updated = await Settings.findOne({ user_id: userId }).lean() as any;
+    const updated = await Settings.findOne({}).lean() as any;
     const design = updated?.documentDesigns?.find((d: any) => d.id === id);
     void recordAudit({ req, session, action: "update", resource: "settings", resource_id: (session.user as any).id, resource_label: `Document design updated: ${design?.name ?? id}` });
     return NextResponse.json({ success: true, data: design });
@@ -60,7 +60,7 @@ export const PUT = withLog("PUT /api/settings/document-designs/[id]", async (req
   }
 });
 
-export const DELETE = withLog("DELETE /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -73,7 +73,7 @@ export const DELETE = withLog("DELETE /api/settings/document-designs/[id]", asyn
 
     await connectDB();
     await Settings.findOneAndUpdate(
-      { user_id: userId },
+      {},
       { $pull: { documentDesigns: { id } } }
     );
 
@@ -84,7 +84,7 @@ export const DELETE = withLog("DELETE /api/settings/document-designs/[id]", asyn
   }
 });
 
-export const PATCH = withLog("PATCH /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PATCH = withTenant("PATCH /api/settings/document-designs/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -104,7 +104,7 @@ export const PATCH = withLog("PATCH /api/settings/document-designs/[id]", async 
 
     if (isBuiltIn) {
       await Settings.findOneAndUpdate(
-        { user_id: userId },
+        {},
         { $set: { [lastUsedKey]: id } },
         { upsert: true }
       );
@@ -113,13 +113,13 @@ export const PATCH = withLog("PATCH /api/settings/document-designs/[id]", async 
       await clearDefaultsForType(userId, type);
 
       await Settings.updateOne(
-        { user_id: userId, "documentDesigns.0": { $exists: true } },
+        { "documentDesigns.0": { $exists: true } },
         { $set: { "documentDesigns.$[elem].isDefault": true } },
         { arrayFilters: [{ "elem.id": id }] }
       );
 
       await Settings.updateOne(
-        { user_id: userId },
+        {},
         { $set: { [lastUsedKey]: id } }
       );
     }

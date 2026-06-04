@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { sendTestEmail } from "@/lib/email";
 
@@ -27,7 +27,7 @@ const schema = z.object({
 });
 
 /** Send a one-off test email using the config the user is editing (verify before saving). */
-export const POST = withLog("POST /api/email/test", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/email/test", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

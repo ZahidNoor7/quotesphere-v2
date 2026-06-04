@@ -19,6 +19,7 @@ interface Payload {
   type: PrintDocType;
   id: string;
   uid: string; // requesting user's id → whose Settings/branding to render
+  org: string; // requesting user's org → tenant scope for the print render
   exp: number;
 }
 
@@ -26,19 +27,19 @@ function sign(data: string): string {
   return createHmac("sha256", SECRET).update(data).digest("base64url");
 }
 
-export function mintPrintToken(type: PrintDocType, id: string, uid: string): string {
+export function mintPrintToken(type: PrintDocType, id: string, uid: string, org: string): string {
   const body = Buffer.from(
-    JSON.stringify({ type, id, uid, exp: Date.now() + TTL_MS } satisfies Payload),
+    JSON.stringify({ type, id, uid, org, exp: Date.now() + TTL_MS } satisfies Payload),
   ).toString("base64url");
   return `${body}.${sign(body)}`;
 }
 
-/** Returns the verified payload (incl. `uid`) or `null` if invalid/expired/tampered. */
+/** Returns the verified payload (incl. `uid`, `org`) or `null` if invalid/expired/tampered. */
 export function verifyPrintToken(
   token: string | undefined,
   type: string,
   id: string,
-): { uid: string } | null {
+): { uid: string; org: string } | null {
   if (!SECRET || !token || !token.includes(".")) return null;
   const [body, mac] = token.split(".");
   const expected = sign(body);
@@ -48,7 +49,7 @@ export function verifyPrintToken(
   try {
     const p = JSON.parse(Buffer.from(body, "base64url").toString()) as Payload;
     if (p.type !== type || p.id !== id || p.exp <= Date.now()) return null;
-    return { uid: p.uid };
+    return { uid: p.uid, org: p.org };
   } catch {
     return null;
   }

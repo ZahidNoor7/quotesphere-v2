@@ -27,7 +27,7 @@ export function isCloudinaryConfigured(c?: RawCloudinary | null): boolean {
  */
 export async function resolveCloudinaryConfig(userId: string): Promise<CloudinaryConfig | null> {
   await connectDB();
-  const s = (await Settings.findOne({ user_id: userId }).select("integrations.cloudinary").lean()) as
+  const s = (await Settings.findOne({}).select("integrations.cloudinary").lean()) as
     | { integrations?: { cloudinary?: RawCloudinary } }
     | null;
   const c = s?.integrations?.cloudinary;

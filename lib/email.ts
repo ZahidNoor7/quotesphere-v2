@@ -49,9 +49,8 @@ export function emailConfiguredFrom(e: Partial<EmailConfig> | null | undefined):
 async function resolveEmailConfig(): Promise<ResolvedEmail> {
   try {
     await connectDB();
-    // Settings are stored per user_id, so more than one doc can exist. A bare
-    // findOne() may return one without email set up — prefer the doc that actually
-    // has email enabled, then fall back to any doc.
+    // Settings is per-org and the tenant plugin scopes these queries to the
+    // caller's org. Prefer the (single) doc with email enabled, else fall back.
     const doc =
       ((await Settings.findOne({ "integrations.email.enabled": true }).lean()) as any) ??
       ((await Settings.findOne().lean()) as any);

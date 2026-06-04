@@ -7,6 +7,7 @@ import Customer from "@/models/Customer";
 import { sendWhatsAppMessage, sendWhatsAppMediaLink, mediaKindFromMime, normalizePhone, WA_MEDIA_LIMITS } from "@/lib/whatsapp";
 import { resolveCloudinaryConfig, uploadToCloudinary, CLOUDINARY_NOT_CONFIGURED } from "@/lib/cloudinary";
 import { cloudinaryFolder } from "@/lib/cloudinary-folders";
+import { enterOrg } from "@/lib/tenant-context";
 import type { WhatsAppConfig } from "@/types";
 
 /** Rough byte size of a base64 data URI payload. */
@@ -19,6 +20,9 @@ function dataUriBytes(dataUri: string): number {
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const orgId = (session.user as { org_id?: string }).org_id;
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  enterOrg(orgId);
 
   const { searchParams } = new URL(req.url);
   const phone = searchParams.get("phone");
@@ -29,8 +33,7 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const normalized = normalizePhone(phone);
 
-  // Auth check is the access guard. No userId filter — handles messages saved
-  // before the userId fix (which used a random ObjectId).
+  // Scoped to the caller's org by the tenant plugin, then filtered to this contact.
   const messages = await WhatsAppMessage.find({
     $or: [{ from: normalized }, { to: normalized }],
   })
@@ -46,9 +49,12 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id?: string }).id;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const orgId = (session.user as { org_id?: string }).org_id;
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  enterOrg(orgId);
 
   await connectDB();
-  const settings = await Settings.findOne({ user_id: userId });
+  const settings = await Settings.findOne({});
   const waCfg = settings?.integrations?.whatsapp as WhatsAppConfig | undefined;
 
   if (!waCfg?.enabled || !waCfg?.apiKey) {

@@ -14,7 +14,7 @@ import Settings from "@/models/Settings";
 import { req } from "./helpers";
 
 const seedEmail = (email: Record<string, unknown>) =>
-  Settings.create({ user_id: new mongoose.Types.ObjectId(), integrations: { email } });
+  Settings.create({ integrations: { email } });
 
 describe("email provider routing (in-app config)", () => {
   beforeEach(() => { vi.clearAllMocks(); });

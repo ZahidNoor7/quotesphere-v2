@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
-import { auth } from "@/auth";
-import { connectDB } from "@/lib/mongoose";
-import User from "@/models/User";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { withLog } from "@/lib/logger";
+import User from "@/models/User";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-const ALLOWED_ROLES = ["manager", "staff", "viewer"] as const;
-
-export const GET = withLog("GET /api/team", async (req: NextRequest) => {
+// Team members belong to the caller's organization. `User` is not tenant-plugin'd
+// (a user *has* an org rather than being an org-owned record), so org_id is
+// filtered/stamped explicitly here.
+export const GET = withTenant("GET /api/team", async (_req, _ctx, { orgId }) => {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    await connectDB();
-    const users = await User.find({}, "-password").sort({ createdAt: -1 }).lean();
+    const users = await User.find({ org_id: orgId }, "-password").sort({ createdAt: -1 }).lean();
     return NextResponse.json({ success: true, data: users });
   } catch (err) {
     console.error("[team GET]", err);
@@ -22,46 +18,57 @@ export const GET = withLog("GET /api/team", async (req: NextRequest) => {
   }
 });
 
-export const POST = withLog("POST /api/team", async (req: NextRequest) => {
+const createMemberSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  email: z.email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+  role: z.enum(["admin", "manager", "staff", "viewer"]),
+});
+
+// Create a team member directly with credentials the admin chooses. The member
+// can sign in immediately with that email + password and lands in this org.
+export const POST = withTenant("POST /api/team", async (req: NextRequest, _ctx, { session, orgId }) => {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-
-    const callerRole = (session.user as any)?.role;
-    if (callerRole !== "admin") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (session.user?.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Only an organization admin can add members." }, { status: 403 });
     }
 
-    await connectDB();
-    const { name, email, role } = await req.json();
-
-    if (!name || !email) {
-      return NextResponse.json({ success: false, error: "Name and email required" }, { status: 400 });
+    const parsed = createMemberSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
+    const { name, email, password, role } = parsed.data;
 
-    const normalizedRole = role || "staff";
-    if (!ALLOWED_ROLES.includes(normalizedRole as typeof ALLOWED_ROLES[number])) {
-      return NextResponse.json(
-        { success: false, error: `Invalid role. Allowed: ${ALLOWED_ROLES.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
+    // Email is globally unique on User — a person belongs to a single org.
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
-      return NextResponse.json({ success: false, error: "Email already registered" }, { status: 409 });
+      return NextResponse.json({ success: false, error: "That email is already registered." }, { status: 409 });
     }
 
-    const tempPassword = randomBytes(12).toString("base64url");
-    const hashed = await bcrypt.hash(tempPassword, 10);
-    const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role: normalizedRole });
-    void recordAudit({ req, session, action: "create", resource: "settings", resource_id: String(user._id), resource_label: `Team member invited: ${user.name} (${user.role})` });
+    const hashed = await bcrypt.hash(password, 12);
+    const user = await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashed,
+      role,
+      org_id: orgId,
+    });
+
+    void recordAudit({
+      req,
+      session,
+      action: "create",
+      resource: "settings",
+      resource_id: String(user._id),
+      resource_label: `Team member added: ${user.name} (${user.role})`,
+    });
+
     return NextResponse.json(
       { success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role } },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (err: any) {
     console.error("[team POST]", err);
-    return NextResponse.json({ success: false, error: err.message || "Failed to invite" }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message || "Failed to add member" }, { status: 500 });
   }
 });

@@ -7,7 +7,7 @@ import Customer from "@/models/Customer";
 import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -23,7 +23,7 @@ const customerUpdateSchema = z.object({
   currency: z.string().optional(),
 });
 
-export const GET = withLog("GET /api/customers/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withTenant("GET /api/customers/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -57,7 +57,7 @@ export const GET = withLog("GET /api/customers/[id]", async (_req: NextRequest, 
   }
 });
 
-export const PUT = withLog("PUT /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -85,7 +85,7 @@ export const PUT = withLog("PUT /api/customers/[id]", async (req: NextRequest, {
   }
 });
 
-export const DELETE = withLog("DELETE /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/customers/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

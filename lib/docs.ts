@@ -44,6 +44,7 @@ export const DOC_SECTIONS: DocSection[] = [
       { slug: "setup-ai", title: "Set up the AI assistant" },
       { slug: "setup-images", title: "Image hosting (Cloudinary)" },
       { slug: "company-settings", title: "Company & document settings" },
+      { slug: "team-roles", title: "Team roles & permissions" },
     ],
   },
 ];

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IQuotationItem {
   id: number;
@@ -36,6 +37,7 @@ export interface IQuotation extends Document {
   designId?: string;
   // Exchange rates at time of creation
   rateSnapshot?: Record<string, number>;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,7 +55,7 @@ const itemSchema = new Schema<IQuotationItem>(
 
 const quotationSchema = new Schema<IQuotation>(
   {
-    quotation_no: { type: String, unique: true, index: true },
+    quotation_no: { type: String, index: true },
     issue_date: { type: Date, required: true },
     valid_until: Date,
     status: {
@@ -87,9 +89,12 @@ quotationSchema.index({ customer_id: 1, createdAt: -1 });
 quotationSchema.index({ status: 1, valid_until: 1 });
 quotationSchema.index({ quotation_no: "text", customer_name: "text" });
 
+quotationSchema.plugin(tenantScope);
+quotationSchema.index({ org_id: 1, quotation_no: 1 }, { unique: true });
+
 quotationSchema.pre("save", async function () {
   if (this.isNew && !this.quotation_no) {
-    this.quotation_no = await getNextNumber("quotation", "QT");
+    this.quotation_no = await getNextNumber(String(this.org_id), "quotation", "QT");
   }
 });
 

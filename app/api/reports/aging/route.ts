@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 
-export const GET = withLog("GET /api/reports/aging", async (_req: NextRequest) => {
+export const GET = withTenant("GET /api/reports/aging", async (_req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

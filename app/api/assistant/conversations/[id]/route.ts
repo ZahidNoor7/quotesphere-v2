@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import AssistantConversation from "@/models/AssistantConversation";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 
 const patchSchema = z
   .object({
@@ -13,7 +13,7 @@ const patchSchema = z
   })
   .refine((v) => v.title !== undefined || v.pinned !== undefined, { message: "Nothing to update" });
 
-export const GET = withLog(
+export const GET = withTenant(
   "GET /api/assistant/conversations/[id]",
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
@@ -35,7 +35,7 @@ export const GET = withLog(
   }
 );
 
-export const PATCH = withLog(
+export const PATCH = withTenant(
   "PATCH /api/assistant/conversations/[id]",
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
@@ -69,7 +69,7 @@ export const PATCH = withLog(
   }
 );
 
-export const DELETE = withLog(
+export const DELETE = withTenant(
   "DELETE /api/assistant/conversations/[id]",
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {

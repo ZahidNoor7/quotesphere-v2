@@ -4,10 +4,10 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
 import Invoice from "@/models/Invoice";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const POST = withLog("POST /api/quotations/[id]/convert", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withTenant("POST /api/quotations/[id]/convert", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

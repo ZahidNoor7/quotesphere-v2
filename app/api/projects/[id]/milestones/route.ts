@@ -4,7 +4,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -15,7 +15,7 @@ const milestoneSchema = z.object({
   notes:       z.string().max(1000).optional(),
 });
 
-export const POST = withLog("POST /api/projects/[id]/milestones", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withTenant("POST /api/projects/[id]/milestones", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

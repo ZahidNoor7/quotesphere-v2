@@ -6,6 +6,7 @@ import Settings from "@/models/Settings";
 import AssistantConversation from "@/models/AssistantConversation";
 import type { AiAssistantConfig, AssistantMessage, UserRole } from "@/types";
 import { getBaseUrl } from "@/lib/assistant/base-url";
+import { enterOrg } from "@/lib/tenant-context";
 import { resolveProvider, ProviderConfigError } from "@/lib/assistant/providers";
 import { buildSystemPrompt } from "@/lib/assistant/prompt";
 import { describeAgentError } from "@/lib/assistant/errors";
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   const userId = (session.user as { id?: string }).id as string;
   const role = (session.user as { role?: UserRole }).role;
+  const orgId = (session.user as { org_id?: string }).org_id;
+  if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  enterOrg(orgId);
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   await connectDB();
 
-  const settings = (await Settings.findOne({ user_id: userId }).lean()) as
+  const settings = (await Settings.findOne({}).lean()) as
     | { integrations?: { aiAssistant?: AiAssistantConfig }; default_currency?: string }
     | null;
   const cfg = settings?.integrations?.aiAssistant;

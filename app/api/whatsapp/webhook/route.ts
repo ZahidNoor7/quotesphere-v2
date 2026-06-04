@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { setWhatsAppWebhook } from "@/lib/whatsapp";
+import { enterOrg } from "@/lib/tenant-context";
 import type { WhatsAppConfig } from "@/types";
 
 export async function POST(req: NextRequest) {
@@ -14,9 +15,12 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const orgId = (session.user as { org_id?: string }).org_id;
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  enterOrg(orgId);
 
   await connectDB();
-  const settings = await Settings.findOne({ user_id: userId });
+  const settings = await Settings.findOne({});
   const waCfg = settings?.integrations?.whatsapp as WhatsAppConfig | undefined;
 
   if (!waCfg?.enabled || !waCfg?.apiKey) {

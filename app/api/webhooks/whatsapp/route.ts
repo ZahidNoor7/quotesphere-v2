@@ -1,14 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDB } from "@/lib/mongoose";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import Customer from "@/models/Customer";
 import { normalizePhone } from "@/lib/whatsapp";
+import { runWithOrg } from "@/lib/tenant-context";
 import mongoose from "mongoose";
+
+/**
+ * Verify the provider's HMAC-SHA256 signature when WHATSAPP_WEBHOOK_SECRET is
+ * configured. Returns true (allow) when no secret is set — but logs a warning,
+ * since an unverified public webhook can be forged.
+ */
+function verifyWebhookSignature(raw: string, header: string | null): boolean {
+  const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
+  if (!secret) {
+    console.warn("[webhook/whatsapp] WHATSAPP_WEBHOOK_SECRET not set — webhook is unauthenticated");
+    return true;
+  }
+  if (!header) return false;
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+  const a = Buffer.from(header);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/** The business number that RECEIVED the message (Meta Cloud API metadata). */
+function extractReceivingPhone(payload: unknown): string {
+  if (typeof payload !== "object" || payload === null) return "";
+  const p = payload as Record<string, unknown>;
+  const entries = Array.isArray(p.entry) ? (p.entry as Record<string, unknown>[]) : [];
+  for (const entry of entries) {
+    const changes = entry.changes as Record<string, unknown>[] | undefined;
+    for (const change of changes ?? []) {
+      const value = change.value as Record<string, unknown> | undefined;
+      const metadata = value?.metadata as Record<string, unknown> | undefined;
+      const phone = (metadata?.display_phone_number ?? metadata?.phone_number_id) as string | undefined;
+      if (phone) return normalizePhone(String(phone));
+    }
+  }
+  return "";
+}
 
 // Public endpoint — no auth. 360dialog POSTs inbound messages here.
 export async function POST(req: NextRequest) {
   let raw = "";
   try { raw = await req.text(); } catch { return NextResponse.json({ received: true }, { status: 200 }); }
+
+  if (!verifyWebhookSignature(raw, req.headers.get("x-hub-signature-256"))) {
+    console.warn("[webhook/whatsapp] signature verification failed — ignoring payload");
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
 
   console.log("[webhook/whatsapp] received payload:", raw.slice(0, 1200));
 
@@ -30,77 +72,101 @@ async function processWebhook(raw: string) {
   const db = mongoose.connection.db;
   if (!db) { console.warn("[webhook/whatsapp] DB not ready"); return; }
 
-  const rawSettings = await db.collection("settings").findOne({
-    "integrations.whatsapp.enabled": true,
-    "integrations.whatsapp.apiKey": { $exists: true, $ne: "" },
-  });
+  // Route the inbound payload to the org that owns the receiving business number.
+  // (Settings is read via the raw driver, so it is not tenant-scoped here.)
+  const receivingPhone = extractReceivingPhone(payload);
+  const enabled = await db
+    .collection("settings")
+    .find({
+      "integrations.whatsapp.enabled": true,
+      "integrations.whatsapp.apiKey": { $exists: true, $ne: "" },
+    })
+    .toArray();
 
-  if (!rawSettings) {
+  if (enabled.length === 0) {
     console.warn("[webhook/whatsapp] no WhatsApp settings found");
     return;
   }
 
-  const userId = rawSettings.user_id ?? rawSettings._id;
+  let rawSettings =
+    enabled.find((s) => normalizePhone(s?.integrations?.whatsapp?.phoneNumber ?? "") === receivingPhone) ?? null;
+  if (!rawSettings) {
+    // Single-tenant install: only one enabled config, safe to use it.
+    if (enabled.length === 1) rawSettings = enabled[0];
+    else {
+      console.warn(`[webhook/whatsapp] could not route inbound to an org (receiving=${receivingPhone})`);
+      return;
+    }
+  }
+
+  const orgId = rawSettings.org_id ? String(rawSettings.org_id) : null;
+  if (!orgId) {
+    console.warn("[webhook/whatsapp] matched settings has no org_id");
+    return;
+  }
   const waPhone = normalizePhone(rawSettings?.integrations?.whatsapp?.phoneNumber ?? "");
 
-  // Handle status updates (for outbound messages: sent → delivered → read)
-  const statuses = extractStatuses(payload);
-  for (const s of statuses) {
-    if (!s.id || !s.status) continue;
-    const update: Record<string, unknown> = { status: s.status };
-    if (s.status === "failed" && s.errors?.length) {
-      const e = s.errors[0];
-      update.errorCode = String(e.code ?? "");
-      update.errorDetails = e.title ?? e.message ?? e.error_data?.details ?? "Delivery failed";
-      console.log(`[webhook/whatsapp] failed: code=${e.code} title=${e.title} msg=${e.message}`);
+  // Everything below runs inside the resolved org's tenant context, so the
+  // tenant plugin scopes the message/customer queries and stamps org_id on writes.
+  await runWithOrg(orgId, async () => {
+    // Handle status updates (for outbound messages: sent → delivered → read)
+    const statuses = extractStatuses(payload);
+    for (const s of statuses) {
+      if (!s.id || !s.status) continue;
+      const update: Record<string, unknown> = { status: s.status };
+      if (s.status === "failed" && s.errors?.length) {
+        const e = s.errors[0];
+        update.errorCode = String(e.code ?? "");
+        update.errorDetails = e.title ?? e.message ?? e.error_data?.details ?? "Delivery failed";
+        console.log(`[webhook/whatsapp] failed: code=${e.code} title=${e.title} msg=${e.message}`);
+      }
+      await WhatsAppMessage.updateOne({ messageId: s.id }, { $set: update });
+      console.log(`[webhook/whatsapp] status update: ${s.id} → ${s.status}`);
     }
-    await WhatsAppMessage.updateOne({ messageId: s.id }, { $set: update });
-    console.log(`[webhook/whatsapp] status update: ${s.id} → ${s.status}`);
-  }
 
-  // Handle inbound messages
-  const messages = extractMessages(payload);
-  console.log(`[webhook/whatsapp] extracted ${messages.length} message(s), userId=${userId}`);
+    // Handle inbound messages
+    const messages = extractMessages(payload);
+    console.log(`[webhook/whatsapp] extracted ${messages.length} message(s), org=${orgId}`);
 
-  for (const msg of messages) {
-    const from = normalizePhone(msg.from ?? "");
-    const messageId = msg.id ?? `wh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const timestamp = msg.timestamp ? new Date(Number(msg.timestamp) * 1000) : new Date();
-    const parsed = parseInbound(msg);
+    for (const msg of messages) {
+      const from = normalizePhone(msg.from ?? "");
+      const messageId = msg.id ?? `wh-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const timestamp = msg.timestamp ? new Date(Number(msg.timestamp) * 1000) : new Date();
+      const parsed = parseInbound(msg);
 
-    console.log(`[webhook/whatsapp] msg id=${messageId} from=${from} type=${parsed.messageType}`);
+      console.log(`[webhook/whatsapp] msg id=${messageId} from=${from} type=${parsed.messageType}`);
 
-    if (!from) { console.log("[webhook/whatsapp] skipping — missing from"); continue; }
-    if (parsed.messageType === "text" && !parsed.body) { console.log("[webhook/whatsapp] skipping — empty text"); continue; }
+      if (!from) { console.log("[webhook/whatsapp] skipping — missing from"); continue; }
+      if (parsed.messageType === "text" && !parsed.body) { console.log("[webhook/whatsapp] skipping — empty text"); continue; }
 
-    const exists = await WhatsAppMessage.exists({ messageId });
-    if (exists) { console.log("[webhook/whatsapp] duplicate, skipping"); continue; }
+      const exists = await WhatsAppMessage.findOne({ messageId }).select("_id").lean();
+      if (exists) { console.log("[webhook/whatsapp] duplicate, skipping"); continue; }
 
-    const tailDigits = from.slice(-9);
-    const customer = await Customer.findOne({ phone_no: { $regex: tailDigits } }).lean();
+      const tailDigits = from.slice(-9);
+      const customer = await Customer.findOne({ phone_no: { $regex: tailDigits } }).lean();
 
-    const created = await WhatsAppMessage.create({
-      user_id: userId ?? undefined,
-      direction: "in",
-      from,
-      to: waPhone,
-      body: parsed.body,
-      type: "text",
-      messageType: parsed.messageType,
-      mediaId: parsed.mediaId,
-      mediaMime: parsed.mediaMime,
-      mediaFilename: parsed.mediaFilename,
-      caption: parsed.caption,
-      location: parsed.location,
-      messageId,
-      status: "sent",
-      customer_id: customer ? customer._id : undefined,
-      customer_name: customer ? (customer as { name: string }).name : undefined,
-      timestamp,
-    });
+      const created = await WhatsAppMessage.create({
+        direction: "in",
+        from,
+        to: waPhone,
+        body: parsed.body,
+        type: "text",
+        messageType: parsed.messageType,
+        mediaId: parsed.mediaId,
+        mediaMime: parsed.mediaMime,
+        mediaFilename: parsed.mediaFilename,
+        caption: parsed.caption,
+        location: parsed.location,
+        messageId,
+        status: "sent",
+        customer_id: customer ? customer._id : undefined,
+        customer_name: customer ? (customer as { name: string }).name : undefined,
+        timestamp,
+      });
 
-    console.log(`[webhook/whatsapp] saved _id=${created._id} from=${from} type=${parsed.messageType}`);
-  }
+      console.log(`[webhook/whatsapp] saved _id=${created._id} from=${from} type=${parsed.messageType}`);
+    }
+  });
 }
 
 type InboundType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts";

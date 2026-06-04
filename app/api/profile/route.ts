@@ -3,10 +3,10 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/profile", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/profile", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -33,7 +33,7 @@ export const GET = withLog("GET /api/profile", async (req: NextRequest) => {
   }
 });
 
-export const PUT = withLog("PUT /api/profile", async (req: NextRequest) => {
+export const PUT = withTenant("PUT /api/profile", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

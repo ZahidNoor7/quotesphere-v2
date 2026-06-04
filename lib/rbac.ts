@@ -5,15 +5,15 @@ import type { UserRole } from "@/types";
 // Each role lists the operations it may perform.
 // "viewer"  → read only
 // "staff"   → read + create
-// "manager" → read + create + update
-// "admin"   → full access including delete and settings
+// "manager" → read + create + update + delete
+// "admin"   → full access including delete and settings (company config + team)
 
 type Operation = "read" | "create" | "update" | "delete" | "settings";
 
 const ROLE_PERMISSIONS: Record<UserRole, Set<Operation>> = {
   viewer:  new Set(["read"]),
   staff:   new Set(["read", "create"]),
-  manager: new Set(["read", "create", "update"]),
+  manager: new Set(["read", "create", "update", "delete"]),
   admin:   new Set(["read", "create", "update", "delete", "settings"]),
 };
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Customer from "@/models/Customer";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -21,7 +21,7 @@ const bulkSchema = z.object({
   skipDupes: z.boolean().optional().default(true),
 });
 
-export const POST = withLog("POST /api/customers/bulk", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/customers/bulk", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -71,7 +71,7 @@ export const POST = withLog("POST /api/customers/bulk", async (req: NextRequest)
       const { name, phone_no, email, company, address, notes } = rowParsed.data;
 
       if (skipDupes) {
-        const exists = await Customer.exists({ phone_no });
+        const exists = await Customer.findOne({ phone_no }).select("_id").lean();
         if (exists) {
           skipped++;
           results.push({ row: i + 1, status: "skipped", name, reason: "Duplicate phone number" });

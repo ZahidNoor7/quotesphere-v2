@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IProjectMilestone {
   _id: string;
@@ -46,6 +47,7 @@ export interface IProject extends Document {
   project_notes?: IProjectNote[];
   attachments?: IProjectAttachment[];
   progress?: number;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,7 +82,7 @@ const projectAttachmentSchema = new Schema(
 
 const projectSchema = new Schema<IProject>(
   {
-    project_no: { type: String, unique: true, index: true },
+    project_no: { type: String, index: true },
     name: { type: String, required: true, trim: true },
     description: String,
     status: {
@@ -111,9 +113,12 @@ projectSchema.index({ customer_id: 1, status: 1 });
 projectSchema.index({ status: 1, due_date: 1 });
 projectSchema.index({ name: "text", customer_name: "text" });
 
+projectSchema.plugin(tenantScope);
+projectSchema.index({ org_id: 1, project_no: 1 }, { unique: true });
+
 projectSchema.pre("save", async function () {
   if (this.isNew && !this.project_no) {
-    this.project_no = await getNextNumber("project", "PRJ");
+    this.project_no = await getNextNumber(String(this.org_id), "project", "PRJ");
   }
 });
 

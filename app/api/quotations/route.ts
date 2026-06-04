@@ -5,7 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Quotation from "@/models/Quotation";
 import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -40,7 +40,7 @@ const quotationSchema = z.object({
   rateSnapshot: z.record(z.string(), z.number()).optional(),
 });
 
-export const GET = withLog("GET /api/quotations", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/quotations", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -90,7 +90,7 @@ export const GET = withLog("GET /api/quotations", async (req: NextRequest) => {
   }
 });
 
-export const POST = withLog("POST /api/quotations", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/quotations", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -103,10 +103,10 @@ export const POST = withLog("POST /api/quotations", async (req: NextRequest) => 
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
-    const userSettings = await Settings.findOne({ user_id: (session.user as any)?.id }).lean() as any;
-    const prefix  = userSettings?.quotation_prefix ?? "QT";
-    const pattern = userSettings?.quotation_number_pattern ?? null;
-    const quotation_no = await getNextNumberWithPattern("quotation", prefix, pattern);
+    const orgSettings = await Settings.findOne({}).lean() as any;
+    const prefix  = orgSettings?.quotation_prefix ?? "QT";
+    const pattern = orgSettings?.quotation_number_pattern ?? null;
+    const quotation_no = await getNextNumberWithPattern((session.user as any).org_id, "quotation", prefix, pattern);
 
     const quotation = new Quotation({ ...parsed.data, quotation_no });
     await quotation.save();

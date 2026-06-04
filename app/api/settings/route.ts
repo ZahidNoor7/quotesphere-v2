@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 import { emailConfiguredFrom } from "@/lib/email";
 
@@ -24,15 +24,15 @@ function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, an
   return result;
 }
 
-export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/settings", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as any).id as string;
     await connectDB();
-    let settings = await Settings.findOne({ user_id: userId }).lean();
+    let settings = await Settings.findOne({}).lean();
     if (!settings) {
-      settings = (await Settings.create({ user_id: userId })).toObject();
+      settings = (await Settings.create({})).toObject();
     }
     // Surface whether email is configured (in-app integration OR env) so the UI
     // can gate the reminder email channel. Boolean only; never exposes the key.
@@ -54,7 +54,7 @@ export const GET = withLog("GET /api/settings", async (req: NextRequest) => {
   }
 });
 
-export const PUT = withLog("PUT /api/settings", async (req: NextRequest) => {
+export const PUT = withTenant("PUT /api/settings", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -66,11 +66,11 @@ export const PUT = withLog("PUT /api/settings", async (req: NextRequest) => {
     const touchedKeys = Object.keys(body);
     const isSilentUpdate = touchedKeys.every(k => SILENT_KEYS.has(k));
 
-    const before = isSilentUpdate ? null : await Settings.findOne({ user_id: userId }).lean();
+    const before = isSilentUpdate ? null : await Settings.findOne({}).lean();
 
     const $set = flattenObject(body);
     const settings = await Settings.findOneAndUpdate(
-      { user_id: userId },
+      {},
       { $set },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     ).lean();

@@ -3,10 +3,10 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Template from "@/models/Template";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const PUT = withLog("PUT /api/templates/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/templates/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -24,7 +24,7 @@ export const PUT = withLog("PUT /api/templates/[id]", async (req: NextRequest, {
   }
 });
 
-export const DELETE = withLog("DELETE /api/templates/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/templates/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

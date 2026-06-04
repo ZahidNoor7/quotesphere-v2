@@ -5,7 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import { requireRole } from "@/lib/rbac";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { mintPrintToken, type PrintDocType } from "@/lib/print-token";
 import { getBrowser } from "@/lib/pdf/browser";
 import { resolveCloudinaryConfig, uploadToCloudinary, type CloudinaryConfig } from "@/lib/cloudinary";
@@ -35,7 +35,7 @@ async function uploadPdf(cfg: CloudinaryConfig, pdf: Uint8Array, fileName: strin
   return res.secure_url;
 }
 
-export const GET = withLog(
+export const GET = withTenant(
   "GET /api/pdf/[type]/[id]",
   async (_req: NextRequest, { params }: { params: Promise<{ type: string; id: string }> }) => {
     try {
@@ -53,11 +53,16 @@ export const GET = withLog(
       }
 
       await connectDB();
-      const exists = type === "invoice" ? await Invoice.exists({ _id: id }) : await Quotation.exists({ _id: id });
+      // findOne (not exists()) so the tenant plugin scopes by org — a user can only
+      // render PDFs for documents in their own organization.
+      const exists = type === "invoice"
+        ? await Invoice.findOne({ _id: id }).select("_id").lean()
+        : await Quotation.findOne({ _id: id }).select("_id").lean();
       if (!exists) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
       const uid = String((session.user as { id?: string } | undefined)?.id ?? "");
-      const token = mintPrintToken(type as PrintDocType, id, uid);
+      const org = String((session.user as { org_id?: string } | undefined)?.org_id ?? "");
+      const token = mintPrintToken(type as PrintDocType, id, uid, org);
       const url = `${BASE_URL}/print/${type}/${id}?token=${encodeURIComponent(token)}`;
 
       const browser = await getBrowser();

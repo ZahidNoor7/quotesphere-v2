@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Template from "@/models/Template";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/templates", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/templates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -21,7 +21,7 @@ export const GET = withLog("GET /api/templates", async (req: NextRequest) => {
   }
 });
 
-export const POST = withLog("POST /api/templates", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/templates", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

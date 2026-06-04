@@ -8,6 +8,7 @@ export interface IUser extends Document {
   phone?: string;
   bio?: string;
   role: "admin" | "manager" | "staff" | "viewer";
+  org_id?: mongoose.Types.ObjectId;
   emailVerified?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +23,7 @@ const userSchema = new Schema<IUser>(
     phone: String,
     bio: String,
     role: { type: String, enum: ["admin", "manager", "staff", "viewer"], default: "staff" },
+    org_id: { type: Schema.Types.ObjectId, ref: "Organization", index: true },
     emailVerified: Date,
   },
   { timestamps: true, versionKey: false }

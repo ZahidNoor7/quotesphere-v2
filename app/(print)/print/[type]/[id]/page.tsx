@@ -7,6 +7,7 @@ import Settings from "@/models/Settings";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { buildDocumentData, type DocInput, type SettingsInput } from "@/lib/doc-data";
 import { verifyPrintToken } from "@/lib/print-token";
+import { runWithOrg } from "@/lib/tenant-context";
 import { PrintDocument } from "@/components/document-design/print-document";
 import type { DocumentDesign } from "@/types";
 
@@ -30,15 +31,19 @@ export default async function PrintPage({
   if (!payload) notFound();
 
   await connectDB();
-  const raw =
-    type === "invoice"
-      ? await Invoice.findById(id).lean()
-      : await Quotation.findById(id).lean();
+  // Render scoped to the requesting user's org (from the signed token), so the
+  // tenant plugin only finds documents/settings belonging to that organization.
+  const { raw, settingsDoc } = await runWithOrg(payload.org, async () => {
+    const rawDoc =
+      type === "invoice"
+        ? await Invoice.findById(id).lean()
+        : await Quotation.findById(id).lean();
+    const sDoc = rawDoc ? await Settings.findOne({}).lean() : null;
+    return { raw: rawDoc, settingsDoc: sDoc };
+  });
   if (!raw) notFound();
   // Boundary cast: Mongoose lean() → our structural DTO.
   const doc = raw as unknown as DocInput & { designId?: string };
-
-  const settingsDoc = await Settings.findOne({ user_id: payload.uid }).lean();
   const settings = settingsDoc as unknown as
     | (SettingsInput & {
         documentDesigns?: DocumentDesign[];

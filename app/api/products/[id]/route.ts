@@ -3,10 +3,10 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Product from "@/models/Product";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/products/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withTenant("GET /api/products/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -21,7 +21,7 @@ export const GET = withLog("GET /api/products/[id]", async (_req: NextRequest, {
   }
 });
 
-export const PUT = withLog("PUT /api/products/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/products/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -40,7 +40,7 @@ export const PUT = withLog("PUT /api/products/[id]", async (req: NextRequest, { 
   }
 });
 
-export const DELETE = withLog("DELETE /api/products/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/products/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

@@ -3,14 +3,14 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string; milestoneId: string }> };
 
 // PUT — update fields (name, due_date, notes, mark complete/incomplete, link invoice)
-export const PUT = withLog("PUT /api/projects/[id]/milestones/[milestoneId]", async (req: NextRequest, { params }: Params) => {
+export const PUT = withTenant("PUT /api/projects/[id]/milestones/[milestoneId]", async (req: NextRequest, { params }: Params) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -53,7 +53,7 @@ export const PUT = withLog("PUT /api/projects/[id]/milestones/[milestoneId]", as
 });
 
 // DELETE — remove milestone from array
-export const DELETE = withLog("DELETE /api/projects/[id]/milestones/[milestoneId]", async (req: NextRequest, { params }: Params) => {
+export const DELETE = withTenant("DELETE /api/projects/[id]/milestones/[milestoneId]", async (req: NextRequest, { params }: Params) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

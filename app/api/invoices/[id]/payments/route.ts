@@ -3,10 +3,10 @@ import mongoose, { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
-export const POST = withLog("POST /api/invoices/[id]/payments", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withTenant("POST /api/invoices/[id]/payments", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -77,7 +77,7 @@ export const POST = withLog("POST /api/invoices/[id]/payments", async (req: Next
     );
 
     if (!updated) {
-      const exists = await Invoice.exists({ _id: id });
+      const exists = await Invoice.findOne({ _id: id }).select("_id").lean();
       if (!exists) {
         return NextResponse.json({ success: false, error: "Invoice not found" }, { status: 404 });
       }
@@ -106,7 +106,7 @@ export const POST = withLog("POST /api/invoices/[id]/payments", async (req: Next
   }
 });
 
-export const DELETE = withLog("DELETE /api/invoices/[id]/payments", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/invoices/[id]/payments", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

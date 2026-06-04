@@ -1,6 +1,8 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface ITimeEntry extends Document {
+  org_id?: mongoose.Types.ObjectId;
   project_id: mongoose.Types.ObjectId;
   user_id?: mongoose.Types.ObjectId;
   user_name?: string;
@@ -30,6 +32,8 @@ const timeEntrySchema = new Schema<ITimeEntry>(
 );
 
 timeEntrySchema.index({ project_id: 1, date: -1 });
+
+timeEntrySchema.plugin(tenantScope);
 
 const TimeEntry: Model<ITimeEntry> =
   mongoose.models.TimeEntry || mongoose.model<ITimeEntry>("TimeEntry", timeEntrySchema);

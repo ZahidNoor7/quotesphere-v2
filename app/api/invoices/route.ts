@@ -6,7 +6,7 @@ import Invoice from "@/models/Invoice";
 import Product from "@/models/Product";
 import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -52,7 +52,7 @@ const invoiceSchema = z.object({
   tracking_no: z.string().optional(),
 });
 
-export const GET = withLog("GET /api/invoices", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/invoices", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -99,7 +99,7 @@ export const GET = withLog("GET /api/invoices", async (req: NextRequest) => {
   }
 });
 
-export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/invoices", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -115,10 +115,10 @@ export const POST = withLog("POST /api/invoices", async (req: NextRequest) => {
 
     // Fetch user settings to get prefix and pattern, then pre-generate the number
     // so the model pre-save hook skips generation (it only generates when invoice_no is missing)
-    const userSettings = await Settings.findOne({ user_id: (session.user as any)?.id }).lean() as any;
-    const prefix  = userSettings?.invoice_prefix ?? "INV";
-    const pattern = userSettings?.invoice_number_pattern ?? null;
-    const invoice_no = await getNextNumberWithPattern("invoice", prefix, pattern);
+    const orgSettings = await Settings.findOne({}).lean() as any;
+    const prefix  = orgSettings?.invoice_prefix ?? "INV";
+    const pattern = orgSettings?.invoice_number_pattern ?? null;
+    const invoice_no = await getNextNumberWithPattern((session.user as any).org_id, "invoice", prefix, pattern);
 
     const invoice = new Invoice({ ...parsed.data, invoice_no });
     await invoice.save();

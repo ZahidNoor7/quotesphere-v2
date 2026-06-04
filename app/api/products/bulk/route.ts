@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Product from "@/models/Product";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -39,7 +39,7 @@ const ALIASES: Record<string, string> = {
   currency: "currency",
 };
 
-export const POST = withLog("POST /api/products/bulk", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/products/bulk", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -74,7 +74,7 @@ export const POST = withLog("POST /api/products/bulk", async (req: NextRequest) 
 
       if (skipDupes) {
         const dupeQuery = data.sku ? { sku: data.sku } : { name: data.name };
-        if (await Product.exists(dupeQuery)) {
+        if (await Product.findOne(dupeQuery).select("_id").lean()) {
           skipped++;
           results.push({ row: i + 1, status: "skipped", name: data.name, reason: data.sku ? "Duplicate SKU" : "Duplicate name" });
           continue;

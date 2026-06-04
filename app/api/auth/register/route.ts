@@ -6,6 +6,8 @@ import User from "@/models/User";
 import { rateLimit, getClientIP } from "@/lib/rate-limit";
 import { withLog } from "@/lib/logger";
 import { sendWelcomeEmail } from "@/lib/email";
+import { createOrgForUser } from "@/lib/provisioning";
+import { runWithOrg } from "@/lib/tenant-context";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -41,22 +43,26 @@ export const POST = withLog("POST /api/auth/register", async (req: NextRequest) 
       return NextResponse.json({ success: false, error: "Email already registered" }, { status: 409 });
     }
 
-    const userCount = await User.countDocuments();
-    const role = userCount === 0 ? "admin" : "staff";
-
+    // A self-signup always creates and owns a brand-new organization, so they
+    // are that org's admin. Invited teammates get their role from /api/team.
     const hashed = await bcrypt.hash(password, 12);
-    const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role });
+    const user = await User.create({ name, email: email.toLowerCase(), password: hashed, role: "admin" });
+    const orgId = await createOrgForUser(String(user._id), `${name}'s Organization`);
 
-    // Fire-and-forget — don't let email failure block registration
-    sendWelcomeEmail({
-      to: user.email,
-      name: user.name,
-      loginUrl: process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/auth/login` : undefined,
-    }).catch(() => {});
+    // Fire-and-forget — don't let email failure block registration. Run in the
+    // new org's context so any Settings-based email config resolves cleanly
+    // (falls back to env Resend, since a brand-new org has none configured yet).
+    runWithOrg(orgId, () =>
+      sendWelcomeEmail({
+        to: user.email,
+        name: user.name,
+        loginUrl: process.env.NEXTAUTH_URL ? `${process.env.NEXTAUTH_URL}/auth/login` : undefined,
+      }),
+    ).catch(() => {});
 
     return NextResponse.json({
       success: true,
-      data: { id: user._id, name: user.name, email: user.email, role: user.role },
+      data: { id: user._id, name: user.name, email: user.email, role: user.role, org_id: orgId },
     });
   } catch (err) {
     console.error("[register]", err);

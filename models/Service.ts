@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IService extends Document {
   name: string;
@@ -8,6 +9,7 @@ export interface IService extends Document {
   currency: string;
   unit?: string;
   is_active: boolean;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,8 @@ const serviceSchema = new Schema<IService>(
 
 serviceSchema.index({ category: 1, is_active: 1 });
 serviceSchema.index({ name: "text", description: "text" });
+
+serviceSchema.plugin(tenantScope);
 
 const Service: Model<IService> =
   mongoose.models.Service || mongoose.model<IService>("Service", serviceSchema);

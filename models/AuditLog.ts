@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export type AuditAction = "create" | "update" | "delete";
 export type AuditResource =
@@ -6,6 +7,7 @@ export type AuditResource =
   | "customer" | "service" | "product" | "template" | "settings";
 
 export interface IAuditLog extends Document {
+  org_id?:        mongoose.Types.ObjectId;
   user_id:        string;
   user_name:      string;
   user_email:     string;
@@ -43,6 +45,10 @@ auditLogSchema.index({ createdAt: -1 });
 
 // Auto-expire logs after 2 years (TTL index)
 auditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2 * 365 * 24 * 60 * 60 });
+
+// org_id is optional: audit entries are also written from system paths (cron,
+// webhook) that run in bypass mode with no org context.
+auditLogSchema.plugin(tenantScope, { required: false });
 
 const AuditLog: Model<IAuditLog> =
   mongoose.models.AuditLog || mongoose.model<IAuditLog>("AuditLog", auditLogSchema);

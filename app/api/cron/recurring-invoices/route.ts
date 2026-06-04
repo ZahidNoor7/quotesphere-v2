@@ -13,6 +13,7 @@ import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
+import { bypassTenant, runWithOrg } from "@/lib/tenant-context";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -39,61 +40,66 @@ export const GET = async (req: NextRequest) => {
   await connectDB();
   const now = new Date();
 
-  // Find all active recurring invoices whose next_date is today or earlier
-  const due = await Invoice.find({
+  // The cron spans every org — read due invoices in bypass mode, then generate
+  // each new invoice inside its own org's tenant context.
+  const due = await bypassTenant(async () => await Invoice.find({
     "recurrence.enabled": true,
     "recurrence.next_date": { $lte: now },
     $or: [
       { "recurrence.end_date": { $exists: false } },
       { "recurrence.end_date": { $gt: now } },
     ],
-  }).lean() as any[];
+  }).lean()) as any[];
 
   const generated: string[] = [];
   const errors: { id: string; error: string }[] = [];
 
   for (const src of due) {
     try {
-      // Fetch user settings for number pattern
-      const userSettings = await Settings.findOne({ user_id: src.user_id }).lean() as any;
-      const prefix  = userSettings?.invoice_prefix ?? "INV";
-      const pattern = userSettings?.invoice_number_pattern ?? null;
-      const invoice_no = await getNextNumberWithPattern("invoice", prefix, pattern);
+      if (!src.org_id) { errors.push({ id: String(src._id), error: "missing org_id" }); continue; }
+      const orgId = String(src.org_id);
+      await runWithOrg(orgId, async () => {
+        // Org settings for the number pattern (scoped by the tenant plugin).
+        const orgSettings = await Settings.findOne({}).lean() as any;
+        const prefix  = orgSettings?.invoice_prefix ?? "INV";
+        const pattern = orgSettings?.invoice_number_pattern ?? null;
+        const invoice_no = await getNextNumberWithPattern(orgId, "invoice", prefix, pattern);
 
-      // Clone the invoice — strip identity fields, reset payment state
-      const {
-        _id, invoice_no: _no, createdAt, updatedAt,
-        payments, total_paid, outstanding, balance, payment_status,
-        recurrence, ...rest
-      } = src;
-      void _id; void _no; void createdAt; void updatedAt;
-      void payments; void total_paid; void outstanding; void balance; void payment_status;
+        // Clone the invoice — strip identity fields, reset payment state. `rest`
+        // carries org_id from the source, so the clone stays in the same org.
+        const {
+          _id, invoice_no: _no, createdAt, updatedAt,
+          payments, total_paid, outstanding, balance, payment_status,
+          recurrence, ...rest
+        } = src;
+        void _id; void _no; void createdAt; void updatedAt;
+        void payments; void total_paid; void outstanding; void balance; void payment_status;
 
-      const newInvoice = new Invoice({
-        ...rest,
-        invoice_no,
-        issue_date: now,
-        status: "issued",
-        payment_status: "pending",
-        payments: [],
-        total_paid: 0,
-        outstanding: rest.total_amount,
-        balance: rest.total_amount,
-        advance: 0,
-        // Carry recurrence config but update next_date
-        recurrence: {
-          ...recurrence,
-          next_date: addFrequency(now, recurrence.frequency),
-        },
+        const newInvoice = new Invoice({
+          ...rest,
+          invoice_no,
+          issue_date: now,
+          status: "issued",
+          payment_status: "pending",
+          payments: [],
+          total_paid: 0,
+          outstanding: rest.total_amount,
+          balance: rest.total_amount,
+          advance: 0,
+          recurrence: {
+            ...recurrence,
+            next_date: addFrequency(now, recurrence.frequency),
+          },
+        });
+        await newInvoice.save();
+
+        // Update next_date on the source invoice (scoped to this org).
+        await Invoice.findByIdAndUpdate(src._id, {
+          "recurrence.next_date": addFrequency(now, recurrence.frequency),
+        });
+
+        generated.push(invoice_no);
       });
-      await newInvoice.save();
-
-      // Update next_date on the source invoice
-      await Invoice.findByIdAndUpdate(src._id, {
-        "recurrence.next_date": addFrequency(now, recurrence.frequency),
-      });
-
-      generated.push(invoice_no);
     } catch (err: any) {
       errors.push({ id: String(src._id), error: err.message });
     }

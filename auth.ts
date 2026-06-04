@@ -6,6 +6,8 @@ import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/db";
 import { authConfig } from "./auth.config";
 import { rateLimit, getClientIP } from "@/lib/rate-limit";
+import { ensureUserOrg } from "@/lib/provisioning";
+import type { UserRole } from "@/types";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -46,6 +48,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           name: user.name,
           image: user.image,
           role: user.role || "admin",
+          org_id: user.org_id ? String(user.org_id) : undefined,
         };
       },
     }),
@@ -53,16 +56,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role?: string }).role;
+        token.role = (user as { role?: UserRole }).role;
         // Persist the user's DB id in the token so session can read it
         if (user.id) token.sub = user.id;
+        // Resolve the org id once at sign-in. Credentials users already have one
+        // (set at register); OAuth users (created by the adapter) are bootstrapped
+        // an org on first login. Persisted in the token, so no per-request lookup.
+        let orgId = (user as { org_id?: string }).org_id;
+        if (!orgId && user.id) orgId = await ensureUserOrg(user.id, user.name);
+        token.org_id = orgId;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id?: string; role?: string }).id = token.sub;
-        (session.user as { id?: string; role?: string }).role = token.role as string | undefined;
+        if (token.sub) session.user.id = token.sub;
+        session.user.role = token.role as UserRole | undefined;
+        session.user.org_id = token.org_id as string | undefined;
       }
       return session;
     },

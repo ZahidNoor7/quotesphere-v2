@@ -5,6 +5,7 @@ import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
 import Customer from "@/models/Customer";
+import { enterOrg } from "@/lib/tenant-context";
 import * as XLSX from "xlsx";
 
 function dateFilter(from?: string, to?: string) {
@@ -76,6 +77,9 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const orgId = (session.user as { org_id?: string }).org_id;
+    if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    enterOrg(orgId);
     await connectDB();
 
     const { searchParams } = new URL(req.url);

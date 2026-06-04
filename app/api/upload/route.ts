@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { resolveCloudinaryConfig, uploadToCloudinary, CLOUDINARY_NOT_CONFIGURED } from "@/lib/cloudinary";
 import { CLOUDINARY_FEATURES, cloudinaryFolder, isCloudinaryFeature, sanitizeSegment } from "@/lib/cloudinary-folders";
 
-export const POST = withLog("POST /api/upload", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/upload", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

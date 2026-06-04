@@ -3,9 +3,9 @@ import { isValidObjectId } from "mongoose";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Project from "@/models/Project";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 
-export const POST = withLog("POST /api/projects/[id]/notes", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const POST = withTenant("POST /api/projects/[id]/notes", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -26,7 +26,7 @@ export const POST = withLog("POST /api/projects/[id]/notes", async (req: NextReq
   }
 });
 
-export const DELETE = withLog("DELETE /api/projects/[id]/notes", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/projects/[id]/notes", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

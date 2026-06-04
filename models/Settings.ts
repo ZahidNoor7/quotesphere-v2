@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface ISocialLinks {
   website?: string;
@@ -12,7 +13,7 @@ export interface ISocialLinks {
 }
 
 export interface ISettings extends Document {
-  user_id: mongoose.Types.ObjectId;
+  org_id?: mongoose.Types.ObjectId;
   company_name: string;
   company_email?: string;
   company_phone?: string;
@@ -148,7 +149,6 @@ const documentDesignConfigSchema = new Schema(
 
 const settingsSchema = new Schema<ISettings>(
   {
-    user_id: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
     company_name: { type: String, default: "My Company" },
     company_email: String,
     company_phone: String,
@@ -249,6 +249,9 @@ const settingsSchema = new Schema<ISettings>(
   },
   { timestamps: true, versionKey: false }
 );
+
+// Exactly one Settings document per organization.
+settingsSchema.plugin(tenantScope, { unique: true });
 
 const Settings: Model<ISettings> =
   mongoose.models.Settings ||

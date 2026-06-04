@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IPaymentEntry {
   _id?: string;
@@ -67,6 +68,7 @@ export interface IInvoice extends Document {
   };
   // Payment reminder tracking (set by the reminders cron)
   lastReminderAt?: Date;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,7 +103,7 @@ const itemSchema = new Schema<IInvoiceItem>(
 
 const invoiceSchema = new Schema<IInvoice>(
   {
-    invoice_no: { type: String, unique: true, index: true },
+    invoice_no: { type: String, index: true },
     issue_date: { type: Date, required: true },
     due_date: Date,
     status: { type: String, enum: ["draft", "issued", "cancelled"], default: "issued" },
@@ -155,9 +157,13 @@ invoiceSchema.index({ payment_status: 1, due_date: 1 });
 invoiceSchema.index({ status: 1, issue_date: -1 });
 invoiceSchema.index({ invoice_no: "text", customer_name: "text" });
 
+invoiceSchema.plugin(tenantScope);
+// Document numbers are unique per organization, not globally.
+invoiceSchema.index({ org_id: 1, invoice_no: 1 }, { unique: true });
+
 invoiceSchema.pre("save", async function () {
   if (this.isNew && !this.invoice_no) {
-    this.invoice_no = await getNextNumber("invoice", "INV");
+    this.invoice_no = await getNextNumber(String(this.org_id), "invoice", "INV");
   }
   // Recalculate outstanding
   this.total_paid = this.payments.reduce((s, p) => s + p.amount, 0) + this.advance;

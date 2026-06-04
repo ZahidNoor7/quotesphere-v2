@@ -25,7 +25,7 @@ function atMidnight(offsetDays: number) {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const seedSettings = (reminders: any, integrations?: any) =>
-  Settings.create({ user_id: new mongoose.Types.ObjectId(), company_name: "Test Co", reminders, ...(integrations ? { integrations } : {}) });
+  Settings.create({ company_name: "Test Co", reminders, ...(integrations ? { integrations } : {}) });
 
 const seedInvoice = (customer: any, dueOffsetDays: number, total = 1000) =>
   Invoice.create({

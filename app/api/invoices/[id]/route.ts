@@ -4,11 +4,11 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/invoices/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withTenant("GET /api/invoices/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -24,7 +24,7 @@ export const GET = withLog("GET /api/invoices/[id]", async (_req: NextRequest, {
   }
 });
 
-export const PUT = withLog("PUT /api/invoices/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/invoices/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -39,8 +39,14 @@ export const PUT = withLog("PUT /api/invoices/[id]", async (req: NextRequest, { 
     const invoice = await Invoice.findById(id);
     if (!invoice) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
+    // Never let the client overwrite ownership or immutable identity fields.
+    const data = { ...parsed.data };
+    for (const k of ["org_id", "_id", "invoice_no", "createdAt", "updatedAt", "__v"]) {
+      delete (data as Record<string, unknown>)[k];
+    }
+
     const before = invoice.toObject();
-    Object.assign(invoice, parsed.data);
+    Object.assign(invoice, data);
     await invoice.save();
 
     void recordAudit({ req, session, action: "update", resource: "invoice", resource_id: id, resource_label: before.invoice_no, before, after: invoice.toObject() });
@@ -51,7 +57,7 @@ export const PUT = withLog("PUT /api/invoices/[id]", async (req: NextRequest, { 
   }
 });
 
-export const DELETE = withLog("DELETE /api/invoices/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/invoices/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

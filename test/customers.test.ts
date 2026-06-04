@@ -75,3 +75,19 @@ describe("customers CRUD", () => {
     expect(r.status).toBe(403);
   });
 });
+
+describe("role permissions — manager delete access", () => {
+  it("a manager CAN delete a record", async () => {
+    const c = await makeCustomer("DelMe", "923009990000");
+    await setSession({ user: { id: "m", role: "manager" } });
+    const r = await DELETE(req(`/api/customers/${c.id}`, "DELETE"), ctx(c.id));
+    expect(r.status).toBe(200);
+  });
+
+  it("a staff member CANNOT delete (403)", async () => {
+    const c = await makeCustomer("KeepMe", "923009990001");
+    await setSession({ user: { id: "s", role: "staff" } });
+    const r = await DELETE(req(`/api/customers/${c.id}`, "DELETE"), ctx(c.id));
+    expect(r.status).toBe(403);
+  });
+});

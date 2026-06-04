@@ -3,7 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import TimeEntry from "@/models/TimeEntry";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
@@ -16,7 +16,7 @@ const timeEntrySchema = z.object({
   currency:    z.enum(["PKR", "USD", "EUR", "GBP", "AED", "SAR"] as const).optional(),
 });
 
-export const GET = withLog("GET /api/time-entries", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/time-entries", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -40,7 +40,7 @@ export const GET = withLog("GET /api/time-entries", async (req: NextRequest) => 
   }
 });
 
-export const POST = withLog("POST /api/time-entries", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/time-entries", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

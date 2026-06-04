@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IExpenseItem {
   id: number;
@@ -35,6 +36,7 @@ export interface IExpense extends Document {
   invoice_id?: mongoose.Types.ObjectId;
   quotation_id?: mongoose.Types.ObjectId;
   rateSnapshot?: Record<string, number>;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,7 +55,7 @@ const expenseItemSchema = new Schema<IExpenseItem>(
 
 const expenseSchema = new Schema<IExpense>(
   {
-    expense_no: { type: String, unique: true, index: true },
+    expense_no: { type: String, index: true },
     bill_date: { type: Date, required: true },
     vendor_name: String,
     bill_number: String,
@@ -85,9 +87,12 @@ expenseSchema.index({ customer_id: 1, createdAt: -1 });
 expenseSchema.index({ status: 1, bill_date: -1 });
 expenseSchema.index({ expense_no: "text", vendor_name: "text", customer_name: "text" });
 
+expenseSchema.plugin(tenantScope);
+expenseSchema.index({ org_id: 1, expense_no: 1 }, { unique: true });
+
 expenseSchema.pre("save", async function () {
   if (this.isNew && !this.expense_no) {
-    this.expense_no = await getNextNumber("expense", "EXP");
+    this.expense_no = await getNextNumber(String(this.org_id), "expense", "EXP");
   }
 });
 

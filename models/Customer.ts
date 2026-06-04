@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface ICustomer extends Document {
   name: string;
@@ -10,6 +11,7 @@ export interface ICustomer extends Document {
   notes?: string;
   status: boolean;
   currency: string;
+  org_id?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +34,8 @@ const customerSchema = new Schema<ICustomer>(
 customerSchema.index({ name: "text", company: "text", email: "text" });
 customerSchema.index({ status: 1, createdAt: -1 });
 customerSchema.index({ phone_no: 1 });
+
+customerSchema.plugin(tenantScope);
 
 const Customer: Model<ICustomer> =
   mongoose.models.Customer ||

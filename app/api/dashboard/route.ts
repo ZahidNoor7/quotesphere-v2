@@ -5,9 +5,9 @@ import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Customer from "@/models/Customer";
 import Expense from "@/models/Expense";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 
-export const GET = withLog("GET /api/dashboard", async (req: NextRequest) => {
+export const GET = withTenant("GET /api/dashboard", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export interface IAssistantToolCall {
   id: string;
@@ -46,6 +47,7 @@ export interface IPendingAction {
 }
 
 export interface IAssistantConversation extends Document {
+  org_id?: mongoose.Types.ObjectId;
   user_id: mongoose.Types.ObjectId;
   title: string;
   pinned: boolean;
@@ -121,6 +123,8 @@ const conversationSchema = new Schema<IAssistantConversation>(
 
 // Pinned conversations first, then most-recent — matches the sidebar ordering.
 conversationSchema.index({ user_id: 1, pinned: -1, updatedAt: -1 });
+
+conversationSchema.plugin(tenantScope);
 
 const AssistantConversation: Model<IAssistantConversation> =
   mongoose.models.AssistantConversation ||

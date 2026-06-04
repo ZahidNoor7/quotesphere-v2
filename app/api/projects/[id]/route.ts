@@ -6,11 +6,11 @@ import Project from "@/models/Project";
 import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
-export const GET = withLog("GET /api/projects/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const GET = withTenant("GET /api/projects/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -40,7 +40,7 @@ export const GET = withLog("GET /api/projects/[id]", async (_req: NextRequest, {
   }
 });
 
-export const PUT = withLog("PUT /api/projects/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const PUT = withTenant("PUT /api/projects/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -50,6 +50,8 @@ export const PUT = withLog("PUT /api/projects/[id]", async (req: NextRequest, { 
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
+    // Strip ownership/identity fields so a client can't reassign or overwrite them.
+    for (const k of ["org_id", "_id", "project_no", "createdAt", "updatedAt", "__v"]) delete body[k];
     const before = await Project.findById(id).lean() as any;
     const data = await Project.findByIdAndUpdate(id, body, { new: true });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
@@ -61,7 +63,7 @@ export const PUT = withLog("PUT /api/projects/[id]", async (req: NextRequest, { 
   }
 });
 
-export const DELETE = withLog("DELETE /api/projects/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+export const DELETE = withTenant("DELETE /api/projects/[id]", async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

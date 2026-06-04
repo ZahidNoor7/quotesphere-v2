@@ -1,25 +1,32 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ICounter extends Document {
+  org_id: mongoose.Types.ObjectId;
   name: string;
   seq: number;
 }
 
+// Counters are per-organization so each org has its own document numbering
+// sequence. Counter is intentionally NOT tenant-plugin'd: it is keyed by an
+// explicit org id passed by the caller, so it works in any context.
 const counterSchema = new Schema<ICounter>({
-  name: { type: String, required: true, unique: true },
+  org_id: { type: Schema.Types.ObjectId, ref: "Organization", required: true },
+  name: { type: String, required: true },
   seq: { type: Number, default: 0 },
 });
+counterSchema.index({ org_id: 1, name: 1 }, { unique: true });
 
 const Counter =
   mongoose.models.Counter || mongoose.model<ICounter>("Counter", counterSchema);
 
 export async function getNextNumber(
+  orgId: string,
   name: string,
   prefix: string,
   digits = 5
 ): Promise<string> {
   const counter = await Counter.findOneAndUpdate(
-    { name },
+    { org_id: orgId, name },
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   );
@@ -39,12 +46,13 @@ export async function getNextNumber(
  * Default pattern (when none configured): "{prefix}-{seq:5}"
  */
 export async function getNextNumberWithPattern(
+  orgId: string,
   name: string,
   prefix: string,
   pattern?: string | null
 ): Promise<string> {
   const counter = await Counter.findOneAndUpdate(
-    { name },
+    { org_id: orgId, name },
     { $inc: { seq: 1 } },
     { new: true, upsert: true }
   );

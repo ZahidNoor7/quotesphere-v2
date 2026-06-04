@@ -9,13 +9,13 @@ import Customer from "@/models/Customer";
 import Service from "@/models/Service";
 import Settings from "@/models/Settings";
 import Counter from "@/models/Counter";
-import { withLog } from "@/lib/logger";
+import { withTenant } from "@/lib/with-tenant";
 import { recordAudit } from "@/lib/audit";
 
 const VALID_TYPES = ["invoices", "quotations", "expenses", "projects", "customers", "services", "all"] as const;
 type DeleteType = (typeof VALID_TYPES)[number];
 
-export const DELETE = withLog("DELETE /api/settings/bulk-delete", async (req: NextRequest) => {
+export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req: NextRequest) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -56,7 +56,7 @@ export const DELETE = withLog("DELETE /api/settings/bulk-delete", async (req: Ne
     if (type === "all") {
       await Counter.deleteMany({});
       await Settings.findOneAndUpdate(
-        { user_id: userId },
+        {},
         {
           $set: {
             company_name: "My Company", company_email: "", company_phone: "",

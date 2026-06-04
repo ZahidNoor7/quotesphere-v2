@@ -5,6 +5,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import type { AiAssistantConfig } from "@/types";
 import { resolveProvider } from "@/lib/assistant/providers";
+import { enterOrg } from "@/lib/tenant-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,9 @@ const REWRITE_SYSTEM = `You refine a user's custom instructions for an AI billin
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id;
+  const orgId = (session.user as { org_id?: string }).org_id;
+  if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  enterOrg(orgId);
 
   let text = "";
   try {
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   await connectDB();
-  const settings = (await Settings.findOne({ user_id: userId }).lean()) as
+  const settings = (await Settings.findOne({}).lean()) as
     | { integrations?: { aiAssistant?: AiAssistantConfig } }
     | null;
   const cfg = settings?.integrations?.aiAssistant;

@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import { tenantScope } from "@/lib/tenant-plugin";
 
 export type WhatsAppMessageType =
   | "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contacts" | "template";
 
 export interface IWhatsAppMessage extends Document {
+  org_id?: mongoose.Types.ObjectId;
   user_id?: mongoose.Types.ObjectId;
   direction: "in" | "out";
   from: string;
@@ -70,6 +72,8 @@ const whatsAppMessageSchema = new Schema<IWhatsAppMessage>(
 whatsAppMessageSchema.index({ from: 1, timestamp: -1 });
 whatsAppMessageSchema.index({ to: 1, timestamp: -1 });
 whatsAppMessageSchema.index({ mediaId: 1 });
+
+whatsAppMessageSchema.plugin(tenantScope);
 
 const WhatsAppMessage: Model<IWhatsAppMessage> =
   mongoose.models.WhatsAppMessage ||
