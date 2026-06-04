@@ -6,6 +6,7 @@ import WhatsAppMessage from "@/models/WhatsAppMessage";
 import Customer from "@/models/Customer";
 import { sendWhatsAppMessage, sendWhatsAppMediaLink, mediaKindFromMime, normalizePhone, WA_MEDIA_LIMITS } from "@/lib/whatsapp";
 import { resolveCloudinaryConfig, uploadToCloudinary, CLOUDINARY_NOT_CONFIGURED } from "@/lib/cloudinary";
+import { cloudinaryFolder } from "@/lib/cloudinary-folders";
 import type { WhatsAppConfig } from "@/types";
 
 /** Rough byte size of a base64 data URI payload. */
@@ -104,9 +105,13 @@ export async function POST(req: NextRequest) {
       // downloads as an unopenable, randomly-named blob.
       const isDoc = kind === "document";
       const safeName = attachment.filename.replace(/[^\w.\-]+/g, "_");
+      // Group media per conversation: by customer when known, else by phone number.
+      const waFolder = cloudinaryFolder("whatsapp", customer ? String(customer._id) : normalized);
       const uploaded = await uploadToCloudinary(cloud, attachment.dataUri, {
         resource_type: isDoc ? "raw" : "auto",
-        ...(isDoc ? { public_id: `whatsapp/${Date.now()}-${safeName}` } : { folder: "whatsapp" }),
+        // Raw docs keep the filename (with extension) in the public_id, so the folder
+        // is embedded there; media uses the regular `folder` option.
+        ...(isDoc ? { public_id: `${waFolder}/${Date.now()}-${safeName}` } : { folder: waFolder }),
       });
       secureUrl = uploaded.secure_url;
     } catch {

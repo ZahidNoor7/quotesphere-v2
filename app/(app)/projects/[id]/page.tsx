@@ -541,7 +541,8 @@ export default function ProjectDetailPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("folder", "quotesphere/attachments");
+      fd.append("feature", "projects");
+      fd.append("recordId", id);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
       const uploadData = await uploadRes.json();
       if (!uploadData.success) throw new Error(uploadData.error);

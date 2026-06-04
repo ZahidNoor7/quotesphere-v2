@@ -279,7 +279,7 @@ export default function NewExpensePage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("folder", "expenses");
+      fd.append("feature", "expenses");
       const up = await fetch("/api/upload", { method: "POST", body: fd });
       const uj = await up.json();
       if (!up.ok || !uj.success) throw new Error(uj.error || "Upload failed");

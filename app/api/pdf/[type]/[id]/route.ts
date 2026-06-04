@@ -9,6 +9,7 @@ import { withLog } from "@/lib/logger";
 import { mintPrintToken, type PrintDocType } from "@/lib/print-token";
 import { getBrowser } from "@/lib/pdf/browser";
 import { resolveCloudinaryConfig, uploadToCloudinary, type CloudinaryConfig } from "@/lib/cloudinary";
+import { cloudinaryFolder } from "@/lib/cloudinary-folders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +24,11 @@ const BASE_URL =
 // are uploaded to Cloudinary and returned as a URL instead of raw bytes.
 const MAX_INLINE_BYTES = 4_000_000;
 
-async function uploadPdf(cfg: CloudinaryConfig, pdf: Uint8Array, fileName: string): Promise<string> {
+async function uploadPdf(cfg: CloudinaryConfig, pdf: Uint8Array, fileName: string, folder: string): Promise<string> {
   const dataUri = `data:application/pdf;base64,${Buffer.from(pdf).toString("base64")}`;
   const res = await uploadToCloudinary(cfg, dataUri, {
     resource_type: "raw",
-    folder: "quotesphere/pdf",
+    folder,
     public_id: fileName.replace(/\.pdf$/i, ""),
     format: "pdf",
   });
@@ -78,7 +79,8 @@ export const GET = withLog(
               { status: 400 }
             );
           }
-          const hostedUrl = await uploadPdf(cfg, pdf, fileName);
+          const folder = cloudinaryFolder(type === "invoice" ? "invoices" : "quotations", id);
+          const hostedUrl = await uploadPdf(cfg, pdf, fileName, folder);
           return NextResponse.json({ success: true, url: hostedUrl });
         }
         return new NextResponse(Buffer.from(pdf), {

@@ -80,7 +80,7 @@ export default function GeneralSettingsPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("folder", "quotesphere/logos");
+      fd.append("feature", "logos");
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
