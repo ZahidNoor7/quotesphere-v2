@@ -4,7 +4,9 @@ import { tenantScope } from "@/lib/tenant-plugin";
 export type AuditAction = "create" | "update" | "delete";
 export type AuditResource =
   | "invoice" | "quotation" | "expense" | "project"
-  | "customer" | "service" | "product" | "template" | "settings";
+  | "customer" | "service" | "product" | "template" | "settings"
+  | "employee" | "salary_structure" | "pay_period"
+  | "payroll_run" | "payslip" | "payroll_config" | "loan_advance";
 
 export interface IAuditLog extends Document {
   org_id?:        mongoose.Types.ObjectId;

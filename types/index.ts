@@ -643,3 +643,175 @@ export interface AssistantUiMessage {
   error?: string;
   createdAt?: string;
 }
+
+// ─── Payroll ──────────────────────────────────────────────────────────────────
+// NOTE: every monetary field below is stored in INTEGER minor units (amount × 100),
+// isolated to the payroll module. Convert with lib/payroll/money.ts at the UI edge.
+
+export type EmploymentType = "full_time" | "contract";
+export type EmployeeStatus = "active" | "inactive";
+export type SalaryComponentType = "earning" | "deduction";
+export type SalaryComponentCalc = "fixed" | "percentage_of_basic";
+export type PayPeriodStatus = "open" | "processing" | "closed";
+export type PayrollRunStatus = "draft" | "pending_approval" | "approved" | "paid" | "cancelled";
+export type PayslipPaymentStatus = "unpaid" | "paid";
+export type LoanStatus = "active" | "closed";
+export type LoanType = "loan" | "advance";
+
+export interface BankDetails {
+  bankName?: string;
+  accountTitle?: string;
+  accountNumber?: string;
+  iban?: string;
+}
+
+export interface Employee {
+  _id: string;
+  employee_code: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  designation?: string;
+  department?: string;
+  employmentType: EmploymentType;
+  joinDate: string;
+  status: EmployeeStatus;
+  bankDetails?: BankDetails;
+  payCurrency: Currency;
+  salaryStructureId?: string;
+  user_id?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalaryComponent {
+  name: string;
+  type: SalaryComponentType;
+  calculation: SalaryComponentCalc;
+  /** `fixed` → minor units; `percentage_of_basic` → a percent (0–100). */
+  value: number;
+  isBasic?: boolean;
+  taxable?: boolean;
+}
+
+export interface SalaryStructure {
+  _id: string;
+  name: string;
+  currency: Currency;
+  active: boolean;
+  components: SalaryComponent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayPeriod {
+  _id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  payDate: string;
+  status: PayPeriodStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayslipLine {
+  name: string;
+  amount: number; // minor units
+}
+
+export interface PayrollRunTotals {
+  grossTotal: number;
+  deductionsTotal: number;
+  netTotal: number;
+  employerCostTotal: number;
+  employeeCount: number;
+}
+
+export interface PayrollRun {
+  _id: string;
+  run_no: string;
+  payPeriodId: string | PayPeriod;
+  status: PayrollRunStatus;
+  createdBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  paidAt?: string;
+  fxRateUsed: { base: string; rates: Record<string, number>; capturedAt: string };
+  totals: PayrollRunTotals;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeSnapshot {
+  employeeId: string;
+  employee_code: string;
+  name: string;
+  designation?: string;
+  department?: string;
+  payCurrency: string;
+  bankName?: string;
+  accountTitle?: string;
+  accountNumber?: string;
+  iban?: string;
+}
+
+export interface Payslip {
+  _id: string;
+  payrollRunId: string;
+  employeeId: string;
+  payPeriodId: string;
+  employeeSnapshot: EmployeeSnapshot;
+  componentsSnapshot: SalaryComponent[];
+  earnings: PayslipLine[];
+  deductions: PayslipLine[];
+  gross: number;
+  totalDeductions: number;
+  net: number;
+  payCurrency: Currency;
+  fxRate: number;
+  baseCurrency: string;
+  baseCurrencyGross: number;
+  baseCurrencyNet: number;
+  taxableIncomeAnnual: number;
+  paymentStatus: PayslipPaymentStatus;
+  paidAt?: string;
+  pdfUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoanAdvance {
+  _id: string;
+  employeeId: string;
+  type: LoanType;
+  principal: number;
+  installmentAmount: number;
+  remainingBalance: number;
+  currency: Currency;
+  status: LoanStatus;
+  startDate: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaxSlab {
+  minAnnual: number;
+  maxAnnual: number | null;
+  fixedAmount: number;
+  ratePercent: number;
+}
+
+export interface PayrollConfig {
+  _id: string;
+  taxYearLabel: string;
+  currency: Currency;
+  taxSlabs: TaxSlab[];
+  eobi: { enabled: boolean; employeeRate: number; employerRate: number; minWage: number };
+  providentFund: { enabled: boolean; employeeRate: number; employerRate: number };
+  statutory: { taxEnabled: boolean };
+  createdAt: string;
+  updatedAt: string;
+}

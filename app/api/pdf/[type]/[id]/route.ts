@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
+import Payslip from "@/models/Payslip";
 import { requireRole } from "@/lib/rbac";
 import { withTenant } from "@/lib/with-tenant";
 import { mintPrintToken, type PrintDocType } from "@/lib/print-token";
@@ -45,7 +46,7 @@ export const GET = withTenant(
       if (denied) return denied;
 
       const { type, id } = await params;
-      if (type !== "invoice" && type !== "quotation") {
+      if (type !== "invoice" && type !== "quotation" && type !== "payslip") {
         return NextResponse.json({ success: false, error: "Invalid document type" }, { status: 400 });
       }
       if (!isValidObjectId(id)) {
@@ -57,7 +58,9 @@ export const GET = withTenant(
       // render PDFs for documents in their own organization.
       const exists = type === "invoice"
         ? await Invoice.findOne({ _id: id }).select("_id").lean()
-        : await Quotation.findOne({ _id: id }).select("_id").lean();
+        : type === "quotation"
+          ? await Quotation.findOne({ _id: id }).select("_id").lean()
+          : await Payslip.findOne({ _id: id }).select("_id").lean();
       if (!exists) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
       const uid = String((session.user as { id?: string } | undefined)?.id ?? "");
@@ -75,7 +78,7 @@ export const GET = withTenant(
           preferCSSPageSize: true, // page size/orientation/margins come from the design's @page (PrintDocument)
         });
 
-        const fileName = `${type === "invoice" ? "Invoice" : "Quotation"}-${id}.pdf`;
+        const fileName = `${type === "invoice" ? "Invoice" : type === "quotation" ? "Quotation" : "Payslip"}-${id}.pdf`;
         if (pdf.byteLength > MAX_INLINE_BYTES) {
           const cfg = await resolveCloudinaryConfig(uid);
           if (!cfg) {
@@ -84,7 +87,7 @@ export const GET = withTenant(
               { status: 400 }
             );
           }
-          const folder = cloudinaryFolder(type === "invoice" ? "invoices" : "quotations", id);
+          const folder = cloudinaryFolder(type === "invoice" ? "invoices" : type === "quotation" ? "quotations" : "payslips", id);
           const hostedUrl = await uploadPdf(cfg, pdf, fileName, folder);
           return NextResponse.json({ success: true, url: hostedUrl });
         }

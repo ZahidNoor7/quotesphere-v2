@@ -41,6 +41,14 @@ const NAV = [
   },
 ];
 
+// Payroll is admin-only — injected into the Admin section for admins (the API
+// enforces the same gate server-side).
+const PAYROLL_ITEM = { href: "/payroll", label: "Payroll", icon: "payroll" };
+function navFor(isAdmin: boolean) {
+  if (!isAdmin) return NAV;
+  return NAV.map((s) => (s.section === "Admin" ? { ...s, items: [PAYROLL_ITEM, ...s.items] } : s));
+}
+
 const ICONS: Record<string, React.ReactNode> = {
   dashboard: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>,
   clients: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><circle cx="6" cy="5" r="3"/><path d="M1 14c0-3 2-5 5-5s5 2 5 5"/><circle cx="12.5" cy="5" r="2"/><path d="M11 14c0-1.5.6-3 1.5-3.5"/></svg>,
@@ -55,11 +63,13 @@ const ICONS: Record<string, React.ReactNode> = {
   messaging: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M2 3a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H6l-3 2V3z"/><path d="M5 6h6M5 8.5h4"/></svg>,
   assistant: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><path d="M8 2l1.5 4L14 7.5 9.5 9 8 13.5 6.5 9 2 7.5 6.5 6z"/><path d="M12.5 2.2l.5 1.3 1.3.5-1.3.5-.5 1.3-.5-1.3-1.3-.5 1.3-.5z"/></svg>,
   help: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><path d="M8 3.5C6.8 2.7 5.4 2.5 4 2.5H2.2v9.5H4c1.4 0 2.8.2 4 1 1.2-.8 2.6-1 4-1h1.8v-9.5H12c-1.4 0-2.8.2-4 1z"/><path d="M8 3.5v9.5"/></svg>,
+  payroll: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><circle cx="8" cy="8" r="2"/><path d="M4 8h.01M12 8h.01"/></svg>,
 };
 
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const nav = navFor(session?.user?.role === "admin");
   const initials = getInitials(session?.user?.name || "U");
   const [isHovered, setIsHovered] = useState(false);
   const [ready, setReady] = useState(false);
@@ -143,7 +153,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: collapsed ? "4px 8px" : "8px 10px", overflowY: "auto" }} className="scrollbar-hide">
-          {NAV.map(({ section, items }, sectionIndex) => (
+          {nav.map(({ section, items }, sectionIndex) => (
             <div key={section}>
               {!collapsed ? (
                 <div style={{
@@ -326,6 +336,7 @@ export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { data: session } = useSession();
+  const nav = navFor(session?.user?.role === "admin");
 
   return (
     <>
@@ -363,7 +374,7 @@ export function MobileNav() {
               </button>
             </div>
             <nav style={{ flex: 1, padding: "10px", overflowY: "auto" }}>
-              {NAV.map(({ section, items }) => (
+              {nav.map(({ section, items }) => (
                 <div key={section}>
                   <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--t3)", padding: "10px 8px 4px" }}>{section}</div>
                   {items.map(({ href, label, icon }) => {

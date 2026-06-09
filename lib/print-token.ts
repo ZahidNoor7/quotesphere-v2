@@ -13,7 +13,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const SECRET = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "";
 const TTL_MS = 60_000; // 60s — only needs to survive API route → Chromium → print page
 
-export type PrintDocType = "invoice" | "quotation";
+export type PrintDocType = "invoice" | "quotation" | "payslip";
 
 interface Payload {
   type: PrintDocType;

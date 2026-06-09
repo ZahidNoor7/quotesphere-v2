@@ -27,6 +27,7 @@ export const CLOUDINARY_FEATURES = {
   projects: { dir: "Projects", scope: "record" },
   invoices: { dir: "Invoices", scope: "record" },
   quotations: { dir: "Quotations", scope: "record" },
+  payslips: { dir: "Payslips", scope: "record" },
   whatsapp: { dir: "WhatsApp", scope: "record" },
 } as const satisfies Record<string, { dir: string; scope: "owner" | "record" }>;
 
