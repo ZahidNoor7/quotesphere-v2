@@ -7,6 +7,18 @@ export type ExpenseStatus = "draft" | "recorded" | "verified" | "cancelled";
 export type ProjectStatus = "pending" | "in_progress" | "on_hold" | "cancelled" | "complete";
 export type UserRole = "admin" | "manager" | "staff" | "viewer";
 
+/** ProseMirror/Tiptap JSON document — canonical rich-text storage. */
+export type RichTextJSON = {
+  type?: string;
+  content?: RichTextJSON[];
+  text?: string;
+  marks?: unknown[];
+  attrs?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+/** Rich-text fields persist as ProseMirror JSON; legacy records hold a plain string. */
+export type RichTextContent = string | RichTextJSON;
+
 export interface Customer {
   _id: string;
   name: string;
@@ -35,6 +47,8 @@ export interface PaymentEntry {
 export interface InvoiceItem {
   id: number;
   name: string;
+  /** Optional rich-text line-item details (ProseMirror JSON; legacy: plain string). */
+  description?: RichTextContent;
   quantity: number;
   price: number;
   images?: string[];
@@ -61,7 +75,7 @@ export interface Invoice {
   outstanding: number;
   total_paid: number;
   currency: Currency;
-  remarks?: string;
+  remarks?: RichTextContent;
   attachments?: string[];
   payments: PaymentEntry[];
   customer_id: string;
@@ -87,6 +101,8 @@ export interface Invoice {
 export interface QuotationItem {
   id: number;
   name: string;
+  /** Optional rich-text line-item details (ProseMirror JSON; legacy: plain string). */
+  description?: RichTextContent;
   quantity: number;
   price: number;
   images?: string[];
@@ -106,7 +122,7 @@ export interface Quotation {
   delivery_charges: number;
   total_amount: number;
   currency: Currency;
-  remarks?: string;
+  remarks?: RichTextContent;
   customer_id: string;
   customer_name: string;
   customer_phone: string;

@@ -62,3 +62,28 @@ Why: `middleware_old.ts` is legacy/unused; the active config is in `auth.ts`. Cr
 
 Rule: Always store a `rateSnapshot` on documents at creation time — never recalculate from live rates later.
 Why: Exchange rates fluctuate; historical documents must reflect the rate at the time of issue, not the current rate.
+
+## 2026-06-13 — Mongoose `Mixed` fields need `markModified` on load-modify-save
+
+Rule: When a route loads a doc, assigns a `Schema.Types.Mixed` (or array-with-Mixed) path, and calls `.save()`, also call `doc.markModified("path")`. `findByIdAndUpdate`/`$set` does NOT need it.
+Why: Mongoose can't always auto-detect changes to Mixed values, so the change silently won't persist. (Invoice PUT uses `Object.assign` + `save`, so it marks `remarks`/`items`.)
+
+## 2026-06-13 — Tiptap v3 packaging gotchas
+
+Rule: StarterKit v3 ALREADY bundles Underline, Link, and the list extensions — don't re-install them. `Color` ships from `@tiptap/extension-text-style` (extension-color just re-exports it). Add `@tiptap/core` as a DIRECT dep so type imports (`AnyExtension`, `Content`, `JSONContent`) resolve under pnpm.
+Why: Double-adding bundled extensions causes duplicate-extension warnings; importing a transitive `@tiptap/core` fails pnpm resolution.
+
+## 2026-06-13 — Server-safe JSON→HTML for rich text
+
+Rule: Render ProseMirror JSON to HTML with `@tiptap/static-renderer/pm/html-string` (`renderToHTMLString({ content, extensions })`) — it's DOM-free and uses the shared extension list. Always sanitize the output with isomorphic-dompurify before `dangerouslySetInnerHTML`, and externalize `isomorphic-dompurify` in `next.config.ts`.
+Why: It runs identically on the server print route and the client preview (one render path = zero drift), and avoids needing a DOM to generate HTML.
+
+## 2026-06-13 — Keep dep-free helpers out of jsdom-loading modules
+
+Rule: Pure helpers (e.g. `richTextToPlainText`, `isEmptyRichText`) that server modules need go in a module with NO heavy imports (normalize.ts), then re-export from the render module. Don't make a server route import a module that top-level-imports isomorphic-dompurify just for a string helper.
+Why: `isomorphic-dompurify` initializes jsdom at import time; pulling it into the AI assistant route is wasteful.
+
+## 2026-06-13 — Rich-text editor styling shares ONE stylesheet at two scales
+
+Rule: For editor ⇄ preview ⇄ PDF fidelity, use one scoped `.qs-rich` stylesheet with em-relative spacing (NOT Tailwind `prose`), placed UNLAYERED so it overrides Tailwind preflight. Set the base font-size per context (editor ~13px, document 8–9px); formatting stays identical, only absolute scale differs. Editor surface must use the active design's font so bold/italic embed instead of synthesizing.
+Why: `prose` is rem-based and opinionated and fights an 8px print scale; a layered rule loses to preflight's list/heading resets.

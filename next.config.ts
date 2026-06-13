@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
   },
-  serverExternalPackages: ["cloudinary", "puppeteer-core", "@sparticuz/chromium-min"],
+  serverExternalPackages: ["cloudinary", "puppeteer-core", "@sparticuz/chromium-min", "isomorphic-dompurify"],
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
     // Allow the proxy middleware to forward up to 25 MB so /api/upload receives full file bodies

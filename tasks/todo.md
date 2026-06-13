@@ -6,6 +6,47 @@
 - [x] completed task
 -->
 
+## 2026-06-13 — Rich-text editing (Tiptap 3): line-item details + document remarks
+
+Goal: add Tiptap 3.x rich-text to (a) a NEW optional per-line-item `description` and (b) the existing document `remarks` on invoices & quotations. Styled content must render identically in the editor, the live preview, and the Puppeteer PDF. One shared extension list, one stylesheet, one render utility, one font set. MIT-only; ProseMirror JSON canonical storage; legacy plain strings still render unchanged.
+
+Decisions (approved): line items → new additive rich `description` (keep `name` plain so export/AI/search are untouched); scope → document `remarks` only (Settings `terms_and_conditions` / design footer left as-is).
+
+### Phase 1 — Deps & data model
+- [x] Install MIT pkgs (pinned 3.26.1 / 3.16.0): @tiptap/react @tiptap/pm @tiptap/core @tiptap/starter-kit @tiptap/extension-text-align @tiptap/extension-highlight @tiptap/extension-text-style @tiptap/extension-color @tiptap/static-renderer + isomorphic-dompurify. (StarterKit v3 already bundles Underline/Link/lists; `@tiptap/core` added direct so pnpm resolves type imports.)
+- [x] types/index.ts: `RichTextJSON` + `RichTextContent = string | RichTextJSON`; `description?` on item types; `remarks?` widened.
+- [x] models/Invoice.ts + models/Quotation.ts: itemSchema gains `description: Schema.Types.Mixed`; `remarks` String → Mixed. `name` stays plain. No migration.
+- [x] zod: shared `lib/rich-text/zod.ts` (`richTextZod`, string|object, ~50KB cap) wired into invoices/quotations POST + PUT; quotation PUT also hardened (parse + strip ownership fields).
+- [x] lib/doc-data.ts + DocumentData: carry item `description`.
+
+### Phase 1.5 — Shared rich-text core
+- [x] lib/rich-text/extensions.ts — single source: superset (remarks) + subset (lineItem); RENDER_EXTENSIONS = superset drives renderer + sanitizer.
+- [x] lib/rich-text/normalize.ts — string → paragraph (hard breaks); JSON as-is; hosts dep-free `richTextToPlainText`/`isEmptyRichText` (so the AI route doesn't load jsdom).
+- [x] lib/rich-text/render.ts — renderRichText() → sanitized HTML (static-renderer DOM-free + isomorphic-dompurify, allowlist from extensions).
+
+### Phase 2 — Editor
+- [x] components/custom-ui/rich-text-editor.tsx ('use client', immediatelyRender:false), JSON in/out, variant lineItem|remarks, shadcn Button + lucide toolbar (link/colour/highlight Popovers), useEditorState active state, caret-safe sync, surface = .qs-rich in design font.
+- [x] Wired into document-builder.tsx: name stays `<Input>`; line-item details via **lazy** `<LineItemDescription>` (editor mounts only when opened); remarks `<Textarea>` → editor. isDirty deep-compares JSON; payload/state/preview carry it; SaveTemplate gets plain-text remarks.
+
+### Phase 3 — Rendering (preview + PDF)
+- [x] document-renderer.tsx: ItemsTable cell = name + sanitized description HTML; RemarksBlock = sanitized remarks HTML; `.qs-rich` at 8–9px + `suppressHydrationWarning` + overflow guard. Detail pages use the same util.
+- [x] app/globals.css: self-contained **unlayered** `.qs-rich` (chosen over `prose` for 8–9px precision; em-relative) + `.qs-rich-editor` surface rules.
+- [x] Fonts: added Inter-Italic.woff2 + Inter-BoldItalic.woff2 (OFL) + @font-face; editor uses design font → bold/italic embedded, not synthesized.
+
+### Phase 4 — Security & multi-tenancy
+- [x] Allowlist from extension set; blocks script/on*/javascript:/data:/img/remote (XSS+SSRF); inline style narrowed to colour/bg/text-align with value validation; links forced rel/nofollow/_blank (never fetched). isomorphic-dompurify externalized.
+- [x] Export route never serialized remarks/items text (no projection needed); AI assistant snapshot → plain-text remarks; SaveTemplate → plain-text.
+- [x] Tenant scoping unchanged (plugin + signed print token + runWithOrg); quotation PUT hardened against ownership overwrite.
+
+### Phase 5 — Fidelity verification
+- [x] test/rich-text.test.ts — 28 tests green: full formatting matrix, legacy strings, sanitizer (XSS/SSRF/style-injection), round-trip + helpers. Runs in node+jsdom = the same path the server PDF render uses.
+- [x] `pnpm build` zero TS/ESLint errors; full `vitest run` 152/152 green.
+- [ ] Live browser visual parity + manual e2e — needs running app (auth + DB + real doc); offered via /verify.
+
+### Review
+
+Tiptap 3.x rich text on two surfaces: a NEW additive per-line-item `description` (plain `name`/exports/AI/search untouched) and document `remarks`. Canonical = ProseMirror JSON in `Mixed`; legacy strings render unchanged (no migration). **Fidelity is structural:** preview & PDF use the same `DocumentTemplate` leaves + same `globals.css` + the one `renderRichText` driven by the one extension list, so preview == PDF by construction; unit tests assert the exact HTML the PDF embeds. Editor shares `.qs-rich` + the design font (embedded Inter italics) for WYSIWYG. Deviations (all improvements): self-contained `.qs-rich` over `prose`; lazy line-item editors for scale; projection applied where actually needed (AI + save-as-template); `@tiptap/core` as a direct dep; dep-free helpers in normalize.ts. One transient convert-test flake under parallel workers (1-node replica-set transaction) did not reproduce (152/152); convert route untouched.
+
 ## 2026-05-30 — Products page redesign (consistent with Services)
 
 Goal: redesign `/products` to match the new `/services` design — same filter bar, Sheet-based create/edit with unsaved-changes guard, grouped glass cards — while keeping product-specific features (SKU, stock summary strip, stock badges, ± stock adjust).

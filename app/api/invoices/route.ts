@@ -9,10 +9,12 @@ import { getNextNumberWithPattern } from "@/models/Counter";
 import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
+import { richTextZodNullish } from "@/lib/rich-text/zod";
 
 const itemSchema = z.object({
   id: z.number(),
   name: z.string().max(500),
+  description: richTextZodNullish,
   quantity: z.number().min(0),
   price: z.number().min(0),
   images: z.array(z.string()).optional(),
@@ -43,7 +45,7 @@ const invoiceSchema = z.object({
   delivery_charges: z.number().min(0).optional(),
   advance: z.number().min(0).optional(),
   currency: z.enum(CURRENCIES).optional(),
-  remarks: z.string().max(2000).optional(),
+  remarks: richTextZodNullish,
   project_id: z.string().optional(),
   converted_from: z.string().optional(),
   designId: z.string().optional(),

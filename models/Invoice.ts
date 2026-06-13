@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
 import { tenantScope } from "@/lib/tenant-plugin";
+import type { RichTextContent } from "@/types";
 
 export interface IPaymentEntry {
   _id?: string;
@@ -15,6 +16,8 @@ export interface IPaymentEntry {
 export interface IInvoiceItem {
   id: number;
   name: string;
+  /** Optional rich-text details (ProseMirror JSON; legacy records hold a string). */
+  description?: RichTextContent;
   quantity: number;
   price: number;
   images?: string[];
@@ -38,7 +41,7 @@ export interface IInvoice extends Document {
   advance: number;
   balance: number;
   currency: string;
-  remarks?: string;
+  remarks?: RichTextContent;
   attachments?: string[];
   // Payment ledger — new
   payments: IPaymentEntry[];
@@ -97,6 +100,8 @@ const itemSchema = new Schema<IInvoiceItem>(
     price: { type: Number, required: true, min: 0 },
     images: [String],
     product_id: { type: Schema.Types.ObjectId, ref: "Product" },
+    // Rich-text line-item details (ProseMirror JSON; optional, additive).
+    description: { type: Schema.Types.Mixed },
   },
   { _id: false }
 );
@@ -119,7 +124,8 @@ const invoiceSchema = new Schema<IInvoice>(
     advance: { type: Number, default: 0, min: 0 },
     balance: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "PKR" },
-    remarks: String,
+    // Rich-text remarks (ProseMirror JSON; legacy records hold a plain string).
+    remarks: { type: Schema.Types.Mixed },
     attachments: [String],
     // Payment ledger
     payments: [paymentEntrySchema],

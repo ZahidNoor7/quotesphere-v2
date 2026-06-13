@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { downloadServerPdf, fetchServerPdfBlob } from "@/lib/pdf/client";
 import { buildDocumentData } from "@/lib/doc-data";
+import { renderRichText, isEmptyRichText } from "@/lib/rich-text/render";
 import { T1, T2, T3, AC, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD, ICON_PILL } from "@/lib/ds";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
@@ -322,10 +323,10 @@ export default function QuotationDetailPage() {
             </div>
           </div>
 
-          {quotation.remarks && (
+          {!isEmptyRichText(quotation.remarks) && (
             <div style={{ ...CARD, padding: "14px 16px" }}>
               <div style={{ fontSize: 11, color: T3, marginBottom: 6 }}>REMARKS</div>
-              <div style={{ fontSize: 13, color: T2, lineHeight: 1.6 }}>{quotation.remarks}</div>
+              <div className="qs-rich" style={{ fontSize: 13, color: T2, lineHeight: 1.6 }} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: renderRichText(quotation.remarks) }} />
             </div>
           )}
         </div>

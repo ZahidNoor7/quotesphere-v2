@@ -51,6 +51,110 @@
   font-display: swap;
   src: url("/fonts/PTSerif-BoldItalic.ttf") format("truetype");
 }
+/* Inter italics — embedded so italic runs resolve to a real italic face (not a
+   browser-synthesized oblique) in both the editor preview and the PDF render. */
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Inter-Italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Inter-BoldItalic.woff2") format("woff2");
+}
+
+/* ══════════════════════════════════════════════
+   RICH TEXT (.qs-rich) — the ONE shared stylesheet for the editor surface, the
+   live document preview, and the Puppeteer PDF. Unlayered (outside @layer) so it
+   overrides Tailwind preflight's list/heading resets. Everything is em-relative
+   and inherits font-family / font-size / color from its container, so the
+   readable editor (~13px) and the tiny document cells (8–9px) share IDENTICAL
+   formatting at different absolute scales (fidelity contract #2 + #4).
+   ══════════════════════════════════════════════ */
+.qs-rich {
+  overflow-wrap: anywhere;
+}
+.qs-rich :where(p, h3, h4, ul, ol) {
+  margin: 0 0 0.5em;
+}
+.qs-rich :where(p, h3, h4, ul, ol):last-child {
+  margin-bottom: 0;
+}
+.qs-rich p:empty::before {
+  content: "\00a0";
+}
+.qs-rich strong,
+.qs-rich b {
+  font-weight: 700;
+}
+.qs-rich em,
+.qs-rich i {
+  font-style: italic;
+}
+.qs-rich u {
+  text-decoration: underline;
+}
+.qs-rich s,
+.qs-rich del {
+  text-decoration: line-through;
+}
+.qs-rich h3 {
+  font-size: 1.3em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.qs-rich h4 {
+  font-size: 1.12em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.qs-rich ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.qs-rich ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.qs-rich li {
+  margin: 0 0 0.15em;
+}
+.qs-rich li > ul,
+.qs-rich li > ol {
+  margin: 0.12em 0 0;
+}
+.qs-rich a {
+  color: inherit;
+  text-decoration: underline;
+}
+.qs-rich mark {
+  background-color: #fef3c7;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.08em;
+}
+
+/* Editing surface: readable base size (~13px); the document render reuses the
+   SAME .qs-rich rules at 8–9px, so formatting matches at both scales. */
+.qs-rich-editor {
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 8px 10px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.qs-rich-editor:focus {
+  outline: none;
+}
+.qs-rich-editor .ProseMirror-trailingBreak {
+  display: none;
+}
 
 /* ══════════════════════════════════════════════
    QUOTESPHERE DESIGN TOKENS

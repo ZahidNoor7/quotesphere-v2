@@ -7,6 +7,7 @@ import Invoice from "@/models/Invoice";
 import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
+import { validateRichTextFields } from "@/lib/rich-text/zod";
 
 export const GET = withTenant("GET /api/invoices/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -45,8 +46,15 @@ export const PUT = withTenant("PUT /api/invoices/[id]", async (req: NextRequest,
       delete (data as Record<string, unknown>)[k];
     }
 
+    const richErr = validateRichTextFields(data);
+    if (richErr) return NextResponse.json({ success: false, error: richErr }, { status: 400 });
+
     const before = invoice.toObject();
     Object.assign(invoice, data);
+    // `remarks` and line-item `description` are Mixed paths — flag them modified
+    // so Mongoose persists object value changes on save().
+    if ("remarks" in data) invoice.markModified("remarks");
+    if ("items" in data) invoice.markModified("items");
     await invoice.save();
 
     void recordAudit({ req, session, action: "update", resource: "invoice", resource_id: id, resource_label: before.invoice_no, before, after: invoice.toObject() });

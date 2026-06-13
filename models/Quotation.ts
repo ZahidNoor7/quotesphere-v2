@@ -1,10 +1,13 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { getNextNumber } from "./Counter";
 import { tenantScope } from "@/lib/tenant-plugin";
+import type { RichTextContent } from "@/types";
 
 export interface IQuotationItem {
   id: number;
   name: string;
+  /** Optional rich-text details (ProseMirror JSON; legacy records hold a string). */
+  description?: RichTextContent;
   quantity: number;
   price: number;
   images?: string[];
@@ -23,7 +26,7 @@ export interface IQuotation extends Document {
   delivery_charges: number;
   total_amount: number;
   currency: string;
-  remarks?: string;
+  remarks?: RichTextContent;
   // Relations
   customer_id: mongoose.Types.ObjectId;
   customer_name: string;
@@ -49,6 +52,8 @@ const itemSchema = new Schema<IQuotationItem>(
     quantity: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
     images: [String],
+    // Rich-text line-item details (ProseMirror JSON; optional, additive).
+    description: { type: Schema.Types.Mixed },
   },
   { _id: false }
 );
@@ -71,7 +76,8 @@ const quotationSchema = new Schema<IQuotation>(
     delivery_charges: { type: Number, default: 0 },
     total_amount: { type: Number, required: true, min: 0 },
     currency: { type: String, default: "PKR" },
-    remarks: String,
+    // Rich-text remarks (ProseMirror JSON; legacy records hold a plain string).
+    remarks: { type: Schema.Types.Mixed },
     customer_id: { type: Schema.Types.ObjectId, ref: "Customer", required: true },
     customer_name: { type: String, required: true },
     customer_phone: { type: String, required: true },

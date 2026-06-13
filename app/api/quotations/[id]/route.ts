@@ -7,6 +7,8 @@ import Invoice from "@/models/Invoice";
 import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
+import { z } from "zod";
+import { validateRichTextFields } from "@/lib/rich-text/zod";
 
 export const GET = withTenant("GET /api/quotations/[id]", async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -38,8 +40,18 @@ export const PUT = withTenant("PUT /api/quotations/[id]", async (req: NextReques
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
+    const parsed = z.record(z.string(), z.unknown()).safeParse(body);
+    if (!parsed.success) return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 });
+    // Never let the client overwrite ownership or immutable identity fields.
+    const clean = { ...parsed.data };
+    for (const k of ["org_id", "_id", "quotation_no", "createdAt", "updatedAt", "__v"]) {
+      delete (clean as Record<string, unknown>)[k];
+    }
+    const richErr = validateRichTextFields(clean);
+    if (richErr) return NextResponse.json({ success: false, error: richErr }, { status: 400 });
+
     const before = await Quotation.findById(id).lean() as any;
-    const data = await Quotation.findByIdAndUpdate(id, body, { new: true });
+    const data = await Quotation.findByIdAndUpdate(id, clean, { new: true });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     void recordAudit({ req, session, action: "update", resource: "quotation", resource_id: id, resource_label: before?.quotation_no ?? id, before, after: data.toObject() });

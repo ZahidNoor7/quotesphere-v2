@@ -10,18 +10,19 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { DatePickerInput } from "@/components/ui/date-picker";
 import { formatCurrency } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD } from "@/lib/ds";
-import type { Customer, Service, Product, Project, DocTemplate } from "@/types";
+import type { Customer, Service, Product, Project, DocTemplate, RichTextContent, RichTextJSON } from "@/types";
 import { useSettings } from "@/hooks/use-settings";
 import { useCurrencyRates } from "@/hooks/use-currency-rates";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
-import { BUILT_IN_DESIGNS, getAllDesigns, getDesignById, getDefaultDesign } from "@/lib/document-designs";
-import { TriangleAlert } from "lucide-react";
+import { BUILT_IN_DESIGNS, getAllDesigns, getDesignById, getDefaultDesign, resolveConfig } from "@/lib/document-designs";
+import { Plus, TriangleAlert } from "lucide-react";
 import { IntegrationGateNotice } from "@/components/integrations/IntegrationGateNotice";
+import { RichTextEditor } from "@/components/custom-ui/rich-text-editor";
+import { renderRichText, richTextToPlainText, isEmptyRichText } from "@/lib/rich-text/render";
 
 // Portrait [w, h] in pt; landscape swaps them
 const PAGE_DIMS: Record<string, [number, number]> = {
@@ -33,7 +34,7 @@ const PAGE_DIMS: Record<string, [number, number]> = {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json()).then(d => d.data);
 
-interface LineItem { id: number; name: string; quantity: number; price: number; images?: string[]; product_id?: string; }
+interface LineItem { id: number; name: string; description?: RichTextContent; quantity: number; price: number; images?: string[]; product_id?: string; }
 interface BuilderProps { type: "invoice" | "quotation"; initialData?: any; }
 
 async function compressImage(file: File, maxPx = 320, quality = 0.75): Promise<string> {
@@ -55,6 +56,63 @@ async function compressImage(file: File, maxPx = 320, quality = 0.75): Promise<s
   });
 }
 
+/**
+ * Lazy line-item rich-text details. The Tiptap editor mounts ONLY while open, so
+ * a document with many line items doesn't pay for N live editors at once.
+ */
+function LineItemDescription({ value, onChange, fontFamily }: {
+  value?: RichTextContent | null;
+  onChange: (json: RichTextJSON) => void;
+  fontFamily?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const empty = isEmptyRichText(value);
+
+  if (open) {
+    return (
+      <div style={{ marginTop: 6 }}>
+        <RichTextEditor
+          variant="lineItem"
+          value={value}
+          onChange={onChange}
+          fontFamily={fontFamily}
+          minHeight={52}
+          placeholder="Item details (optional)…"
+          ariaLabel="Line-item details"
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 3 }}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px] text-(--t3) hover:text-(--t1)" onClick={() => setOpen(false)}>Done</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!empty) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        title="Edit details"
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}
+        className="qs-rich"
+        style={{ marginTop: 5, fontSize: 11, lineHeight: 1.4, color: T2, opacity: 0.9, cursor: "text" }}
+        dangerouslySetInnerHTML={{ __html: renderRichText(value) }}
+      />
+    );
+  }
+
+  return (
+    <Button
+      type="button" variant="ghost" size="sm"
+      className="mt-1 h-6 gap-1 px-1.5 text-[11px] text-(--t3) hover:text-(--t1)"
+      onClick={() => setOpen(true)}
+    >
+      <Plus className="h-3 w-3" /> Add details
+    </Button>
+  );
+}
+
 interface MobileItemCardProps {
   item: LineItem;
   idx: number;
@@ -62,14 +120,16 @@ interface MobileItemCardProps {
   disableRemove: boolean;
   hasError?: boolean;
   onUpdate: (id: number, key: "name" | "quantity" | "price", val: string) => void;
+  onUpdateDescription: (id: number, json: RichTextJSON) => void;
   onRemove: (id: number) => void;
   onDuplicate: (id: number) => void;
   onImageDialog: (id: number) => void;
   onImageUpload: (id: number) => void;
   onClearError?: () => void;
+  designFont?: string;
 }
 
-const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, hasError, onUpdate, onRemove, onDuplicate, onImageDialog, onImageUpload, onClearError }: MobileItemCardProps) {
+const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disableRemove, hasError, onUpdate, onUpdateDescription, onRemove, onDuplicate, onImageDialog, onImageUpload, onClearError, designFont }: MobileItemCardProps) {
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(String(item.quantity));
   const [price, setPrice] = useState(String(item.price));
@@ -127,6 +187,7 @@ const MobileItemCard = memo(function MobileItemCard({ item, idx, currency, disab
           Description is required
         </div>
       )}
+      <LineItemDescription value={item.description} onChange={(json) => onUpdateDescription(item.id, json)} fontFamily={designFont} />
       {/* Qty + Price */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
         <div>
@@ -384,12 +445,13 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const [taxType, setTaxType] = useState<"percentage" | "value">(initialData?.tax_type ?? "percentage");
   const [discount, setDiscount] = useState(initialData?.discount?.toString() ?? "0");
   const [delivery, setDelivery] = useState(initialData?.delivery_charges?.toString() ?? "0");
-  const [remarks, setRemarks] = useState(initialData?.remarks ?? "");
+  const [remarks, setRemarks] = useState<RichTextContent>(initialData?.remarks ?? "");
   const [items, setItems] = useState<LineItem[]>(
     initialData?.items
       ? initialData.items.map((it: any, i: number) => ({
         id: it.id ?? (Date.now() + i),
         name: it.name ?? "",
+        description: it.description,
         quantity: it.quantity ?? 1,
         price: it.price ?? 0,
         images: it.images ?? (it.image ? [it.image] : undefined),
@@ -428,11 +490,12 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
       items.length !== origItems.length ||
       items.some((item, i) => {
         const orig = origItems[i];
-        return !orig || item.name !== orig.name || item.quantity !== orig.quantity || item.price !== orig.price;
+        return !orig || item.name !== orig.name || item.quantity !== orig.quantity || item.price !== orig.price ||
+          JSON.stringify(item.description ?? null) !== JSON.stringify(orig.description ?? null);
       }) ||
       currency !== (initialData.currency ?? "PKR") ||
       tax !== (initialData.tax?.toString() ?? "0") ||
-      remarks !== (initialData.remarks ?? "")
+      JSON.stringify(remarks ?? "") !== JSON.stringify(initialData.remarks ?? "")
     );
   }, [saved, initialData, customerId, items, currency, tax, remarks]);
 
@@ -465,6 +528,8 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
   const activeDesign = designId
     ? getDesignById(designId, userDesigns)
     : getDefaultDesign(docType, userDesigns);
+  // Editor surface uses the active design's font so styling matches the preview/PDF (WYSIWYG #4).
+  const designFont = activeDesign ? resolveConfig(activeDesign).fontFamily : undefined;
 
   // Close design picker on outside click
   useEffect(() => {
@@ -547,6 +612,9 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
     if (key === "name" && String(val).trim()) {
       setItemErrors(p => { const next = new Set(p); next.delete(id); return next; });
     }
+  }, []);
+  const updateItemDescription = useCallback((id: number, json: RichTextJSON) => {
+    setItems(p => p.map(i => i.id === id ? { ...i, description: json } : i));
   }, []);
   const clearItemError = useCallback((id: number) => {
     setItemErrors(p => { const next = new Set(p); next.delete(id); return next; });
@@ -1081,11 +1149,13 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                       disableRemove={items.length === 1}
                       hasError={itemErrors.has(item.id)}
                       onUpdate={updateItem}
+                      onUpdateDescription={updateItemDescription}
                       onRemove={removeItem}
                       onDuplicate={duplicateItem}
                       onImageDialog={setImageDialogItemId}
                       onImageUpload={triggerImageUpload}
                       onClearError={() => clearItemError(item.id)}
+                      designFont={designFont}
                     />
                   </div>
                 ))}
@@ -1110,7 +1180,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                     onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                     style={{
                       display: "grid", gridTemplateColumns: "20px minmax(150px,3fr) 68px 104px 96px 52px", gap: 8, padding: "9px 14px",
-                      borderBottom: `0.5px solid var(--glass-border)`, alignItems: "center",
+                      borderBottom: `0.5px solid var(--glass-border)`, alignItems: "flex-start",
                       background: dragOverIdx === idx && dragIdx !== idx ? "rgba(99,102,241,0.12)" : dragIdx === idx ? "rgba(99,102,241,0.06)" : "transparent",
                       opacity: dragIdx === idx ? 0.55 : 1, transition: "background 0.1s",
                     }}
@@ -1122,25 +1192,30 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
                         <circle cx="3" cy="12" r="1.2" /><circle cx="7" cy="12" r="1.2" />
                       </svg>
                     </div>
-                    <div style={{ position: "relative" }}>
-                      <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-9 text-xs pr-9" style={itemErrors.has(item.id) ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined} />
-                      {item.images?.length ? (
-                        <button onClick={() => setImageDialogItemId(item.id)} title={`${item.images.length} image(s) — click to manage`}
-                          style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
-                          <div style={{ position: "relative" }}>
-                            <img src={item.images[0]} style={{ width: 20, height: 20, objectFit: "cover", borderRadius: 3, border: "0.5px solid rgba(99,102,241,0.5)", display: "block" }} />
-                            {item.images.length > 1 && <span style={{ position: "absolute", top: -4, right: -4, background: "#6366f1", color: "#fff", fontSize: 7, width: 11, height: 11, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{item.images.length}</span>}
-                          </div>
-                        </button>
-                      ) : (
-                        <button onClick={() => triggerImageUpload(item.id)} title="Attach image"
-                          style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T3, padding: 1, display: "flex", opacity: 0.4 }}
-                          onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-                          onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="3" width="14" height="10" rx="1.5" /><circle cx="5.5" cy="8" r="1.8" /><path d="M9 5.5l2.5 3.5-3 4.5" strokeLinejoin="round" /></svg>
-                        </button>
-                      )}
+                    <div>
+                      {/* Input + image icon share their OWN relative box so the icon stays
+                          vertically centred on the input, not on the (variable-height) cell. */}
+                      <div style={{ position: "relative" }}>
+                        <Input draggable={false} value={item.name} onChange={e => updateItem(item.id, "name", e.target.value)} placeholder="Service or item" className="h-9 text-xs pr-9" style={itemErrors.has(item.id) ? { borderColor: "rgba(248,113,113,0.75)", boxShadow: "0 0 0 2px rgba(248,113,113,0.18)" } : undefined} />
+                        {item.images?.length ? (
+                          <button onClick={() => setImageDialogItemId(item.id)} title={`${item.images.length} image(s) — click to manage`}
+                            style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+                            <div style={{ position: "relative" }}>
+                              <img src={item.images[0]} style={{ width: 20, height: 20, objectFit: "cover", borderRadius: 3, border: "0.5px solid rgba(99,102,241,0.5)", display: "block" }} />
+                              {item.images.length > 1 && <span style={{ position: "absolute", top: -4, right: -4, background: "#6366f1", color: "#fff", fontSize: 7, width: 11, height: 11, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>{item.images.length}</span>}
+                            </div>
+                          </button>
+                        ) : (
+                          <button onClick={() => triggerImageUpload(item.id)} title="Attach image"
+                            style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T3, padding: 1, display: "flex", opacity: 0.4 }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.4")}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="3" width="14" height="10" rx="1.5" /><circle cx="5.5" cy="8" r="1.8" /><path d="M9 5.5l2.5 3.5-3 4.5" strokeLinejoin="round" /></svg>
+                          </button>
+                        )}
+                      </div>
+                      <LineItemDescription value={item.description} onChange={(json) => updateItemDescription(item.id, json)} fontFamily={designFont} />
                     </div>
                     <Input draggable={false} type="number" min="0" value={item.quantity} onChange={e => updateItem(item.id, "quantity", e.target.value)} className="h-9 text-xs text-center" />
                     <Input draggable={false} type="number" min="0" value={item.price} onChange={e => updateItem(item.id, "price", e.target.value)} className="h-9 text-xs text-right" />
@@ -1237,7 +1312,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
           {/* Remarks */}
           <div style={{ ...sectionCard, margin: "0 16px 14px", padding: isMobile ? "14px 16px" : "18px 20px" }}>
             <div style={secTitle}>Remarks / notes</div>
-            <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} rows={3} placeholder="Any additional notes..." className="resize-none text-[11px] min-h-[68px]" />
+            <RichTextEditor variant="remarks" value={remarks} onChange={setRemarks} fontFamily={designFont} minHeight={84} placeholder="Any additional notes…" ariaLabel="Remarks / notes" />
           </div>
 
           {/* Recurring billing — invoice only */}
@@ -1571,7 +1646,7 @@ export function DocumentBuilder({ type, initialData }: BuilderProps) {
         discount={parseFloat(discount) || 0}
         deliveryCharges={parseFloat(delivery) || 0}
         currency={currency}
-        remarks={remarks}
+        remarks={richTextToPlainText(remarks)}
         paymentMode={paymentMode}
         designId={designId}
         onClose={() => setShowSaveTemplate(false)}

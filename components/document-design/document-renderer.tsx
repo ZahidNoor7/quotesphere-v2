@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { resolveConfig } from "@/lib/document-designs";
-import type { DocumentDesign } from "@/types";
+import type { DocumentDesign, RichTextContent } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { renderRichText, isEmptyRichText } from "@/lib/rich-text/render";
 
 export interface DocumentData {
   type: "invoice" | "quotation" | "receipt";
@@ -10,7 +11,7 @@ export interface DocumentData {
   issueDate?: string;
   dueDate?: string;
   customer?: { name?: string; phone?: string; address?: string; company?: string };
-  items?: Array<{ name: string; quantity: number; price: number; images?: string[] }>;
+  items?: Array<{ name: string; description?: RichTextContent; quantity: number; price: number; images?: string[] }>;
   subTotal?: number;
   taxAmt?: number;
   taxLabel?: string;
@@ -20,7 +21,7 @@ export interface DocumentData {
   advance?: number;
   outstanding?: number;
   currency?: string;
-  remarks?: string;
+  remarks?: RichTextContent;
   // Company info
   companyName?: string;
   companyEmail?: string;
@@ -536,7 +537,15 @@ function ItemsTable({ items, cfg, fmt }: {
                   {item.images?.[0] && <img src={item.images[0]} alt={item.name} style={{ width: 30, height: 30, objectFit: "cover", borderRadius: 3, display: "block" }} />}
                 </td>
               )}
-              <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#222", fontSize: 9 }}>{item.name}</td>
+              <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#222", fontSize: 9, overflowWrap: "anywhere" as const }}>
+                {item.name}
+                {(() => {
+                  const descHtml = renderRichText(item.description);
+                  return descHtml ? (
+                    <div className="qs-rich" style={{ marginTop: 2, fontSize: 8, color: "#555", lineHeight: 1.45 }} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: descHtml }} />
+                  ) : null;
+                })()}
+              </td>
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#555", textAlign: "right", fontSize: 9 }}>{item.quantity}</td>
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, borderRight: tableStyle === "bordered" ? cellBorder : "none", color: "#555", textAlign: "right", fontSize: 9 }}>{item.price.toLocaleString()}</td>
               <td style={{ padding: "6px 10px", borderBottom: cellBorder, color: "#111", textAlign: "right", fontWeight: 600, fontSize: 9 }}>{(item.quantity * item.price).toLocaleString()}</td>
@@ -618,12 +627,14 @@ function ReceiptBody({ data, cfg, fmt, fmtDate }: {
 }
 
 // ─── Remarks / notes block ────────────────────────────────────────────────────
-function RemarksBlock({ remarks, accentColor, textColor = "#555" }: { remarks?: string; accentColor: string; textColor?: string }) {
-  if (!remarks) return null;
+function RemarksBlock({ remarks, accentColor, textColor = "#555" }: { remarks?: RichTextContent; accentColor: string; textColor?: string }) {
+  if (isEmptyRichText(remarks)) return null;
+  const html = renderRichText(remarks);
+  if (!html) return null;
   return (
     <div data-break-block="" style={{ margin: "8px 0 0", padding: "7px 10px", background: `${accentColor}0A`, borderLeft: `2px solid ${accentColor}40`, borderRadius: "0 4px 4px 0" }}>
       <div style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase" as const, color: accentColor, letterSpacing: "0.08em", marginBottom: 3 }}>Notes</div>
-      <div style={{ fontSize: 8, color: textColor, lineHeight: 1.5, whiteSpace: "pre-wrap" as const }}>{remarks}</div>
+      <div className="qs-rich" style={{ fontSize: 8, color: textColor, lineHeight: 1.5 }} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }

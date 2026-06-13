@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { can } from "@/lib/rbac";
 import { formatCurrency } from "@/lib/utils";
 import { computeDocumentTotals } from "@/lib/calc/document-totals";
+import { richTextToPlainText } from "@/lib/rich-text/normalize";
 import type { AssistantFormField, AssistantPendingActionPreview } from "@/types";
 import { TOOL_MAP } from "./tools";
 import type {
@@ -356,7 +357,7 @@ function trimDoc(d: any) {
     })),
     valid_until: d.valid_until,
     due_date: d.due_date,
-    remarks: d.remarks,
+    remarks: richTextToPlainText(d.remarks),
   };
 }
 

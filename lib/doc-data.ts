@@ -1,4 +1,5 @@
 import type { DocumentData } from "@/components/document-design/document-renderer";
+import type { RichTextContent } from "@/types";
 
 export type { DocumentData };
 
@@ -26,6 +27,7 @@ function toISO(d: Dateish): string | undefined {
 
 interface DocItemInput {
   name: string;
+  description?: RichTextContent;
   quantity: number;
   price: number;
   images?: string[];
@@ -51,7 +53,7 @@ export interface DocInput {
   advance?: number;
   outstanding?: number;
   currency?: string;
-  remarks?: string;
+  remarks?: RichTextContent;
 }
 
 export interface SettingsInput {
@@ -83,6 +85,7 @@ export function buildDocumentData(
     },
     items: (doc.items ?? []).map((i) => ({
       name: i.name,
+      description: i.description,
       quantity: i.quantity,
       price: i.price,
       images: (i.images ?? []).filter(safeImg),
