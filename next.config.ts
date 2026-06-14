@@ -34,6 +34,16 @@ const nextConfig: NextConfig = {
           { key: "Vary",        value: "Sec-CH-Prefers-Color-Scheme" },
         ],
       },
+      {
+        // Make page documents bfcache-INELIGIBLE so back/forward after logout does a
+        // fresh load (server/edge guard redirects) instead of repainting a frozen
+        // authenticated snapshot. Excludes API + static assets. Only affects
+        // cross-document navigations — in-app SPA routing is unchanged.
+        source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
+        ],
+      },
     ];
   },
 };

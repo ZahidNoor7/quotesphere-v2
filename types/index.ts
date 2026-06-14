@@ -831,3 +831,186 @@ export interface PayrollConfig {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Subscriptions / Billing / Platform ─────────────────────────────────────────
+
+export type BillingInterval = "monthly" | "annual" | "lifetime";
+/** Plans are priced in PKR + USD; a subscription is billed in one of them. */
+export type BillingCurrency = "PKR" | "USD";
+export type SubscriptionStatus =
+  | "trialing" | "active" | "past_due" | "canceled" | "expired" | "suspended";
+export type PaymentRecordStatus = "paid" | "pending" | "failed" | "refunded";
+
+/** Canonical, app-wide entitlement keys. Mirrors lib/entitlements/features.ts. */
+export type FeatureKey =
+  | "dashboard" | "settings" | "team" | "docs"
+  | "quotations" | "invoices" | "customers" | "projects" | "expenses"
+  | "services" | "products"
+  | "reports" | "payroll"
+  | "messaging" | "email"
+  | "ai_assistant";
+
+export interface PlanLimits {
+  /** Optional numeric caps — schema-ready, enforcement deferred. */
+  maxTeamMembers?: number;
+}
+
+export interface Plan {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  billing_interval: BillingInterval;
+  price_pkr: number;
+  price_usd: number;
+  features: FeatureKey[];
+  limits?: PlanLimits;
+  is_active: boolean;
+  /** Internal plan used to grandfather existing tenants; hidden from the public catalog. */
+  is_grandfather?: boolean;
+  sort_order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Frozen at purchase/assignment so catalog edits never retro-change live subs. */
+export interface PlanSnapshot {
+  plan_id?: string;
+  name: string;
+  slug: string;
+  billing_interval: BillingInterval;
+  price_pkr: number;
+  price_usd: number;
+  currency: BillingCurrency;
+  features: FeatureKey[];
+}
+
+export interface PendingPlanChange {
+  plan_id?: string;
+  plan_name: string;
+  billing_interval: BillingInterval;
+  direction: "upgrade" | "downgrade" | "change";
+  note?: string;
+  requested_by_user_id?: string;
+  requested_at?: string;
+}
+
+export interface Subscription {
+  _id: string;
+  org_id: string;
+  plan_id?: string;
+  status: SubscriptionStatus;
+  plan_snapshot: PlanSnapshot;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  trial_ends_at?: string | null;
+  grace_period_days_override?: number | null;
+  grace_ends_at?: string | null;
+  canceled_at?: string | null;
+  cancel_at_period_end: boolean;
+  suspended_at?: string | null;
+  suspended_reason?: string;
+  prev_status?: SubscriptionStatus | null;
+  pending_change?: PendingPlanChange | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Tenant-facing billing view (GET /api/billing). */
+export interface TenantBillingView {
+  status: SubscriptionStatus;
+  effectiveStatus: SubscriptionStatus;
+  notice: EntitlementNotice;
+  plan_snapshot: PlanSnapshot | null;
+  trial_ends_at?: string | null;
+  current_period_end?: string | null;
+  features: FeatureKey[];
+  pending_change?: PendingPlanChange | null;
+  plans: Plan[];
+}
+
+export interface PaymentRecord {
+  _id: string;
+  org_id: string;
+  subscription_id?: string;
+  amount: number;
+  currency: BillingCurrency;
+  status: PaymentRecordStatus;
+  method: string;
+  provider?: string | null;
+  provider_ref?: string | null;
+  description?: string;
+  plan_slug?: string;
+  recorded_by_type: "platform" | "system";
+  recorded_by_id?: string;
+  paid_at?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformSettings {
+  _id: string;
+  key: string;
+  default_trial_days: number;
+  default_grace_period_days: number;
+  default_currency: BillingCurrency;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TenantInviteStatus = "pending" | "consumed" | "revoked" | "expired";
+
+export interface TenantInvite {
+  _id: string;
+  email: string;
+  token: string;
+  trial_days_override?: number | null;
+  plan_id_override?: string | null;
+  status: TenantInviteStatus;
+  consumed_by_org_id?: string | null;
+  consumed_at?: string | null;
+  expires_at?: string | null;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** What a tenant app banner/blocker keys off. */
+export type EntitlementNotice =
+  | "none" | "trial" | "past_due" | "canceled" | "expired" | "suspended";
+
+/** Output of resolveEntitlements — the single object UI + guards consume. */
+export interface Entitlements {
+  status: SubscriptionStatus;
+  effectiveStatus: SubscriptionStatus;
+  access: "full" | "blocked";
+  notice: EntitlementNotice;
+  /** Pre-formatted text for blocking screens; banners format their own with the dates. */
+  message?: string;
+  trialEndsAt?: string | null;
+  graceEndsAt?: string | null;
+  periodEndsAt?: string | null;
+  features: FeatureKey[];
+  plan?: { name: string; slug: string; billing_interval: BillingInterval } | null;
+}
+
+/** Platform portal: a tenant row joined with its subscription. */
+export interface PlatformTenantSummary {
+  org_id: string;
+  org_name: string;
+  owner_email?: string;
+  created_at: string;
+  status: SubscriptionStatus;
+  effectiveStatus: SubscriptionStatus;
+  plan_name?: string;
+  trial_ends_at?: string | null;
+  current_period_end?: string | null;
+  /** Set when the tenant has an open plan-change request awaiting approval. */
+  pending_request?: { plan_name: string; direction: string } | null;
+}
+
+export interface PlatformOverview {
+  counts: Record<SubscriptionStatus, number> & { total: number };
+  revenue: { currency: BillingCurrency; total: number }[];
+  trialsExpiringSoon: PlatformTenantSummary[];
+}

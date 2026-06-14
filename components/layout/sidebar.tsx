@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState, useRef, useEffect } from "react";
 import { getInitials } from "@/lib/utils";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { featureForRoute } from "@/lib/entitlements/features";
 
 const NAV = [
   {
@@ -66,11 +68,24 @@ const ICONS: Record<string, React.ReactNode> = {
   payroll: <svg className="w-[15px] h-[15px]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><circle cx="8" cy="8" r="2"/><path d="M4 8h.01M12 8h.01"/></svg>,
 };
 
+// Lock badge shown on nav items whose feature isn't in the tenant's plan.
+const LOCK_BADGE = (
+  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"
+    style={{ marginLeft: "auto", flexShrink: 0, opacity: 0.55 }}>
+    <rect x="3.5" y="7" width="9" height="6.5" rx="1.4" /><path d="M5.2 7V5.2a2.8 2.8 0 015.6 0V7" />
+  </svg>
+);
+
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const nav = navFor(session?.user?.role === "admin");
   const initials = getInitials(session?.user?.name || "U");
+  const { entitlements } = useEntitlements();
+  const isLocked = (href: string) => {
+    const f = featureForRoute(href);
+    return !!f && !!entitlements && !entitlements.features.includes(f);
+  };
   const [isHovered, setIsHovered] = useState(false);
   const [ready, setReady] = useState(false);
   const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -234,6 +249,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                       {ICONS[icon]}
                     </span>
                     {!collapsed && <span className="truncate">{label}</span>}
+                    {!collapsed && isLocked(href) && LOCK_BADGE}
                   </Link>
                 );
               })}
@@ -337,6 +353,11 @@ export function MobileNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const nav = navFor(session?.user?.role === "admin");
+  const { entitlements } = useEntitlements();
+  const isLocked = (href: string) => {
+    const f = featureForRoute(href);
+    return !!f && !!entitlements && !entitlements.features.includes(f);
+  };
 
   return (
     <>
@@ -394,6 +415,7 @@ export function MobileNav() {
                       >
                         <span style={{ width: 15, height: 15, flexShrink: 0, opacity: active ? 1 : 0.7 }}>{ICONS[icon]}</span>
                         {label}
+                        {isLocked(href) && LOCK_BADGE}
                       </Link>
                     );
                   })}

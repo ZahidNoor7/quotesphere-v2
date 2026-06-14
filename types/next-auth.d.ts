@@ -9,12 +9,19 @@ declare module "next-auth" {
       id?: string;
       role?: UserRole;
       org_id?: string;
+      // Platform super-admin — a DISTINCT principal (separate PlatformAdmin
+      // collection). A tenant user never carries these; a platform admin never
+      // carries role/org_id.
+      isPlatformAdmin?: boolean;
+      platformAdminId?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: UserRole;
     org_id?: string;
+    isPlatformAdmin?: boolean;
+    platformAdminId?: string;
   }
 }
 
@@ -22,5 +29,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role?: UserRole;
     org_id?: string;
+    isPlatformAdmin?: boolean;
+    platformAdminId?: string;
   }
 }

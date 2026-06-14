@@ -1,16 +1,18 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { T1, T2, T3, GLASS, GLASS_BORDER } from "@/lib/ds";
+import { T1, T2, T3, AC, GLASS, GLASS_BORDER } from "@/lib/ds";
 import { useSettings } from "@/hooks/use-settings";
+import { useEntitlements } from "@/hooks/use-entitlements";
 import type { IntegrationConfig, WhatsAppConfig, AiAssistantConfig, EmailConfig } from "@/types";
 import {
   Cloud, ShieldCheck, DollarSign, Database, Mail, Send,
-  Eye, EyeOff, Save, MessageCircle, Zap, Link2, Sparkles,
+  Eye, EyeOff, Save, MessageCircle, Zap, Link2, Sparkles, Lock, ArrowRight,
 } from "lucide-react";
 
 type IntKey = "cloudinary" | "googleAuth" | "currencyApi" | "mongodb";
@@ -90,6 +92,34 @@ function SecretInput({ value, onChange, placeholder }: { value: string; onChange
       >
         {show ? <EyeOff size={14} /> : <Eye size={14} />}
       </button>
+    </div>
+  );
+}
+
+// ─── Locked integration (feature not in the tenant's plan) ─────────────────────
+
+function LockedIntegration({ icon: Icon, color, label, description }: {
+  icon: React.ElementType; color: string; label: string; description: string;
+}) {
+  return (
+    <div style={{ borderRadius: 12, border: `0.5px solid ${GLASS_BORDER}`, background: GLASS, overflow: "hidden" }}>
+      <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: `${color}12`, border: `0.5px solid ${GLASS_BORDER}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color, opacity: 0.55 }}>
+          <Icon size={16} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T1, display: "flex", alignItems: "center", gap: 6 }}>
+            {label} <Lock size={12} style={{ color: T3 }} />
+          </div>
+          <div style={{ fontSize: 11, color: T3, marginTop: 1 }}>{description}</div>
+        </div>
+        <Link href="/settings/billing" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 600, color: AC, textDecoration: "none", padding: "6px 10px", borderRadius: 8, border: `0.5px solid ${GLASS_BORDER}` }}>
+          Upgrade <ArrowRight size={12} />
+        </Link>
+      </div>
+      <div style={{ padding: "9px 16px", borderTop: `0.5px solid ${GLASS_BORDER}`, fontSize: 11.5, color: T3, lineHeight: 1.5 }}>
+        Not included in your current plan. <Link href="/settings/billing" style={{ color: AC, textDecoration: "none", fontWeight: 500 }}>Upgrade your plan</Link> to enable {label}.
+      </div>
     </div>
   );
 }
@@ -795,6 +825,9 @@ function AiAssistantCard({ initialCfg, onSaved }: { initialCfg: AiAssistantConfi
 
 export default function IntegrationsPage() {
   const { settings, mutate } = useSettings();
+  const { hasFeature, entitlements } = useEntitlements();
+  // While entitlements load, show the real cards (avoid a locked→unlocked flash).
+  const entLoaded = !!entitlements;
   const [configs, setConfigs] = useState<Record<IntKey, IntegrationConfig>>({
     cloudinary: { enabled: false },
     googleAuth: { enabled: false },
@@ -956,14 +989,26 @@ export default function IntegrationsPage() {
         );
       })}
 
-      {/* Email card */}
-      <EmailCard initialCfg={emailCfg} onSaved={mutate} />
+      {/* Email card — gated by the `email` plan feature */}
+      {!entLoaded || hasFeature("email") ? (
+        <EmailCard initialCfg={emailCfg} onSaved={mutate} />
+      ) : (
+        <LockedIntegration icon={Mail} color={EMAIL_COLOR} label="Email" description="Send invoices, quotations, receipts and payment reminders by email." />
+      )}
 
-      {/* WhatsApp card */}
-      <WhatsAppCard initialCfg={waCfg} onSaved={mutate} />
+      {/* WhatsApp card — gated by the `messaging` plan feature */}
+      {!entLoaded || hasFeature("messaging") ? (
+        <WhatsAppCard initialCfg={waCfg} onSaved={mutate} />
+      ) : (
+        <LockedIntegration icon={MessageCircle} color={WA_COLOR} label="WhatsApp (360dialog)" description="Send documents and chat with clients via the WhatsApp Business API." />
+      )}
 
-      {/* AI Assistant card */}
-      <AiAssistantCard initialCfg={aiCfg} onSaved={mutate} />
+      {/* AI Assistant card — gated by the `ai_assistant` plan feature */}
+      {!entLoaded || hasFeature("ai_assistant") ? (
+        <AiAssistantCard initialCfg={aiCfg} onSaved={mutate} />
+      ) : (
+        <LockedIntegration icon={Sparkles} color={AI_COLOR} label="AI Assistant" description="Create and edit quotations & invoices by chatting with an AI." />
+      )}
     </div>
   );
 }

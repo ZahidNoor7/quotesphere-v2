@@ -1,6 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useSettings } from "@/hooks/use-settings";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { featureForRoute } from "@/lib/entitlements/features";
+import { SubscriptionBanner } from "@/components/entitlements/subscription-banner";
+import { FeatureLocked } from "@/components/entitlements/feature-locked";
 import { Sidebar, MobileNav } from "./sidebar";
 import { applyTheme } from "@/lib/themes";
 import { useTheme } from "./theme-provider";
@@ -16,6 +21,17 @@ export function AppShell({
 }) {
   const { settings, updateAppearance } = useSettings();
   const { setTheme } = useTheme();
+  const pathname = usePathname();
+  const { entitlements } = useEntitlements();
+
+  // Client-side feature gate: if the current module maps to a feature the tenant's
+  // plan doesn't include, show the locked screen instead of the page. (The API is
+  // the real boundary — this is the matching UX.)
+  const routeFeature = featureForRoute(pathname);
+  const lockedFeature =
+    routeFeature && entitlements && !entitlements.features.includes(routeFeature)
+      ? routeFeature
+      : null;
 
   // Initialized from the cookie read server-side — correct on first render, no flash.
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -54,12 +70,17 @@ export function AppShell({
         {/* Mobile top bar */}
         <MobileNav />
 
+        {/* Persistent trial / past-due / canceled reminder (renders nothing when active) */}
+        <SubscriptionBanner />
+
         {/* Main scroll area */}
         <main
           className="flex-1 overflow-hidden scrollbar-hide"
           style={{ scrollbarWidth: "none" }}
         >
-          <div className="animate-fade-in h-full">{children}</div>
+          <div className="animate-fade-in h-full">
+            {lockedFeature ? <FeatureLocked feature={lockedFeature} /> : children}
+          </div>
         </main>
       </div>
     </div>

@@ -13,24 +13,41 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isAuthPage = nextUrl.pathname.startsWith("/auth");
+      const isPlatformAdmin = !!(auth?.user as { isPlatformAdmin?: boolean } | undefined)?.isPlatformAdmin;
+      const path = nextUrl.pathname;
+      const isAuthPage = path.startsWith("/auth");
+      const isPlatformLogin = path === "/platform/login";
+      const isPlatformPath = path.startsWith("/platform"); // portal pages (not /api/platform)
       const isPublicPath =
-        nextUrl.pathname === "/" ||
-        nextUrl.pathname.startsWith("/_next") ||
-        nextUrl.pathname.startsWith("/api/auth") ||
-        nextUrl.pathname.startsWith("/api/webhooks") ||
-        nextUrl.pathname.startsWith("/print"); // token-gated print route (self-validates)
+        path === "/" ||
+        path.startsWith("/_next") ||
+        path.startsWith("/api/auth") ||
+        path.startsWith("/api/webhooks") ||
+        path.startsWith("/print"); // token-gated print route (self-validates)
 
-      // Logged in + trying to access auth pages → redirect to dashboard
-      if (isLoggedIn && isAuthPage) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
+      if (isLoggedIn) {
+        if (isPlatformAdmin) {
+          // Platform admins live in the portal — keep them off tenant auth/dashboard.
+          if (isAuthPage || isPlatformLogin) {
+            return Response.redirect(new URL("/platform", nextUrl));
+          }
+          return true;
+        }
+        // Tenant users: bounce away from any login page. /platform/* is guarded
+        // server-side by the (portal) layout, so let it through to be redirected there.
+        if (isAuthPage || isPlatformLogin) {
+          return Response.redirect(new URL("/dashboard", nextUrl));
+        }
+        return true;
       }
 
-      // Not logged in + trying to access protected pages → redirect to login
-      if (!isLoggedIn && !isAuthPage && !isPublicPath) {
+      // Not logged in
+      if (isPlatformPath && !isPlatformLogin) {
+        return Response.redirect(new URL("/platform/login", nextUrl));
+      }
+      if (!isAuthPage && !isPlatformLogin && !isPublicPath) {
         return Response.redirect(new URL("/auth/login", nextUrl));
       }
-
       return true;
     },
     async jwt({ token, user }) {
@@ -38,7 +55,11 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) (session.user as any).role = token.role;
+      if (session.user) {
+        (session.user as any).role = token.role;
+        // Surface the platform claim to the edge `authorized` callback for routing.
+        (session.user as any).isPlatformAdmin = (token as any).isPlatformAdmin;
+      }
       return session;
     },
   },

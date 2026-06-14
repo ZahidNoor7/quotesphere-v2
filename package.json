@@ -9,7 +9,10 @@
     "test:watch": "vitest",
     "test:live": "node scripts/live-smoke.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:platform-admin": "node scripts/seed-platform-admin.mjs",
+    "seed:platform-billing": "node scripts/seed-platform-billing.mjs",
+    "backfill:subscriptions": "node scripts/backfill-subscriptions.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
