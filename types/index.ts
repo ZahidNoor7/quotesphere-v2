@@ -873,6 +873,29 @@ export interface Plan {
   updatedAt: string;
 }
 
+/** A feature row rendered in the public pricing table (key + human label). */
+export interface PublicPlanFeature {
+  key: FeatureKey;
+  label: string;
+  description: string;
+}
+
+/**
+ * Sanitized, public-safe projection of a {@link Plan} for the unauthenticated
+ * marketing/pricing page. Intentionally omits internal fields (`is_grandfather`,
+ * `is_active`, Mongo `_id`/timestamps) so nothing internal leaks to crawlers.
+ */
+export interface PublicPlan {
+  slug: string;
+  name: string;
+  description: string;
+  billingInterval: BillingInterval;
+  pricePkr: number;
+  priceUsd: number;
+  features: PublicPlanFeature[];
+  maxTeamMembers: number | null;
+}
+
 /** Frozen at purchase/assignment so catalog edits never retro-change live subs. */
 export interface PlanSnapshot {
   plan_id?: string;

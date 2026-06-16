@@ -19,11 +19,21 @@ export const authConfig: NextAuthConfig = {
       const isPlatformLogin = path === "/platform/login";
       const isPlatformPath = path.startsWith("/platform"); // portal pages (not /api/platform)
       const isPublicPath =
-        path === "/" ||
+        path === "/" || // public marketing landing page
         path.startsWith("/_next") ||
         path.startsWith("/api/auth") ||
         path.startsWith("/api/webhooks") ||
-        path.startsWith("/print"); // token-gated print route (self-validates)
+        path.startsWith("/print") || // token-gated print route (self-validates)
+        // Public SEO + brand-asset endpoints for the marketing page — crawlers and
+        // social scrapers hit these unauthenticated. Additive only: this widens
+        // access to crawler/asset routes and never relaxes any app/API/platform path.
+        path === "/robots.txt" ||
+        path === "/sitemap.xml" ||
+        path === "/manifest.webmanifest" ||
+        path.startsWith("/opengraph-image") ||
+        path.startsWith("/twitter-image") ||
+        path.startsWith("/icon") ||
+        path.startsWith("/apple-icon");
 
       if (isLoggedIn) {
         if (isPlatformAdmin) {
