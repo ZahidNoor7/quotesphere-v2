@@ -76,6 +76,67 @@ describe("customers CRUD", () => {
   });
 });
 
+describe("customer status / currency / tax_id editability", () => {
+  it("defaults status to active (true) when not provided on create", async () => {
+    const r = await POST(req("/api/customers", "POST", { name: "DefaultStatus", phone_no: "923001110001" }));
+    expect(r.status).toBe(201);
+    expect((await r.json()).data.status).toBe(true);
+  });
+
+  it("accepts an explicit status on create", async () => {
+    const r = await POST(req("/api/customers", "POST", { name: "Dormant", phone_no: "923001110002", status: false }));
+    expect(r.status).toBe(201);
+    expect((await r.json()).data.status).toBe(false);
+  });
+
+  it("PUT toggles status active → inactive and back", async () => {
+    const c = await makeCustomer("Toggle", "923001110003");
+
+    const off = await PUT(req(`/api/customers/${c.id}`, "PUT", { status: false }), ctx(c.id));
+    expect(off.status).toBe(200);
+    expect((await off.json()).data.status).toBe(false);
+
+    const on = await PUT(req(`/api/customers/${c.id}`, "PUT", { status: true }), ctx(c.id));
+    expect(on.status).toBe(200);
+    expect((await on.json()).data.status).toBe(true);
+  });
+
+  it("PUT updates currency, tax_id and notes together", async () => {
+    const c = await makeCustomer("FullEdit", "923001110004");
+    const r = await PUT(
+      req(`/api/customers/${c.id}`, "PUT", { currency: "USD", tax_id: "1234567-8", notes: "VIP client" }),
+      ctx(c.id),
+    );
+    expect(r.status).toBe(200);
+    const d = (await r.json()).data;
+    expect(d.currency).toBe("USD");
+    expect(d.tax_id).toBe("1234567-8");
+    expect(d.notes).toBe("VIP client");
+  });
+
+  it("PUT rejects a non-boolean status (400)", async () => {
+    const c = await makeCustomer("BadStatus", "923001110005");
+    const r = await PUT(req(`/api/customers/${c.id}`, "PUT", { status: "active" }), ctx(c.id));
+    expect(r.status).toBe(400);
+    expect((await r.json()).success).toBe(false);
+  });
+
+  it("GET list filters by status=active and status=inactive", async () => {
+    await POST(req("/api/customers", "POST", { name: "ActiveA", phone_no: "923001110006", status: true }));
+    await POST(req("/api/customers", "POST", { name: "InactiveB", phone_no: "923001110007", status: false }));
+
+    const active = await list(req("/api/customers?status=active"));
+    const activeData = (await active.json()).data;
+    expect(activeData).toHaveLength(1);
+    expect(activeData[0].name).toBe("ActiveA");
+
+    const inactive = await list(req("/api/customers?status=inactive"));
+    const inactiveData = (await inactive.json()).data;
+    expect(inactiveData).toHaveLength(1);
+    expect(inactiveData[0].name).toBe("InactiveB");
+  });
+});
+
 describe("role permissions — manager delete access", () => {
   it("a manager CAN delete a record", async () => {
     const c = await makeCustomer("DelMe", "923009990000");

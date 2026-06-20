@@ -4,9 +4,11 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, Pencil } from "lucide-react";
 import { PaymentStatusBadge, QuotationStatusBadge, ExpenseStatusBadge } from "@/components/shared/status-badges";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/card";
+import { CustomerFormDialog } from "@/components/forms/customer-form";
 import { formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { T1, T2, T3, AC2, GLASS, GLASS_BORDER, TOPBAR_STYLE, CARD } from "@/lib/ds";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,7 +24,8 @@ export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [tab, setTab] = useState<Tab>("invoices");
   const [stmtLoading, setStmtLoading] = useState(false);
-  const { data, isLoading } = useSWR(`/api/customers/${id}`, fetcher);
+  const [showEdit, setShowEdit] = useState(false);
+  const { data, isLoading, mutate } = useSWR(`/api/customers/${id}`, fetcher);
   const { settings } = useSettings();
   const isMobile = useIsMobile();
 
@@ -81,6 +84,9 @@ export default function CustomerDetailPage() {
           <div style={{ fontSize: 14, fontWeight: 600, color: T1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{customer.name}</div>
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <Pencil size={12} />{isMobile ? "Edit" : "Edit client"}
+          </Button>
           {!isMobile && (
             <Button variant="outline" size="sm" onClick={downloadStatement} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <FileText size={12} />{stmtLoading ? "Generating…" : "Statement PDF"}
@@ -101,7 +107,12 @@ export default function CustomerDetailPage() {
                 {getInitials(customer.name)}
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: T1 }}>{customer.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: T1 }}>{customer.name}</span>
+                  <Badge variant={customer.status ? "success" : "muted"}>
+                    {customer.status ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
                 <div style={{ fontSize: 11, color: T3 }}>{customer.company ? `${customer.company} · ` : ""}Since {formatDate(customer.createdAt)}</div>
               </div>
             </div>
@@ -109,8 +120,10 @@ export default function CustomerDetailPage() {
               {[
                 { label: "Phone", val: customer.phone_no },
                 ...(customer.email ? [{ label: "Email", val: customer.email }] : []),
+                { label: "Currency", val: customer.currency || "PKR" },
                 ...(customer.address ? [{ label: "Address", val: customer.address }] : []),
                 ...(customer.tax_id ? [{ label: "NTN", val: customer.tax_id }] : []),
+                ...(customer.notes ? [{ label: "Notes", val: customer.notes }] : []),
               ].map(({ label, val }) => (
                 <div key={label}>
                   <div style={{ fontSize: 10, color: T3 }}>{label}</div>
@@ -317,6 +330,13 @@ export default function CustomerDetailPage() {
         </div>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      <CustomerFormDialog
+        open={showEdit}
+        onOpenChange={setShowEdit}
+        initial={customer}
+        onSaved={() => mutate()}
+      />
     </div>
   );
 }

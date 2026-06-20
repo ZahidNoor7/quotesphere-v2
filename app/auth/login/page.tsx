@@ -70,6 +70,9 @@ export default function LoginPage() {
               alignItems: "center",
               gap: 10,
               marginBottom: 60,
+              alignSelf: "center",
+              width: "100%",
+              maxWidth: 380,
             }}
           >
             <div
@@ -109,6 +112,8 @@ export default function LoginPage() {
               flexDirection: "column",
               justifyContent: "center",
               maxWidth: 380,
+              width: "100%",
+              alignSelf: "center",
             }}
           >
             <h1
@@ -126,7 +131,8 @@ export default function LoginPage() {
               Sign in to your QuoteSphere account
             </p>
 
-            {/* Google */}
+            {/* Google login temporarily disabled — code kept intact for future re-enable */}
+            {/*
             <Button
               variant="outline"
               type="button"
@@ -178,6 +184,7 @@ export default function LoginPage() {
                 }}
               />
             </div>
+            */}
 
             <form
               onSubmit={handleSubmit}

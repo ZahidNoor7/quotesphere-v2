@@ -85,6 +85,9 @@ export default function RegisterPage() {
               alignItems: "center",
               gap: 10,
               marginBottom: 60,
+              alignSelf: "center",
+              width: "100%",
+              maxWidth: 380,
             }}
           >
             <div
@@ -124,6 +127,8 @@ export default function RegisterPage() {
               flexDirection: "column",
               justifyContent: "center",
               maxWidth: 380,
+              width: "100%",
+              alignSelf: "center",
             }}
           >
             <h1
@@ -141,7 +146,8 @@ export default function RegisterPage() {
               Free to get started, no credit card needed
             </p>
 
-            {/* Google */}
+            {/* Google login temporarily disabled — code kept intact for future re-enable */}
+            {/*
             <Button
               variant="outline"
               type="button"
@@ -193,6 +199,7 @@ export default function RegisterPage() {
                 }}
               />
             </div>
+            */}
 
             <form
               onSubmit={handleSubmit}

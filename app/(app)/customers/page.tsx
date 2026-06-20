@@ -22,6 +22,7 @@ import {
   Upload,
 } from "lucide-react";
 import { CustomerImportDialog } from "@/components/forms/customer-import";
+import { CustomerFormDialog } from "@/components/forms/customer-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,10 +45,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -58,7 +55,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/card";
 import { formatDate, getInitials } from "@/lib/utils";
-import { T1, AC2, TOPBAR_STYLE, ICON_PILL, T3, FIELD_INPUT, TOOLBAR_CONTROL } from "@/lib/ds";
+import { T1, TOPBAR_STYLE, ICON_PILL, TOOLBAR_CONTROL } from "@/lib/ds";
 import {
   TableWrapper,
   DataTable,
@@ -120,129 +117,6 @@ function SortIcon({
     <ArrowUp size={11} style={{ marginLeft: 3, opacity: 0.75 }} />
   ) : (
     <ArrowDown size={11} style={{ marginLeft: 3, opacity: 0.75 }} />
-  );
-}
-
-// ─── Inline form component ──────────────────────────────────────────────────
-
-function CustomerForm({
-  initial,
-  onSave,
-  onClose,
-}: {
-  initial?: Partial<Customer>;
-  onSave: () => void;
-  onClose: () => void;
-}) {
-  const [form, setForm] = useState({
-    name: initial?.name ?? "",
-    phone_no: initial?.phone_no ?? "",
-    email: initial?.email ?? "",
-    company: initial?.company ?? "",
-    address: initial?.address ?? "",
-    notes: initial?.notes ?? "",
-  });
-  const [loading, setLoading] = useState(false);
-
-  const f = (k: keyof typeof form) => ({
-    value: form[k],
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-      setForm((p) => ({ ...p, [k]: e.target.value })),
-  });
-
-  async function save() {
-    if (!form.name || !form.phone_no) {
-      toast.error("Name and phone required.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(
-        initial?._id ? `/api/customers/${initial._id}` : "/api/customers",
-        {
-          method: initial?._id ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        },
-      );
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      toast.success(initial?._id ? "Client updated." : "Client added.");
-      onSave();
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const lbl = {
-    fontSize: 11,
-    color: T3,
-    fontWeight: 500,
-    marginBottom: 4,
-    display: "block",
-  } as const;
-
-  return (
-    <>
-      <div
-        style={{
-          padding: "6px 0 0",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        <div
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}
-        >
-          <div>
-            <label style={lbl}>Full name *</label>
-            <Input {...f("name")} placeholder="Jane Smith" />
-          </div>
-          <div>
-            <label style={lbl}>Phone *</label>
-            <Input {...f("phone_no")} placeholder="+92 300 1234567" />
-          </div>
-        </div>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}
-        >
-          <div>
-            <label style={lbl}>Email</label>
-            <Input {...f("email")} type="email" placeholder="jane@co.com" />
-          </div>
-          <div>
-            <label style={lbl}>Company</label>
-            <Input {...f("company")} placeholder="Company Ltd." />
-          </div>
-        </div>
-        <div>
-          <label style={lbl}>Address</label>
-          <Input {...f("address")} placeholder="Street, City" />
-        </div>
-        <div>
-          <label style={lbl}>Notes</label>
-          <Input {...f("notes")} placeholder="Any notes..." />
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          marginTop: 18,
-        }}
-      >
-        <Button variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button loading={loading} onClick={save}>
-          {initial?._id ? "Save changes" : "Add client"}
-        </Button>
-      </div>
-    </>
   );
 }
 
@@ -1053,27 +927,15 @@ export default function CustomersPage() {
       </AlertDialog>
 
       {/* Create / edit dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editClient ? "Edit client" : "Add new client"}
-            </DialogTitle>
-          </DialogHeader>
-          <CustomerForm
-            initial={editClient ?? undefined}
-            onSave={() => {
-              setShowForm(false);
-              setEditClient(null);
-              mutate();
-            }}
-            onClose={() => {
-              setShowForm(false);
-              setEditClient(null);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <CustomerFormDialog
+        open={showForm}
+        onOpenChange={(open) => {
+          setShowForm(open);
+          if (!open) setEditClient(null);
+        }}
+        initial={editClient ?? undefined}
+        onSaved={() => mutate()}
+      />
 
       <CustomerImportDialog
         open={showImport}
