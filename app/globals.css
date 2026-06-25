@@ -179,6 +179,12 @@
     --accent: #6366f1;
     --accent2: #818cf8;
     --accent-glow: rgba(99,102,241,0.18);
+    /* Foreground for text/glyphs sitting ON an accent fill (white by default;
+       dark ink for light-accent themes — see amber/nord/forest overrides). */
+    --on-accent: #ffffff;
+    /* Readable accent-as-text token (>=4.5:1 on the page surface in every theme).
+       Defaults to accent2; overridden where accent2 is too light (solarized). */
+    --accent-ink: var(--accent2);
     --t1: #eef0ff;
     --t2: rgba(210,216,255,0.72);
     --t3: rgba(160,170,255,0.42);
@@ -228,6 +234,7 @@
   --bg-primary: #0a1a12; --bg: #0a1a12; --bg2: #0f2318;
   --app-bg-from: #0a1f15; --app-bg-to: #060f0a;
   --accent: #10b981; --accent2: #34d399; --accent-glow: rgba(16,185,129,0.18);
+  --on-accent: #04231a; /* emerald accent is too light for white text */
   --glass-surface-bg: rgba(10,26,18,0.75); --modal-bg: rgba(10,26,18,0.97);
 }
 [data-theme="rose"] {
@@ -246,12 +253,14 @@
   --bg-primary: #1a1200; --bg: #1a1200; --bg2: #221a00;
   --app-bg-from: #1f1600; --app-bg-to: #0f0900;
   --accent: #f59e0b; --accent2: #fbbf24; --accent-glow: rgba(245,158,11,0.18);
+  --on-accent: #211700; /* amber/gold accent needs dark ink for contrast */
   --glass-surface-bg: rgba(26,18,0,0.75); --modal-bg: rgba(26,18,0,0.97);
 }
 [data-theme="nord"] {
   --bg-primary: #2e3440; --bg: #2e3440; --bg2: #3b4252;
   --app-bg-from: #2e3a4e; --app-bg-to: #2a3040;
   --accent: #88c0d0; --accent2: #a3d4e0; --accent-glow: rgba(136,192,208,0.18);
+  --on-accent: #0b1a22; /* pale frost accent needs dark ink for contrast */
   --glass-surface-bg: rgba(46,52,64,0.75); --modal-bg: rgba(46,52,64,0.97);
 }
 [data-theme="light"] {
@@ -270,6 +279,7 @@
   --bg-primary: #fdf6e3; --bg: #fdf6e3; --bg2: #eee8d5;
   --app-bg-from: #eee8d5; --app-bg-to: #fdf6e3;
   --accent: #268bd2; --accent2: #2aa4f7; --accent-glow: rgba(38,139,210,0.18);
+  --accent-ink: #0b4a72; /* bright sky accent2 fails on cream; darker blue for text */
   --t1: #073642; --t2: rgba(7,54,66,0.80); --t3: rgba(7,54,66,0.56);
   --glass: rgba(255,255,255,0.58); --glass-hover: rgba(255,255,255,0.82); --glass-strong: rgba(255,255,255,0.92);
   --glass-border: rgba(7,54,66,0.16); --glass-border-strong: rgba(7,54,66,0.26);
@@ -595,6 +605,103 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ══════════════════════════════════════════════
+   MARKETING (public landing) — additive helpers.
+   Scoped to .mkt-* classes only; never affect the app shell.
+   All theme-aware via the same accent/text tokens.
+   ══════════════════════════════════════════════ */
+
+/* Theme-aware aurora mesh: soft accent orbs floating over the page base. */
+.mkt-aurora {
+  position: relative;
+  isolation: isolate;
+}
+.mkt-aurora::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 50% at 15% 8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 70%),
+    radial-gradient(50% 50% at 90% 4%, color-mix(in srgb, var(--accent2) 16%, transparent), transparent 72%),
+    radial-gradient(60% 60% at 75% 108%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%);
+}
+
+/* Fine fixed grain to break flat surfaces (perf-safe: pointer-events none). */
+.mkt-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Hairline dot texture for statement bands. */
+.mkt-dotgrid {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--t1) 7%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/* Conic sheen used behind the most-popular pricing tier / hero frame edge. */
+.mkt-ring-glow {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 18px 60px var(--accent-glow);
+}
+
+/* ── Marketing motion (CSS-driven, progressive enhancement) ──
+   Content is VISIBLE BY DEFAULT. Reveals only hide+animate when the browser
+   supports scroll-driven timelines AND the user allows motion — so no-JS,
+   reduced-motion, and unsupported browsers all paint content immediately (no
+   LCP regression, no "stuck invisible" risk). Motion (the lib) is reserved for
+   the interactive cursor spotlight only. */
+@keyframes mkt-rise-in {
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes mkt-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(-1 * var(--mkt-float-distance, 10px))); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Above-the-fold hero: time-based mount entrance (no scroll dependency). */
+  .mkt-rise {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: mkt-rise-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--mkt-delay, 0s);
+  }
+
+  /* Perpetual float for the hero preview + depth chips. */
+  .mkt-float {
+    animation: mkt-float var(--mkt-float-duration, 6s) ease-in-out
+      var(--mkt-float-delay, 0s) infinite;
+  }
+
+  /* Scroll-driven reveals for everything below the fold. */
+  @supports (animation-timeline: view()) {
+    .mkt-reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: mkt-rise-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 24%;
+    }
+    /* Gentle cascade for grouped items (cards in a Stagger). */
+    .mkt-stagger > .mkt-reveal:nth-child(2) { animation-range: entry 4% cover 28%; }
+    .mkt-stagger > .mkt-reveal:nth-child(3) { animation-range: entry 7% cover 31%; }
+    .mkt-stagger > .mkt-reveal:nth-child(4) { animation-range: entry 9% cover 33%; }
+    .mkt-stagger > .mkt-reveal:nth-child(n + 5) { animation-range: entry 11% cover 35%; }
+  }
 }
 
 /* Respect user's reduced-motion OS preference */

@@ -41,7 +41,7 @@ export interface TrustItem {
 
 export const TRUST_ITEMS: TrustItem[] = [
   { icon: Building2, label: "Bootstrapped & independent" },
-  { icon: Banknote, label: "Dual-currency — PKR + USD" },
+  { icon: Banknote, label: "Dual-currency (PKR + USD)" },
   { icon: Users, label: "Built for teams, with roles" },
   { icon: ShieldCheck, label: "Strict per-tenant isolation" },
 ];
@@ -60,7 +60,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     tag: "Sales",
     title: "Invoicing & quotations",
     blurb:
-      "Build polished, multi-line documents with a real tax engine — discount-then-tax-on-net, per-line tax classes, and the tax snapshot frozen at issue time. Convert an accepted quote into an invoice in one click.",
+      "Build polished, multi-line documents with a real tax engine: discount-then-tax-on-net, per-line tax classes, and the tax snapshot frozen at issue time. Convert an accepted quote into an invoice in one click.",
   },
   {
     icon: Receipt,
@@ -81,7 +81,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     tag: "CRM",
     title: "Customers & services",
     blurb:
-      "Keep a tidy book of clients and a reusable catalog of services and products — including bulk CSV/Excel import to get started fast.",
+      "Keep a tidy book of clients and a reusable catalog of services and products, including bulk CSV/Excel import to get started fast.",
   },
   {
     icon: BarChart3,
@@ -95,7 +95,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     tag: "People",
     title: "Payroll",
     blurb:
-      "Salary structures, pay periods, runs and payslips — with per-tenant tax slabs, EOBI and provident-fund handling, in your own currency. A real differentiator, built in.",
+      "Salary structures, pay periods, runs and payslips, with per-tenant tax slabs, EOBI and provident-fund handling, in your own currency. A real differentiator, built in.",
   },
   {
     icon: Sparkles,
@@ -109,7 +109,7 @@ export const FEATURE_MODULES: FeatureModule[] = [
     tag: "Delivery",
     title: "Pixel-perfect document delivery",
     blurb:
-      "Generate crisp PDFs with headless Chrome that match the on-screen design exactly — then send them to clients over email or WhatsApp without leaving the app.",
+      "Generate crisp PDFs with headless Chrome that match the on-screen design exactly, then send them to clients over email or WhatsApp without leaving the app.",
   },
 ];
 
@@ -124,7 +124,7 @@ export const SECURITY_POINTS: SecurityPoint[] = [
     icon: ShieldCheck,
     title: "Your data is yours alone",
     blurb:
-      "Every record is scoped to your organization at the database layer. The system fails closed — a query with no organization context is rejected, not guessed.",
+      "Every record is scoped to your organization at the database layer. The system fails closed: a query with no organization context is rejected, not guessed.",
   },
   {
     icon: KeyRound,
@@ -154,11 +154,11 @@ export interface FaqItem {
 export const FAQ_ITEMS: FaqItem[] = [
   {
     q: "How do I get started?",
-    a: "Sign up with your email — no invite needed and no credit card required. You get your own workspace and a 14-day free trial of every feature. After the trial you can continue on the Free plan or upgrade.",
+    a: "Sign up with your email. No invite needed, no credit card required. You get your own workspace and a 14-day free trial of every feature. After the trial you can continue on the Free plan or upgrade.",
   },
   {
     q: "How is pricing structured?",
-    a: "There's a free tier for core quoting and invoicing, and paid tiers that add projects, expenses, reports, payroll and the AI assistant. Every plan is priced in both PKR and USD — switch the toggle on the pricing section to see your currency.",
+    a: "There's a free tier for core quoting and invoicing, and paid tiers that add projects, expenses, reports, payroll and the AI assistant. Every plan is priced in both PKR and USD. Switch the toggle on the pricing section to see your currency.",
   },
   {
     q: "Is my data isolated from other businesses?",
@@ -174,7 +174,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "How are documents delivered to clients?",
-    a: "Documents render to pixel-perfect PDFs and can be sent directly from the app by email or WhatsApp — the sent file matches the on-screen design exactly.",
+    a: "Documents render to pixel-perfect PDFs and can be sent directly from the app by email or WhatsApp, and the sent file matches the on-screen design exactly.",
   },
 ];
 

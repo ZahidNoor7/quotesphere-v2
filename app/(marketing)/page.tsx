@@ -12,7 +12,7 @@ import { Faq } from "@/components/marketing/faq";
 import { FinalCta } from "@/components/marketing/final-cta";
 
 const SITE_URL = getBaseUrl();
-const TITLE = "QuoteSphere — Run your whole business in one place";
+const TITLE = "QuoteSphere · Run your whole business in one place";
 const DESCRIPTION =
   "Quoting, invoicing, expenses, projects, payroll and an AI assistant in one platform. Pixel-perfect PDFs, dual-currency (PKR + USD) billing, and strict per-tenant security.";
 

@@ -4,11 +4,11 @@ import { Loader2 } from "lucide-react";
 import * as React from "react";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 font-medium transition-all duration-150 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] cursor-pointer border-none outline-none",
+  "inline-flex items-center justify-center gap-1.5 font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] disabled:pointer-events-none disabled:opacity-50 active:scale-[0.97] cursor-pointer border-none",
   {
     variants: {
       variant: {
-        default: "bg-gradient-to-br from-[var(--accent)] to-[var(--accent2)] text-white shadow-[0_2px_12px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.12)_inset] hover:shadow-[0_4px_20px_var(--accent-glow)] hover:-translate-y-px",
+        default: "bg-gradient-to-br from-[var(--accent)] to-[var(--accent2)] text-[var(--on-accent)] shadow-[0_2px_12px_var(--accent-glow),0_0_0_1px_rgba(255,255,255,0.12)_inset] hover:shadow-[0_4px_20px_var(--accent-glow)] hover:-translate-y-px",
         destructive: "bg-[rgba(248,113,113,0.15)] text-[#f87171] border border-[rgba(248,113,113,0.3)] hover:bg-[rgba(248,113,113,0.25)]",
         outline: "bg-[var(--glass)] text-[var(--t2)] border-[0.5px] border-[var(--glass-border)] hover:bg-[var(--glass-hover)] hover:text-[var(--t1)]",
         secondary: "bg-[var(--glass)] text-[var(--t2)] border-[0.5px] border-[var(--glass-border)] hover:bg-[var(--glass-hover)] hover:text-[var(--t1)]",

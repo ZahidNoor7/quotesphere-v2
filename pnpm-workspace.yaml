@@ -24,3 +24,6 @@ minimumReleaseAgeExclude:
   - tailwindcss@4.3.1
   - '@types/node@26.0.0'
   - isomorphic-dompurify@3.18.0
+  - framer-motion@12.42.0
+  - motion-dom@12.42.0
+  - motion@12.42.0

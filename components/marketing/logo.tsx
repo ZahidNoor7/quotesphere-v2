@@ -5,12 +5,13 @@ export function Logo({ size = 32, withWordmark = true }: { size?: number; withWo
     <span className="inline-flex items-center gap-2.5">
       <span
         aria-hidden
-        className="inline-flex items-center justify-center font-bold text-white"
+        className="inline-flex items-center justify-center font-bold"
         style={{
           width: size,
           height: size,
           borderRadius: Math.round(size * 0.28),
           fontSize: Math.round(size * 0.46),
+          color: "var(--on-accent)",
           background: "linear-gradient(135deg, var(--accent), var(--accent2))",
           boxShadow: "0 4px 14px var(--accent-glow)",
         }}
