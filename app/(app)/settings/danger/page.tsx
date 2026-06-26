@@ -45,7 +45,7 @@ function DangerCard({
   async function doDelete() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/settings/bulk-delete?type=${type}`, { method: "DELETE" });
+      const res = await fetch(`/api/settings/bulk-delete?type=${type}&confirm=${type}`, { method: "DELETE" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setOpen(false);
@@ -104,7 +104,7 @@ export default function DangerSettingsPage() {
     if (resetConfirm !== "RESET") return;
     setResetting(true);
     try {
-      const res = await fetch("/api/settings/bulk-delete?type=all", { method: "DELETE" });
+      const res = await fetch("/api/settings/bulk-delete?type=all&confirm=all", { method: "DELETE" });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
       setResetOpen(false);

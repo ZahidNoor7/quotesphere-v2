@@ -1,23 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import { fetchWhatsAppMedia } from "@/lib/whatsapp";
-import { enterOrg } from "@/lib/tenant-context";
+import { guardWhatsApp } from "@/lib/whatsapp-route-guard";
 import type { WhatsAppConfig } from "@/types";
 
 // GET /api/whatsapp/media/[id]
 // Streams inbound WhatsApp media (private to 360dialog) to the browser, authed.
 // `id` is the 360dialog media id stored on the inbound message.
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const g = await guardWhatsApp(req.method);
+  if (g instanceof NextResponse) return g;
 
   const { id } = await params;
   await connectDB();

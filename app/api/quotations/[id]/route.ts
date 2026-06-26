@@ -51,7 +51,7 @@ export const PUT = withTenant("PUT /api/quotations/[id]", async (req: NextReques
     if (richErr) return NextResponse.json({ success: false, error: richErr }, { status: 400 });
 
     const before = await Quotation.findById(id).lean() as any;
-    const data = await Quotation.findByIdAndUpdate(id, clean, { new: true });
+    const data = await Quotation.findByIdAndUpdate(id, clean, { returnDocument: "after" });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     void recordAudit({ req, session, action: "update", resource: "quotation", resource_id: id, resource_label: before?.quotation_no ?? id, before, after: data.toObject() });

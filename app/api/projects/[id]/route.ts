@@ -53,7 +53,7 @@ export const PUT = withTenant("PUT /api/projects/[id]", async (req: NextRequest,
     // Strip ownership/identity fields so a client can't reassign or overwrite them.
     for (const k of ["org_id", "_id", "project_no", "createdAt", "updatedAt", "__v"]) delete body[k];
     const before = await Project.findById(id).lean() as any;
-    const data = await Project.findByIdAndUpdate(id, body, { new: true });
+    const data = await Project.findByIdAndUpdate(id, body, { returnDocument: "after" });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     void recordAudit({ req, session, action: "update", resource: "project", resource_id: id, resource_label: before?.name ?? id, before, after: data.toObject() });
     return NextResponse.json({ success: true, data });

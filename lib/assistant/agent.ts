@@ -19,6 +19,18 @@ import { toolLabel as labelFor } from "./labels";
 import type { SiblingToolResult, StoredPendingAction, ToolContext } from "./types";
 
 const MAX_ITERATIONS = 8;
+// Hard per-turn context budget (chars ≈ tokens × 4). Bounds runaway LLM cost when
+// a long tool chain inflates the message history — pairs with MAX_ITERATIONS and
+// the per-user request rate limit on the chat route.
+const MAX_CONTEXT_CHARS = 400_000;
+
+function contextChars(system: string, messages: { content?: unknown }[]): number {
+  let total = system.length;
+  for (const m of messages) {
+    total += typeof m.content === "string" ? m.content.length : JSON.stringify(m.content ?? "").length;
+  }
+  return total;
+}
 
 type Emit = (event: AssistantStreamEvent) => void;
 
@@ -96,6 +108,13 @@ async function loop(params: AgentRunParams, carried?: Carried): Promise<TurnOutc
   const tools = providerTools(params.enabledTools);
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    // Cost guard: stop if the accumulated context exceeds the per-turn budget.
+    if (contextChars(system, messages) > MAX_CONTEXT_CHARS) {
+      const msg = "This conversation has grown too large to continue. Please start a new chat to keep things fast.";
+      messages.push(newMsg("assistant", msg));
+      return { status: "completed", messages, finalText: msg, documentLink, documentLabel, documentCard };
+    }
+
     let text = "";
     const toolCalls: AssistantToolCall[] = [];
 

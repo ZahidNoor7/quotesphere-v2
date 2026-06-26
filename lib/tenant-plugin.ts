@@ -40,7 +40,24 @@ export function tenantScope(schema: Schema, opts?: { required?: boolean; unique?
   // countDocuments, updateOne/Many, deleteOne/Many, replaceOne.
   function queryHook(this: mongoose.Query<any, any>) {
     const orgId = resolveOrgScope(this.model?.modelName ?? "Query");
-    if (orgId) this.where({ [ORG_FIELD]: orgId });
+    if (!orgId) return; // bypass mode — system path, no scoping
+    this.where({ [ORG_FIELD]: orgId });
+
+    // Defense-in-depth against cross-tenant relocate / mass-assignment: a
+    // tenant-scoped update or upsert must NEVER set `org_id` from caller input.
+    // Strip any client-supplied org_id from the update doc and pin upserts to
+    // the current org, so a body like `{ org_id: "<other-tenant>" }` cannot move
+    // or create a record outside the caller's org even if a route forgets to
+    // sanitize. Pipeline updates (arrays, e.g. atomic payment recalcs) are built
+    // server-side without org_id and are left untouched — the `where` above
+    // still scopes them.
+    const update = this.getUpdate() as Record<string, any> | null;
+    if (update && !Array.isArray(update)) {
+      delete update[ORG_FIELD];
+      if (update.$set) delete update.$set[ORG_FIELD];
+      if (update.$setOnInsert) delete update.$setOnInsert[ORG_FIELD];
+      update.$setOnInsert = { ...(update.$setOnInsert ?? {}), [ORG_FIELD]: orgId };
+    }
   }
   schema.pre(/^(find|count|update|delete|replace)/ as any, queryHook as any);
 
@@ -56,17 +73,20 @@ export function tenantScope(schema: Schema, opts?: { required?: boolean; unique?
   // Stamp org on new documents. Must run on `validate` (not `save`) because
   // Mongoose enforces `required` during validation, which happens BEFORE the
   // save hooks — stamping in pre('save') would be too late and fail validation.
+  // We FORCE-stamp the context org (overwriting any caller-supplied org_id) so a
+  // body like `Model.create({ org_id: "<other-tenant>" })` cannot create a
+  // record in another org. Bypass paths (orgId === null) keep the org_id they
+  // set explicitly via runWithOrg.
   schema.pre("validate", function (this: any) {
-    if (this.isNew && this[ORG_FIELD] == null) {
-      const orgId = resolveOrgScope(this.constructor?.modelName ?? "validate");
-      if (orgId) this[ORG_FIELD] = orgId;
-    }
+    if (!this.isNew) return;
+    const orgId = resolveOrgScope(this.constructor?.modelName ?? "validate");
+    if (orgId) this[ORG_FIELD] = orgId;
   });
 
   (schema.pre as any)("insertMany", function (next: (err?: Error) => void, docs: any[]) {
     try {
       const orgId = resolveOrgScope("insertMany");
-      if (orgId) for (const d of docs) if (d[ORG_FIELD] == null) d[ORG_FIELD] = orgId;
+      if (orgId) for (const d of docs) d[ORG_FIELD] = orgId; // force-stamp (no caller override)
       next();
     } catch (err) {
       next(err as Error);

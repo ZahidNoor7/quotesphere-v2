@@ -6,6 +6,8 @@ import Settings from "@/models/Settings";
 import type { AiAssistantConfig } from "@/types";
 import { resolveProvider } from "@/lib/assistant/providers";
 import { enterOrg } from "@/lib/tenant-context";
+import { gateFeature } from "@/lib/entitlement-guard";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +17,15 @@ const REWRITE_SYSTEM = `You refine a user's custom instructions for an AI billin
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id?: string }).id ?? "anon";
   const orgId = (session.user as { org_id?: string }).org_id;
   if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   enterOrg(orgId);
+
+  const rl = await rateLimit(`ai:rewrite:${userId}`, 20, 60_000);
+  if (!rl.success) return NextResponse.json({ success: false, error: "Too many requests — please wait a moment." }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
+  const gate = await gateFeature(orgId, "ai_assistant");
+  if (gate) return gate;
 
   let text = "";
   try {

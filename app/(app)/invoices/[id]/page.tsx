@@ -206,8 +206,14 @@ export default function InvoiceDetailPage() {
   }
 
   async function deletePayment(paymentId: string) {
-    await fetch(`/api/invoices/${id}/payments?paymentId=${paymentId}`, { method: "DELETE" });
-    toast.success("Payment removed."); mutate();
+    try {
+      const res = await fetch(`/api/invoices/${id}/payments?paymentId=${paymentId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || "Failed to remove payment.");
+      toast.success("Payment removed."); mutate();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove payment.");
+    }
   }
 
   const lbl = { fontSize: 10.5, color: T3, fontWeight: 500, marginBottom: 3, display: "block" } as const;

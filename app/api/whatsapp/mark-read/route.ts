@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import { sendReadReceipt, normalizePhone } from "@/lib/whatsapp";
-import { enterOrg } from "@/lib/tenant-context";
+import { guardWhatsApp } from "@/lib/whatsapp-route-guard";
 import type { WhatsAppConfig } from "@/types";
 
 // POST /api/whatsapp/mark-read
@@ -12,13 +11,8 @@ import type { WhatsAppConfig } from "@/types";
 // Marks all unread inbound messages for the given contact as read in DB,
 // and sends read receipts to 360dialog for each real wamid message.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+  const g = await guardWhatsApp(req.method, { write: true });
+  if (g instanceof NextResponse) return g;
 
   const { phone } = await req.json() as { phone: string };
   if (!phone) return NextResponse.json({ error: "phone is required" }, { status: 400 });

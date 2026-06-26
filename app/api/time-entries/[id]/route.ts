@@ -17,7 +17,7 @@ export const PUT = withTenant("PUT /api/time-entries/[id]", async (req: NextRequ
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
-    const entry = await TimeEntry.findByIdAndUpdate(id, body, { new: true });
+    const entry = await TimeEntry.findByIdAndUpdate(id, body, { returnDocument: "after" });
     if (!entry) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     void recordAudit({ req, session, action: "update", resource: "project", resource_id: String((entry as any).project_id), resource_label: `Time entry updated` });
     return NextResponse.json({ success: true, data: entry });

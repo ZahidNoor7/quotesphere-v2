@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { withTenant } from "@/lib/with-tenant";
+import { requireRole } from "@/lib/rbac";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
@@ -130,7 +131,7 @@ export const GET = withTenant("GET /api/settings/currency-rates", async (req: Ne
               "currencyRates.lastUpdated": fetchedAt,
             },
           },
-          { new: true, upsert: true, setDefaultsOnInsert: true }
+          { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
         ).select("currencyRates").lean() as any;
 
         return NextResponse.json({
@@ -163,6 +164,8 @@ export const POST = withTenant("POST /api/settings/currency-rates", async (req: 
     if (!session?.user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    const denied = requireRole(session, req.method, "settings");
+    if (denied) return denied;
     const userId = (session.user as any).id as string;
     await connectDB();
 
@@ -188,7 +191,7 @@ export const POST = withTenant("POST /api/settings/currency-rates", async (req: 
           "currencyRates.lastUpdated": fetchedAt,
         },
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     ).select("currencyRates").lean() as any;
 
     return NextResponse.json({

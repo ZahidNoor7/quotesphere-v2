@@ -74,7 +74,7 @@ export const PUT = withTenant("PUT /api/customers/[id]", async (req: NextRequest
       return NextResponse.json({ success: false, error: z.flattenError(parsed.error).fieldErrors }, { status: 400 });
     }
     const before = await Customer.findById(id).lean() as any;
-    const customer = await Customer.findByIdAndUpdate(id, parsed.data, { new: true });
+    const customer = await Customer.findByIdAndUpdate(id, parsed.data, { returnDocument: "after" });
     if (!customer) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     void recordAudit({ req, session, action: "update", resource: "customer", resource_id: id, resource_label: before?.name ?? id, before, after: customer.toObject() });

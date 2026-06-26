@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { withTenant } from "@/lib/with-tenant";
+import { rateLimit } from "@/lib/rate-limit";
 import { resolveCloudinaryConfig, uploadToCloudinary, CLOUDINARY_NOT_CONFIGURED } from "@/lib/cloudinary";
 import { CLOUDINARY_FEATURES, cloudinaryFolder, isCloudinaryFeature, sanitizeSegment } from "@/lib/cloudinary-folders";
 
@@ -9,6 +10,9 @@ export const POST = withTenant("POST /api/upload", async (req: NextRequest) => {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     const userId = (session.user as { id?: string }).id ?? "";
+    // Cap uploads (Cloudinary quota / cost) per user.
+    const rl = await rateLimit(`upload:${userId}`, 60, 60_000);
+    if (!rl.success) return NextResponse.json({ success: false, error: "Too many uploads — please wait a moment." }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
     const cfg = await resolveCloudinaryConfig(userId);
     if (!cfg) {

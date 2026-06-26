@@ -5,6 +5,8 @@ import Settings from "@/models/Settings";
 import type { AiAssistantConfig } from "@/types";
 import { resolveProvider } from "@/lib/assistant/providers";
 import { enterOrg } from "@/lib/tenant-context";
+import { gateFeature } from "@/lib/entitlement-guard";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,9 +15,15 @@ export const dynamic = "force-dynamic";
 export async function POST(_req: NextRequest) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const userId = (session.user as { id?: string }).id ?? "anon";
   const orgId = (session.user as { org_id?: string }).org_id;
   if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   enterOrg(orgId);
+
+  const rl = await rateLimit(`ai:test:${userId}`, 10, 60_000);
+  if (!rl.success) return NextResponse.json({ success: false, error: "Too many requests — please wait a moment." }, { status: 429 });
+  const gate = await gateFeature(orgId, "ai_assistant");
+  if (gate) return gate;
 
   await connectDB();
   const settings = (await Settings.findOne({}).lean()) as

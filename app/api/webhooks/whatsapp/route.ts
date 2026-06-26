@@ -8,15 +8,16 @@ import { runWithOrg } from "@/lib/tenant-context";
 import mongoose from "mongoose";
 
 /**
- * Verify the provider's HMAC-SHA256 signature when WHATSAPP_WEBHOOK_SECRET is
- * configured. Returns true (allow) when no secret is set — but logs a warning,
- * since an unverified public webhook can be forged.
+ * Verify the provider's HMAC-SHA256 signature. FAIL-CLOSED: if
+ * WHATSAPP_WEBHOOK_SECRET is not configured we cannot authenticate the payload,
+ * so we reject it (a public webhook that "allows when unconfigured" can be forged
+ * to inject messages into a tenant's inbox). Operators MUST set the secret.
  */
 function verifyWebhookSignature(raw: string, header: string | null): boolean {
   const secret = process.env.WHATSAPP_WEBHOOK_SECRET;
   if (!secret) {
-    console.warn("[webhook/whatsapp] WHATSAPP_WEBHOOK_SECRET not set — webhook is unauthenticated");
-    return true;
+    console.warn("[webhook/whatsapp] WHATSAPP_WEBHOOK_SECRET not set — rejecting webhook (set the secret to enable inbound messages)");
+    return false;
   }
   if (!header) return false;
   const expected = "sha256=" + crypto.createHmac("sha256", secret).update(raw, "utf8").digest("hex");
@@ -52,8 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  console.log("[webhook/whatsapp] received payload:", raw.slice(0, 1200));
-
+  // Do NOT log the raw payload — it contains PII (phone numbers, message bodies).
   try {
     await processWebhook(raw);
   } catch (err) {
@@ -88,15 +88,14 @@ async function processWebhook(raw: string) {
     return;
   }
 
-  let rawSettings =
+  // Require an EXACT receiving-number match — never fall back to "the only enabled
+  // org", which would mis-attribute a verified payload meant for a different
+  // number to an unrelated tenant (cross-tenant message injection).
+  const rawSettings =
     enabled.find((s) => normalizePhone(s?.integrations?.whatsapp?.phoneNumber ?? "") === receivingPhone) ?? null;
   if (!rawSettings) {
-    // Single-tenant install: only one enabled config, safe to use it.
-    if (enabled.length === 1) rawSettings = enabled[0];
-    else {
-      console.warn(`[webhook/whatsapp] could not route inbound to an org (receiving=${receivingPhone})`);
-      return;
-    }
+    console.warn("[webhook/whatsapp] could not route inbound to an org (no matching business number)");
+    return;
   }
 
   const orgId = rawSettings.org_id ? String(rawSettings.org_id) : null;
@@ -134,7 +133,8 @@ async function processWebhook(raw: string) {
       const timestamp = msg.timestamp ? new Date(Number(msg.timestamp) * 1000) : new Date();
       const parsed = parseInbound(msg);
 
-      console.log(`[webhook/whatsapp] msg id=${messageId} from=${from} type=${parsed.messageType}`);
+      // Metadata only — no `from` (customer phone) or message body in logs.
+      console.log(`[webhook/whatsapp] inbound type=${parsed.messageType}`);
 
       if (!from) { console.log("[webhook/whatsapp] skipping — missing from"); continue; }
       if (parsed.messageType === "text" && !parsed.body) { console.log("[webhook/whatsapp] skipping — empty text"); continue; }
@@ -164,7 +164,7 @@ async function processWebhook(raw: string) {
         timestamp,
       });
 
-      console.log(`[webhook/whatsapp] saved _id=${created._id} from=${from} type=${parsed.messageType}`);
+      console.log(`[webhook/whatsapp] saved _id=${created._id} type=${parsed.messageType}`);
     }
   });
 }

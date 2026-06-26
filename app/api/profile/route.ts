@@ -64,7 +64,7 @@ export const PUT = withTenant("PUT /api/profile", async (req: NextRequest) => {
       updateFields.password = await bcrypt.hash(newPassword, 12);
     }
 
-    const updated = await User.findByIdAndUpdate(resolvedId, { $set: updateFields }, { new: true }).select("-password").lean();
+    const updated = await User.findByIdAndUpdate(resolvedId, { $set: updateFields }, { returnDocument: "after" }).select("-password").lean();
     const changedFields = Object.keys(updateFields).filter(k => k !== "password");
     if (changedFields.length) {
       void recordAudit({ req, session, action: "update", resource: "settings", resource_id: String(resolvedId), resource_label: `Profile: ${userDoc.name}`, after: { updated_fields: changedFields } });
@@ -76,4 +76,4 @@ export const PUT = withTenant("PUT /api/profile", async (req: NextRequest) => {
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-});
+}, { writeRole: "none" }); // self-service: any role may edit their OWN profile

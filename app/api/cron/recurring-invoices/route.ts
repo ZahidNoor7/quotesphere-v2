@@ -14,8 +14,7 @@ import Invoice from "@/models/Invoice";
 import Settings from "@/models/Settings";
 import { getNextNumberWithPattern } from "@/models/Counter";
 import { bypassTenant, runWithOrg } from "@/lib/tenant-context";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 function addFrequency(date: Date, frequency: string): Date {
   const d = new Date(date);
@@ -29,12 +28,8 @@ function addFrequency(date: Date, frequency: string): Date {
 }
 
 export const GET = async (req: NextRequest) => {
-  // Verify Vercel cron secret
-  if (CRON_SECRET) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   await connectDB();
@@ -59,12 +54,6 @@ export const GET = async (req: NextRequest) => {
       if (!src.org_id) { errors.push({ id: String(src._id), error: "missing org_id" }); continue; }
       const orgId = String(src.org_id);
       await runWithOrg(orgId, async () => {
-        // Org settings for the number pattern (scoped by the tenant plugin).
-        const orgSettings = await Settings.findOne({}).lean() as any;
-        const prefix  = orgSettings?.invoice_prefix ?? "INV";
-        const pattern = orgSettings?.invoice_number_pattern ?? null;
-        const invoice_no = await getNextNumberWithPattern(orgId, "invoice", prefix, pattern);
-
         // Clone the invoice — strip identity fields, reset payment state. `rest`
         // carries org_id from the source, so the clone stays in the same org.
         const {
@@ -74,6 +63,24 @@ export const GET = async (req: NextRequest) => {
         } = src;
         void _id; void _no; void createdAt; void updatedAt;
         void payments; void total_paid; void outstanding; void balance; void payment_status;
+
+        const nextDate = addFrequency(now, recurrence.frequency);
+
+        // Atomic claim: advance the source's next_date ONLY if it still equals
+        // the value we read. Two concurrent cron runs (overlap / manual re-trigger)
+        // race on this update — exactly one wins and generates the invoice; the
+        // loser gets null and skips, so a recurring invoice is never double-billed.
+        const claimed = await Invoice.findOneAndUpdate(
+          { _id: src._id, "recurrence.next_date": recurrence?.next_date },
+          { $set: { "recurrence.next_date": nextDate } },
+        );
+        if (!claimed) return; // another run already generated this period
+
+        // Org settings for the number pattern (scoped by the tenant plugin).
+        const orgSettings = await Settings.findOne({}).lean() as any;
+        const prefix  = orgSettings?.invoice_prefix ?? "INV";
+        const pattern = orgSettings?.invoice_number_pattern ?? null;
+        const invoice_no = await getNextNumberWithPattern(orgId, "invoice", prefix, pattern);
 
         const newInvoice = new Invoice({
           ...rest,
@@ -88,15 +95,10 @@ export const GET = async (req: NextRequest) => {
           advance: 0,
           recurrence: {
             ...recurrence,
-            next_date: addFrequency(now, recurrence.frequency),
+            next_date: nextDate,
           },
         });
         await newInvoice.save();
-
-        // Update next_date on the source invoice (scoped to this org).
-        await Invoice.findByIdAndUpdate(src._id, {
-          "recurrence.next_date": addFrequency(now, recurrence.frequency),
-        });
 
         generated.push(invoice_no);
       });

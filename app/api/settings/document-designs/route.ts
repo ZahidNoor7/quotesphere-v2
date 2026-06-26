@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
 import { withTenant } from "@/lib/with-tenant";
+import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
 export const GET = withTenant("GET /api/settings/document-designs", async (req: NextRequest) => {
@@ -24,6 +25,8 @@ export const POST = withTenant("POST /api/settings/document-designs", async (req
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method, "settings");
+    if (denied) return denied;
     const userId = (session.user as any).id as string;
     await connectDB();
 
@@ -48,7 +51,7 @@ export const POST = withTenant("POST /api/settings/document-designs", async (req
     await Settings.findOneAndUpdate(
       {},
       { $push: { documentDesigns: newDesign } },
-      { new: true, upsert: true }
+      { returnDocument: "after", upsert: true }
     ).lean();
 
     void recordAudit({ req, session, action: "create", resource: "settings", resource_id: (session.user as any).id, resource_label: `Document design created: ${newDesign.name}` });

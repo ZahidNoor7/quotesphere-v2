@@ -31,7 +31,7 @@ export const PATCH = withTenant(
       const member = await User.findOneAndUpdate(
         { _id: id, org_id: orgId },
         { $set: { role: parsed.data.role } },
-        { new: true },
+        { returnDocument: "after" },
       ).select("-password").lean() as { name?: string } | null;
       if (!member) return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
 

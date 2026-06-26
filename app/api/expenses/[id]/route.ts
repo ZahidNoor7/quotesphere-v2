@@ -34,7 +34,7 @@ export const PUT = withTenant("PUT /api/expenses/[id]", async (req: NextRequest,
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
     const before = await Expense.findById(id).lean() as any;
-    const data = await Expense.findByIdAndUpdate(id, body, { new: true });
+    const data = await Expense.findByIdAndUpdate(id, body, { returnDocument: "after" });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     void recordAudit({ req, session, action: "update", resource: "expense", resource_id: id, resource_label: before?.expense_no ?? id, before, after: data.toObject() });

@@ -60,20 +60,42 @@ export const POST = withTenant("POST /api/quotations/[id]/convert", async (req: 
     });
 
     const dbSession = await mongoose.startSession();
+    let alreadyConverted = false;
+    let updatedQuotation: any = quotation;
     try {
       await dbSession.withTransaction(async () => {
         await invoice.save({ session: dbSession });
-        quotation.status = "invoiced";
-        quotation.converted_to = invoice._id as any;
-        await quotation.save({ session: dbSession });
+        // Atomic status flip — only succeeds if the quotation has NOT already been
+        // invoiced. Closes the TOCTOU window between the status read above and
+        // here, so concurrent/duplicate converts can't both create an invoice.
+        // The unique (org_id, converted_from) index on Invoice is the backstop.
+        const flipped = await Quotation.findOneAndUpdate(
+          { _id: id, status: { $ne: "invoiced" } },
+          { $set: { status: "invoiced", converted_to: invoice._id } },
+          { session: dbSession, returnDocument: "after" },
+        );
+        if (!flipped) {
+          alreadyConverted = true;
+          throw new Error("ALREADY_CONVERTED"); // aborts the transaction (rolls back the invoice)
+        }
+        updatedQuotation = flipped;
       });
+    } catch (err: any) {
+      if (alreadyConverted) {
+        return NextResponse.json({ success: false, error: "This quotation has already been converted." }, { status: 400 });
+      }
+      if (err?.code === 11000) {
+        return NextResponse.json({ success: false, error: "This quotation has already been converted." }, { status: 409 });
+      }
+      console.error("[quotation convert]", err);
+      return NextResponse.json({ success: false, error: "Conversion failed" }, { status: 500 });
     } finally {
       await dbSession.endSession();
     }
 
     void recordAudit({ req, session, action: "create", resource: "invoice", resource_id: String(invoice._id), resource_label: (invoice as any).invoice_no ?? "converted", after: { converted_from: (quotation as any).quotation_no } });
     void recordAudit({ req, session, action: "update", resource: "quotation", resource_id: id, resource_label: (quotation as any).quotation_no, after: { status: "invoiced", converted_to: String(invoice._id) } });
-    return NextResponse.json({ success: true, data: { invoice, quotation } });
+    return NextResponse.json({ success: true, data: { invoice, quotation: updatedQuotation } });
   } catch (err: any) {
     console.error("[quotation convert]", err);
     return NextResponse.json({ success: false, error: err.message || "Conversion failed" }, { status: 500 });

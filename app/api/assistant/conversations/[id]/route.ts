@@ -58,7 +58,7 @@ export const PATCH = withTenant(
         { _id: id, user_id: userId },
         { $set },
         // Don't bump updatedAt for rename/pin — these aren't conversation activity.
-        { new: true, projection: "title pinned createdAt updatedAt", timestamps: false }
+        { returnDocument: "after", projection: "title pinned createdAt updatedAt", timestamps: false }
       ).lean();
       if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
       return NextResponse.json({ success: true, data });
@@ -66,7 +66,8 @@ export const PATCH = withTenant(
       console.error("[assistant conversation PATCH]", err);
       return NextResponse.json({ success: false, error: "Failed to rename conversation" }, { status: 500 });
     }
-  }
+  },
+  { writeRole: "none" } // self-service: a user manages their OWN conversations
 );
 
 export const DELETE = withTenant(
@@ -88,5 +89,6 @@ export const DELETE = withTenant(
       console.error("[assistant conversation DELETE]", err);
       return NextResponse.json({ success: false, error: "Failed to delete conversation" }, { status: 500 });
     }
-  }
+  },
+  { writeRole: "none" } // self-service: a user manages their OWN conversations
 );

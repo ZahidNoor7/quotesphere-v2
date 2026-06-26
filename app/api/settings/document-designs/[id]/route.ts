@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { BUILT_IN_DESIGNS } from "@/lib/document-designs";
 import { withTenant } from "@/lib/with-tenant";
+import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 
 async function clearDefaultsForType(userId: string, docType: string) {
@@ -18,6 +19,8 @@ export const PUT = withTenant("PUT /api/settings/document-designs/[id]", async (
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method, "settings");
+    if (denied) return denied;
     const userId = (session.user as any).id as string;
     const { id } = await params;
 
@@ -64,6 +67,8 @@ export const DELETE = withTenant("DELETE /api/settings/document-designs/[id]", a
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method, "settings");
+    if (denied) return denied;
     const userId = (session.user as any).id as string;
     const { id } = await params;
 
@@ -88,6 +93,8 @@ export const PATCH = withTenant("PATCH /api/settings/document-designs/[id]", asy
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const denied = requireRole(session, req.method, "settings");
+    if (denied) return denied;
     const userId = (session.user as any).id as string;
     const { id } = await params;
 

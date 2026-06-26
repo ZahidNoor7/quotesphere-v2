@@ -18,8 +18,30 @@ import type { BillingInterval, BillingCurrency } from "@/types";
  * Also seeds the tenant's trial subscription (best-effort — see below).
  */
 export async function createOrgForUser(userId: string, name: string): Promise<string> {
-  const org = await Organization.create({ name, owner_user_id: userId });
-  await User.updateOne({ _id: userId }, { $set: { org_id: org._id } });
+  let org;
+  try {
+    org = await Organization.create({ name, owner_user_id: userId });
+  } catch (err) {
+    // Concurrent first-login race: the unique index on owner_user_id rejects the
+    // second create — reuse the org the winner already made instead of spawning a
+    // duplicate org + trial subscription.
+    if ((err as { code?: number })?.code === 11000) {
+      const existing = await Organization.findOne({ owner_user_id: userId });
+      if (existing) {
+        await User.updateOne(
+          { _id: userId, $or: [{ org_id: null }, { org_id: { $exists: false } }] },
+          { $set: { org_id: existing._id } },
+        );
+        return String(existing._id);
+      }
+    }
+    throw err;
+  }
+  // Only claim the user if they don't already point at an org (idempotent).
+  await User.updateOne(
+    { _id: userId, $or: [{ org_id: null }, { org_id: { $exists: false } }] },
+    { $set: { org_id: org._id } },
+  );
   await seedTrialSubscription(String(org._id), userId);
   return String(org._id);
 }
@@ -76,11 +98,21 @@ async function seedTrialSubscription(orgId: string, userId: string): Promise<voi
     const user = await User.findById(userId).select("email").lean<{ email?: string } | null>();
     const email = user?.email?.toLowerCase();
     if (email) {
-      const invite = await TenantInvite.findOne({
+      const candidate = await TenantInvite.findOne({
         email,
         status: "pending",
         $or: [{ expires_at: null }, { expires_at: { $gt: new Date() } }],
       }).sort({ createdAt: -1 });
+      // Atomically claim the invite — only the request that flips it from
+      // `pending` proceeds, so the same single-use invite can't be consumed by
+      // two concurrent signups (entitlement / trial abuse).
+      const invite = candidate
+        ? await TenantInvite.findOneAndUpdate(
+            { _id: candidate._id, status: "pending" },
+            { $set: { status: "consumed", consumed_by_org_id: new mongoose.Types.ObjectId(orgId), consumed_at: new Date() } },
+            { returnDocument: "after" },
+          )
+        : null;
       if (invite) {
         if (invite.trial_days_override != null) trialDays = invite.trial_days_override;
         if (invite.plan_id_override) {
@@ -95,10 +127,6 @@ async function seedTrialSubscription(orgId: string, userId: string): Promise<voi
             };
           }
         }
-        invite.status = "consumed";
-        invite.consumed_by_org_id = new mongoose.Types.ObjectId(orgId);
-        invite.consumed_at = new Date();
-        await invite.save();
       }
     }
 

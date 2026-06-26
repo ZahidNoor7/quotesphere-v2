@@ -3,11 +3,20 @@ import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { withTenant } from "@/lib/with-tenant";
+import { requireRole } from "@/lib/rbac";
 import { recordAudit } from "@/lib/audit";
 import { emailConfiguredFrom } from "@/lib/email";
+import { maskSecrets, isSecretLeaf, isUnchangedSecret } from "@/lib/settings-secrets";
 
 // Keys that change silently on every interaction — skip audit logging for these-only updates
 const SILENT_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates", "integrations"]);
+
+// Display/cache preferences that any member may update (org-wide, non-sensitive).
+// NOTE: `integrations` is deliberately EXCLUDED — secret writes require admin.
+const PREFERENCE_KEYS = new Set(["appearance", "lastUsed", "enabledCurrencies", "currencyRates", "default_currency"]);
+
+// Never accepted from the request body (identity / framework-managed).
+const IDENTITY_KEYS = new Set(["org_id", "_id", "__v", "createdAt", "updatedAt", "id", "user_id"]);
 
 /** Flattens nested objects into dot-notation keys for MongoDB $set deep merge. */
 function flattenObject(obj: Record<string, any>, prefix = ""): Record<string, any> {
@@ -48,7 +57,10 @@ export const GET = withTenant("GET /api/settings", async (req: NextRequest) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const currencyConfigured = !!(settings as any)?.integrations?.currencyApi?.enabled;
 
-    return NextResponse.json({ success: true, data: { ...settings, emailConfigured, cloudinaryConfigured, currencyConfigured } });
+    // Strip credentials before they ever leave the server — integration secrets
+    // are write-only. The *Configured booleans above tell the UI what is set.
+    const safe = maskSecrets(settings);
+    return NextResponse.json({ success: true, data: { ...safe, emailConfigured, cloudinaryConfigured, currencyConfigured } });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message || "Failed to fetch settings" }, { status: 500 });
   }
@@ -64,15 +76,33 @@ export const PUT = withTenant("PUT /api/settings", async (req: NextRequest) => {
 
     // Determine whether this update touches meaningful business fields
     const touchedKeys = Object.keys(body);
+    // Display/cache preferences any member may persist (theme, sidebar, last-used,
+    // currency display). Everything else — company info AND integration secrets —
+    // is admin-only. (`integrations` is NOT a preference, so secret writes stay gated.)
+    const adminOnly = !touchedKeys.every(k => PREFERENCE_KEYS.has(k));
+    if (adminOnly) {
+      const denied = requireRole(session, req.method, "settings");
+      if (denied) return denied;
+    }
     const isSilentUpdate = touchedKeys.every(k => SILENT_KEYS.has(k));
 
     const before = isSilentUpdate ? null : await Settings.findOne({}).lean();
 
     const $set = flattenObject(body);
+    // Sanitize the flattened update: never accept identity keys (org_id is also
+    // stripped by the tenant plugin), and treat a masked/blank secret as
+    // "unchanged" so a write-only field the client echoed back can't wipe the
+    // stored credential.
+    for (const key of Object.keys($set)) {
+      const leaf = key.split(".").pop() ?? key;
+      if (IDENTITY_KEYS.has(leaf) || IDENTITY_KEYS.has(key)) { delete $set[key]; continue; }
+      if (isSecretLeaf(leaf) && isUnchangedSecret($set[key])) delete $set[key];
+    }
+
     const settings = await Settings.findOneAndUpdate(
       {},
       { $set },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     ).lean();
 
     if (!isSilentUpdate) {
@@ -87,8 +117,13 @@ export const PUT = withTenant("PUT /api/settings", async (req: NextRequest) => {
       });
     }
 
-    return NextResponse.json({ success: true, data: settings });
+    // Mask secrets in the echo-back too — the PUT response must never carry
+    // plaintext credentials (the GET masks; this is the matching write-side mask).
+    return NextResponse.json({ success: true, data: maskSecrets(settings) });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-});
+  // writeRole "none": this handler does its OWN role logic — display preferences
+  // are open to any member, while company config / integration secrets require
+  // admin (see the PREFERENCE_KEYS check above).
+}, { writeRole: "none" });

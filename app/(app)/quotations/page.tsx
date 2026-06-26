@@ -41,6 +41,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { DocumentRenderer } from "@/components/document-design/document-renderer";
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
+import { useIsAdmin } from "@/hooks/use-role";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { Quotation, Project } from "@/types";
 
@@ -79,6 +80,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortableCol; sortCol: Sortab
 }
 
 export default function QuotationsPage() {
+  const isAdmin = useIsAdmin(); // gate the admin-only export tool
   const [searchInput, setSearchInput] = useState("");
   const [search,      setSearch]      = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -214,6 +216,7 @@ export default function QuotationsPage() {
       <div style={TOPBAR_STYLE}>
         <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Quotations</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {isAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -233,6 +236,7 @@ export default function QuotationsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
           <Button asChild size="sm">
             <Link href="/quotations/new">+ New Quotation</Link>
           </Button>

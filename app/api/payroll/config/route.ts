@@ -54,7 +54,7 @@ export const PUT = withTenant("PUT /api/payroll/config", async (req: NextRequest
   const config = await PayrollConfig.findOneAndUpdate(
     {},
     { $set: parsed.data },
-    { new: true, upsert: true, setDefaultsOnInsert: true }
+    { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
   ).lean();
   void recordAudit({ req, session, action: "update", resource: "payroll_config", resource_id: "payroll_config", resource_label: "Payroll config", after: config });
   return NextResponse.json({ success: true, data: config });

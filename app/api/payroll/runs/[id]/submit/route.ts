@@ -15,7 +15,7 @@ export const POST = withTenant("POST /api/payroll/runs/[id]/submit", async (req:
   const { id } = await params;
   if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
 
-  const run = await PayrollRun.findOneAndUpdate({ _id: id, status: "draft" }, { $set: { status: "pending_approval" } }, { new: true });
+  const run = await PayrollRun.findOneAndUpdate({ _id: id, status: "draft" }, { $set: { status: "pending_approval" } }, { returnDocument: "after" });
   if (!run) {
     const exists = await PayrollRun.findById(id).select("_id").lean();
     return NextResponse.json({ success: false, error: exists ? "Only a draft run can be submitted" : "Not found" }, { status: exists ? 409 : 404 });

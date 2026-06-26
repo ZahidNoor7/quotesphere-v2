@@ -35,7 +35,7 @@ export const POST = withTenant("POST /api/projects/[id]/milestones", async (req:
     const project = await Project.findByIdAndUpdate(
       id,
       { $push: { milestones: { ...parsed.data, due_date: parsed.data.due_date ? new Date(parsed.data.due_date) : undefined } } },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!project) return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
 

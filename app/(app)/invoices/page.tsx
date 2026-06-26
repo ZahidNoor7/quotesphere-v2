@@ -41,6 +41,7 @@ import { DocumentRenderer } from "@/components/document-design/document-renderer
 import { getDesignById, getDefaultDesign } from "@/lib/document-designs";
 import { useSettings } from "@/hooks/use-settings";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsAdmin } from "@/hooks/use-role";
 import type { Invoice, Project } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -78,6 +79,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortableCol; sortCol: Sortab
 }
 
 export default function InvoicesPage() {
+  const isAdmin = useIsAdmin(); // gate the admin-only export tool
   const [searchInput, setSearchInput] = useState(""); // immediate: controls the <input>
   const [search, setSearch] = useState(""); // debounced: drives the API query
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,6 +213,7 @@ export default function InvoicesPage() {
       <div style={TOPBAR_STYLE}>
         <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Invoices</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {isAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -230,6 +233,7 @@ export default function InvoicesPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
           <Button asChild size="sm">
             <Link href="/invoices/new">+ New Invoice</Link>
           </Button>

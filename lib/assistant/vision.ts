@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { AiAssistantConfig } from "@/types";
 import { azureOrigin } from "./providers/openai";
+import { isSafeExternalUrl } from "@/lib/ssrf-guard";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -44,6 +45,11 @@ function parseJson(text: string): unknown {
  * The model must be vision-capable (gpt-4o / gpt-5 / claude-sonnet, etc.).
  */
 export async function extractBillFromImage(cfg: AiAssistantConfig | undefined, imageUrl: string): Promise<BillExtract> {
+  // SSRF: the provider fetches this URL server-side. Only allow public https
+  // URLs (rejects loopback / private / cloud-metadata hosts).
+  if (!isSafeExternalUrl(imageUrl)) {
+    throw new Error("The image URL must be a public https link.");
+  }
   const provider = cfg?.provider ?? "openai";
   let raw = "";
 

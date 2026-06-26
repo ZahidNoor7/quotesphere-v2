@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useRef } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsAdmin } from "@/hooks/use-role";
 import useSWR from "swr";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -123,6 +124,7 @@ function SortIcon({
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const isAdmin = useIsAdmin(); // gate the admin-only export tool
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -285,6 +287,7 @@ export default function CustomersPage() {
           Clients
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {isAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -304,6 +307,7 @@ export default function CustomersPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <Upload size={12} /> Import
           </Button>

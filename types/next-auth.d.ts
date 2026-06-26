@@ -31,5 +31,7 @@ declare module "next-auth/jwt" {
     org_id?: string;
     isPlatformAdmin?: boolean;
     platformAdminId?: string;
+    /** Epoch ms of the last DB re-resolve of role/org_id (throttles the refresh check). */
+    checkedAt?: number;
   }
 }

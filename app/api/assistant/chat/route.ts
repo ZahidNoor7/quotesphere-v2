@@ -7,6 +7,9 @@ import AssistantConversation from "@/models/AssistantConversation";
 import type { AiAssistantConfig, AssistantMessage, UserRole } from "@/types";
 import { getBaseUrl } from "@/lib/assistant/base-url";
 import { enterOrg } from "@/lib/tenant-context";
+import { gateFeature } from "@/lib/entitlement-guard";
+import { rateLimit } from "@/lib/rate-limit";
+import { isSafeExternalUrl } from "@/lib/ssrf-guard";
 import { resolveProvider, ProviderConfigError } from "@/lib/assistant/providers";
 import { buildSystemPrompt } from "@/lib/assistant/prompt";
 import { describeAgentError } from "@/lib/assistant/errors";
@@ -62,6 +65,18 @@ export async function POST(req: NextRequest) {
   const orgId = (session.user as { org_id?: string }).org_id;
   if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   enterOrg(orgId);
+
+  // Cost control: per-user request rate limit before any (billable) LLM work.
+  const rl = await rateLimit(`ai:chat:${userId}`, 30, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { success: false, error: "You're sending messages too fast. Please wait a moment." },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+  // Subscription + plan-feature gate at the API (UI gating is not enforcement).
+  const gate = await gateFeature(orgId, "ai_assistant");
+  if (gate) return gate;
 
   let body: z.infer<typeof bodySchema>;
   try {
@@ -122,7 +137,8 @@ export async function POST(req: NextRequest) {
 
   // Images attached this turn — or, on a resume after the customer form, the ones
   // from the original message (still in history).
-  const turnAttachments = body.attachments?.length ? body.attachments : lastUserAttachments(messages);
+  // Only public https image URLs reach the LLM provider (SSRF guard on attachments).
+  const turnAttachments = (body.attachments?.length ? body.attachments : lastUserAttachments(messages)).filter(isSafeExternalUrl);
 
   async function persist(finalMessages: AssistantMessage[], finalPending: StoredPendingAction | null) {
     if (convoId) {

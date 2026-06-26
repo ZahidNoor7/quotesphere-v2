@@ -17,7 +17,7 @@ export const POST = withTenant("POST /api/projects/[id]/notes", async (req: Next
     const project = await Project.findByIdAndUpdate(
       id,
       { $push: { project_notes: { content: content.trim() } } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true, data: (project as any).project_notes });
@@ -37,7 +37,7 @@ export const DELETE = withTenant("DELETE /api/projects/[id]/notes", async (req: 
     const project = await Project.findByIdAndUpdate(
       id,
       { $pull: { project_notes: { _id: noteId } } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });

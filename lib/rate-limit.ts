@@ -64,10 +64,18 @@ export async function rateLimit(
 }
 
 /**
- * Extract the real client IP from request headers, falling back gracefully.
+ * Best-effort client IP for rate-limit keys.
+ *
+ * Prefers `x-real-ip` (a single value the platform/proxy sets) over
+ * `x-forwarded-for`, whose FIRST entry is client-supplied and can be spoofed by
+ * prepending fake hops to mint fresh buckets. These keys are only as trustworthy
+ * as the proxy in front of the app — deploy behind one (e.g. Vercel) that
+ * overwrites both headers.
  */
 export function getClientIP(req: Request): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp.trim();
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  return "unknown";
 }

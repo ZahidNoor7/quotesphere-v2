@@ -33,7 +33,9 @@ export const GET = withTenant("GET /api/services", async (req: NextRequest) => {
     // status === "all" → no is_active constraint
     if (search) query.$text = { $search: search };
     if (category) query.category = category;
-    const data = await Service.find(query).sort({ category: 1, name: 1 }).lean();
+    const limit = Math.min(1000, Math.max(1, parseInt(searchParams.get("limit") || "1000")));
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const data = await Service.find(query).sort({ category: 1, name: 1 }).skip((page - 1) * limit).limit(limit).lean();
     return NextResponse.json({ success: true, data });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to fetch services" }, { status: 500 });

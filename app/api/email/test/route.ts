@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
+import { connectDB } from "@/lib/mongoose";
+import Settings from "@/models/Settings";
 import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
 import { sendTestEmail } from "@/lib/email";
+import { resolveSubmittedSecret } from "@/lib/settings-secrets";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -39,7 +42,18 @@ export const POST = withTenant("POST /api/email/test", async (req: NextRequest) 
       return NextResponse.json({ success: false, error: "A valid recipient email is required." }, { status: 400 });
     }
 
-    const r = await sendTestEmail(parsed.data.config, parsed.data.to);
+    // Secrets are masked on read; if the caller submitted the mask (testing a
+    // saved integration without re-typing), fall back to the stored credential.
+    await connectDB();
+    const stored = (await Settings.findOne({}).select("integrations.email").lean()) as any;
+    const e = stored?.integrations?.email ?? {};
+    const config = {
+      ...parsed.data.config,
+      apiKey: resolveSubmittedSecret(parsed.data.config.apiKey, e.apiKey),
+      smtpPassword: resolveSubmittedSecret(parsed.data.config.smtpPassword, e.smtpPassword),
+    };
+
+    const r = await sendTestEmail(config, parsed.data.to);
     if (r.error) return NextResponse.json({ success: false, error: r.error }, { status: 400 });
     return NextResponse.json({ success: true, id: r.id });
   } catch (err: any) {

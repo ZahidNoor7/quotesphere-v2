@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose, { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
@@ -24,14 +25,28 @@ export const GET = withTenant("GET /api/time-entries", async (req: NextRequest) 
 
     const { searchParams } = new URL(req.url);
     const project_id = searchParams.get("project_id");
-    if (!project_id) return NextResponse.json({ success: false, error: "project_id required" }, { status: 400 });
+    if (!project_id || !isValidObjectId(project_id)) return NextResponse.json({ success: false, error: "Valid project_id required" }, { status: 400 });
 
+    // Bound the returned list, but compute totals over ALL entries via aggregation
+    // so summaries stay correct even when the list is paginated/capped.
+    const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") || "500")));
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
     const entries = await TimeEntry.find({ project_id })
       .sort({ date: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean();
 
-    const totalHours  = (entries as any[]).reduce((s, e) => s + e.hours, 0);
-    const totalAmount = (entries as any[]).reduce((s, e) => s + e.hours * (e.hourly_rate ?? 0), 0);
+    const [agg] = await TimeEntry.aggregate<{ totalHours: number; totalAmount: number }>([
+      { $match: { project_id: new mongoose.Types.ObjectId(project_id) } },
+      { $group: {
+        _id: null,
+        totalHours: { $sum: "$hours" },
+        totalAmount: { $sum: { $multiply: ["$hours", { $ifNull: ["$hourly_rate", 0] }] } },
+      } },
+    ]);
+    const totalHours = agg?.totalHours ?? 0;
+    const totalAmount = agg?.totalAmount ?? 0;
 
     return NextResponse.json({ success: true, data: entries, summary: { totalHours, totalAmount } });
   } catch (err) {

@@ -69,9 +69,9 @@ const whatsAppMessageSchema = new Schema<IWhatsAppMessage>(
   { timestamps: true, versionKey: false }
 );
 
-whatsAppMessageSchema.index({ from: 1, timestamp: -1 });
-whatsAppMessageSchema.index({ to: 1, timestamp: -1 });
-whatsAppMessageSchema.index({ mediaId: 1 });
+whatsAppMessageSchema.index({ org_id: 1, from: 1, timestamp: -1 });
+whatsAppMessageSchema.index({ org_id: 1, to: 1, timestamp: -1 });
+whatsAppMessageSchema.index({ org_id: 1, mediaId: 1 });
 
 whatsAppMessageSchema.plugin(tenantScope);
 

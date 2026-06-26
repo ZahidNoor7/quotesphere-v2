@@ -14,11 +14,11 @@ import Settings from "@/models/Settings";
 import { sendPaymentReminderEmail } from "@/lib/email";
 import { sendWhatsAppMessage, normalizePhone } from "@/lib/whatsapp";
 import { bypassTenant, runWithOrg } from "@/lib/tenant-context";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 import type { WhatsAppConfig } from "@/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const DAY = 24 * 60 * 60 * 1000;
 const MAX_EMAILS_PER_RUN = 100; // Resend free-tier daily cap
 
@@ -28,11 +28,8 @@ const sameDay = (a?: Date | null, b?: Date | null) =>
 const fmtDate = (d?: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
 export const GET = async (req: NextRequest) => {
-  if (CRON_SECRET) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   await connectDB();

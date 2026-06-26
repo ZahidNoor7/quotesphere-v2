@@ -83,8 +83,8 @@ const expenseSchema = new Schema<IExpense>(
   { timestamps: true, versionKey: false }
 );
 
-expenseSchema.index({ customer_id: 1, createdAt: -1 });
-expenseSchema.index({ status: 1, bill_date: -1 });
+expenseSchema.index({ org_id: 1, customer_id: 1, createdAt: -1 });
+expenseSchema.index({ org_id: 1, status: 1, bill_date: -1 });
 expenseSchema.index({ expense_no: "text", vendor_name: "text", customer_name: "text" });
 
 expenseSchema.plugin(tenantScope);

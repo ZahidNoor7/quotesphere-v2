@@ -91,8 +91,8 @@ const quotationSchema = new Schema<IQuotation>(
   { timestamps: true, versionKey: false }
 );
 
-quotationSchema.index({ customer_id: 1, createdAt: -1 });
-quotationSchema.index({ status: 1, valid_until: 1 });
+quotationSchema.index({ org_id: 1, customer_id: 1, createdAt: -1 });
+quotationSchema.index({ org_id: 1, status: 1, valid_until: 1 });
 quotationSchema.index({ quotation_no: "text", customer_name: "text" });
 
 quotationSchema.plugin(tenantScope);

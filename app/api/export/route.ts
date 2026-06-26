@@ -6,6 +6,8 @@ import Quotation from "@/models/Quotation";
 import Expense from "@/models/Expense";
 import Customer from "@/models/Customer";
 import { enterOrg } from "@/lib/tenant-context";
+import { requireRole } from "@/lib/rbac";
+import { rateLimit } from "@/lib/rate-limit";
 import * as XLSX from "xlsx";
 
 function dateFilter(from?: string, to?: string) {
@@ -77,8 +79,14 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    // Admin-only power tool: bulk data export is a mass-exfiltration surface.
+    const denied = requireRole(session, "GET", "settings");
+    if (denied) return denied;
     const orgId = (session.user as { org_id?: string }).org_id;
     if (!orgId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    // Bulk export is heavy — cap per org.
+    const rl = await rateLimit(`export:${orgId}`, 20, 60_000);
+    if (!rl.success) return NextResponse.json({ success: false, error: "Too many exports — please wait a moment." }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
     enterOrg(orgId);
     await connectDB();
 

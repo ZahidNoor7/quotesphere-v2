@@ -37,7 +37,7 @@ export const PUT = withPlatform(
       const before = (await platformRead(() => Plan.findById(id).lean())) as any;
       if (!before) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
-      const plan = await Plan.findByIdAndUpdate(id, update, { new: true });
+      const plan = await Plan.findByIdAndUpdate(id, update, { returnDocument: "after" });
       await recordPlatformAudit({
         req, platformAdminId: platform.platformAdminId, actorEmail: platform.adminEmail,
         action: "plan.update", before, after: plan?.toObject(),

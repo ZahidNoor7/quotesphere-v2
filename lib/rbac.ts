@@ -8,7 +8,7 @@ import type { UserRole } from "@/types";
 // "manager" → read + create + update + delete
 // "admin"   → full access including delete and settings (company config + team)
 
-type Operation = "read" | "create" | "update" | "delete" | "settings";
+export type Operation = "read" | "create" | "update" | "delete" | "settings";
 
 const ROLE_PERMISSIONS: Record<UserRole, Set<Operation>> = {
   viewer:  new Set(["read"]),

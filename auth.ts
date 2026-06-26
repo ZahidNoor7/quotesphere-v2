@@ -2,12 +2,18 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import { ObjectId } from "mongodb";
 import bcrypt from "bcryptjs";
 import clientPromise from "@/lib/db";
 import { authConfig } from "./auth.config";
 import { rateLimit, getClientIP } from "@/lib/rate-limit";
 import { ensureUserOrg } from "@/lib/provisioning";
 import type { UserRole } from "@/types";
+
+// A structurally-valid bcrypt hash that no password matches. Compared against it
+// when an account isn't found so login does the same bcrypt work either way —
+// no account enumeration and no timing oracle.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync("unmatchable-placeholder-password", 12);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -36,12 +42,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const user = await db.collection("users").findOne({
           email: (credentials.email as string).toLowerCase(),
         });
-        if (!user) throw new Error("No account found with this email.");
+        // Always run a bcrypt compare (real hash or the dummy) and return ONE
+        // generic error — no "account exists?" disclosure via message or timing.
         const isValid = await bcrypt.compare(
           credentials.password as string,
-          user.password
+          user?.password || DUMMY_PASSWORD_HASH,
         );
-        if (!isValid) throw new Error("Incorrect password.");
+        if (!user || !isValid) throw new Error("Invalid email or password.");
         return {
           id: user._id.toString(),
           email: user.email,
@@ -75,12 +82,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const admin = await db.collection("platformadmins").findOne({
           email: (credentials.email as string).toLowerCase(),
         });
-        // Generic error for unknown email AND bad password — no account enumeration.
-        if (!admin || admin.is_active === false || !admin.password) {
-          throw new Error("Invalid credentials.");
-        }
-        const isValid = await bcrypt.compare(credentials.password as string, admin.password);
-        if (!isValid) throw new Error("Invalid credentials.");
+        // Generic error + constant bcrypt work for unknown email AND bad password
+        // — no account enumeration or timing oracle.
+        const active = !!(admin && admin.is_active !== false && admin.password);
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          (active && admin?.password) || DUMMY_PASSWORD_HASH,
+        );
+        if (!active || !isValid) throw new Error("Invalid credentials.");
         // Best-effort last-login stamp; never block sign-in on it.
         void db
           .collection("platformadmins")
@@ -117,6 +126,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           let orgId = (user as { org_id?: string }).org_id;
           if (!orgId && user.id) orgId = await ensureUserOrg(user.id, user.name);
           token.org_id = orgId;
+          token.checkedAt = Date.now();
+        }
+      } else if (!token.isPlatformAdmin && token.sub) {
+        // Token refresh (no `user`): re-resolve role + org_id from the DB so a
+        // role demotion, org change, or account deletion takes effect WITHOUT
+        // waiting for the (long) token to expire. Throttled to ≤ once / 5 min so
+        // this stays off the hot path.
+        const last = typeof token.checkedAt === "number" ? token.checkedAt : 0;
+        if (Date.now() - last > 5 * 60 * 1000) {
+          try {
+            const client = await clientPromise;
+            let _id: ObjectId | null = null;
+            try { _id = new ObjectId(token.sub); } catch { _id = null; }
+            const dbUser = _id
+              ? await client.db().collection("users").findOne({ _id }, { projection: { role: 1, org_id: 1 } })
+              : null;
+            if (dbUser) {
+              token.role = (dbUser.role as UserRole) || "admin";
+              if (dbUser.org_id) token.org_id = String(dbUser.org_id);
+            } else {
+              // User no longer exists → drop tenant claims so withTenant returns 401.
+              token.role = undefined;
+              token.org_id = undefined;
+            }
+          } catch {
+            // DB hiccup → keep existing claims; we'll re-check on the next interval.
+          }
+          token.checkedAt = Date.now();
         }
       }
       return token;
@@ -135,5 +172,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
-  session: { strategy: "jwt" },
+  // 7-day token lifetime (was the 30-day default) to bound the window of a stolen
+  // JWT; role/org changes apply much sooner via the 5-min re-resolve in `jwt`.
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
 });

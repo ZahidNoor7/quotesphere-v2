@@ -54,6 +54,9 @@ export function TenantActionSheet({
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<FormState>(() => initial());
   const initialRef = useRef<string>("");
+  // Stable per-open idempotency token so a double-click / retry of "Mark paid"
+  // records the payment exactly once (see the actions route's idempotency_key).
+  const idemKeyRef = useRef<string>("");
 
   function initial(): FormState {
     return {
@@ -71,6 +74,7 @@ export function TenantActionSheet({
       const init = initial();
       setForm(init);
       initialRef.current = JSON.stringify(init);
+      idemKeyRef.current = crypto.randomUUID();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, kind]);
@@ -107,6 +111,7 @@ export function TenantActionSheet({
       payload = {
         action: "mark_paid", amount: amt, currency: form.currency,
         planId: form.planId || undefined, note: form.note || undefined,
+        idempotencyKey: idemKeyRef.current || undefined,
       };
     } else if (kind === "set_grace") {
       payload = { action: "set_grace", graceDays: form.graceDays === "" ? null : Number(form.graceDays) };

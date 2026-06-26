@@ -8,6 +8,31 @@ Why: reason.
 
 <!-- Review this file at the start of every session before writing any code. -->
 
+## 2026-06-26 — Tenant isolation: force-stamp org_id, don't trust the body
+
+Rule: The tenant plugin FORCE-stamps `org_id` from context on every insert (overwriting any caller value) and strips client `org_id` from update/upsert `$set`/`$setOnInsert`. Never pass a raw `req.body` to `Model.create()` — validate with zod and omit `org_id`.
+Why: The old `validate` hook only stamped `org_id` when it was `null`, so a body `org_id` survived → cross-tenant create. Routes spreading raw bodies (products, templates, settings) were the exploit surface.
+
+## 2026-06-26 — Shared settings endpoint mixes admin config and member preferences
+
+Rule: `PUT /api/settings` is `writeRole:"none"` and does its OWN role logic: display/cache prefs (`PREFERENCE_KEYS`: appearance, lastUsed, enabledCurrencies, currencyRates, default_currency) are open to any member; everything else — company info AND `integrations` (secrets) — needs admin.
+Why: Blanket-admin-gating the endpoint 403'd non-admins on routine theme/sidebar/currency writes (the `useSettings.patch` helper swallows the error, so prefs silently never persist).
+
+## 2026-06-26 — Don't recurse generic deep-walkers into ObjectId/Buffer
+
+Rule: A recursive object transform (e.g. secret masking) must only descend into PLAIN objects (`value.constructor === Object`) and arrays — return Date/ObjectId/Buffer/class instances as leaves.
+Why: Recursing into a Mongoose lean doc's `_id`/`org_id` ObjectId rebuilds it as `{}`/`{buffer:…}`, corrupting the response shape.
+
+## 2026-06-26 — SSRF host checks must canonicalize numeric IPs
+
+Rule: A URL allow-guard must reject numeric IP literals in ALL encodings (decimal `2130706433`, hex `0x7f000001`, octal `0177.0.0.1`, trailing-dot) and IPv6 literals — not just dotted-quad. Legit provider endpoints use DNS hostnames.
+Why: `127.0.0.1` / `169.254.169.254` (cloud metadata) are trivially reachable via these encodings if you only match `d.d.d.d`.
+
+## 2026-06-26 — withTenant enforces auth+subscription+feature, NOT role by default for legacy routes
+
+Rule: Role is enforced centrally in `withTenant` for writes (method→op). Self-service routes (own profile, own AI conversations) pass `writeRole:"none"`; admin-only routes (settings/*) pass `writeRole:"settings"` or check inline.
+Why: Many write routes historically forgot `requireRole`; centralizing it closes the class, but the override is needed so self-service flows aren't over-gated.
+
 ## 2026-05-17 — Data fetching pattern
 
 Rule: Use **SWR** for all client-side data fetching — never `useEffect` + raw `fetch`.

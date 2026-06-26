@@ -27,7 +27,7 @@ const serviceSchema = new Schema<IService>(
   { timestamps: true, versionKey: false }
 );
 
-serviceSchema.index({ category: 1, is_active: 1 });
+serviceSchema.index({ org_id: 1, category: 1, is_active: 1 });
 serviceSchema.index({ name: "text", description: "text" });
 
 serviceSchema.plugin(tenantScope);

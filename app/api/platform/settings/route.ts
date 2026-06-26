@@ -30,7 +30,7 @@ export const PUT = withPlatform("PUT /api/platform/settings", async (req: NextRe
     const settings = await PlatformSettings.findOneAndUpdate(
       { key: "global" },
       { $set: parsed.data },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
     );
     await recordPlatformAudit({
       req, platformAdminId: platform.platformAdminId, actorEmail: platform.adminEmail,

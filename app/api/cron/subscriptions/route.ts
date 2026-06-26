@@ -14,18 +14,15 @@ import { getPlatformSettings } from "@/models/PlatformSettings";
 import { bypassTenant, runWithOrg } from "@/lib/tenant-context";
 import { computeEffectiveStatus, effectiveGraceDays } from "@/lib/subscriptions/state";
 import { invalidateEntitlements } from "@/lib/entitlements/resolve";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const DAY = 86_400_000;
 
 export const GET = async (req: NextRequest) => {
-  if (CRON_SECRET) {
-    const authz = req.headers.get("authorization");
-    if (authz !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   await connectDB();

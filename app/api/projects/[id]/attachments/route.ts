@@ -17,7 +17,7 @@ export const POST = withTenant("POST /api/projects/[id]/attachments", async (req
     const project = await Project.findByIdAndUpdate(
       id,
       { $push: { attachments: { url, name, type: type || "application/octet-stream", size: size || 0, uploadedAt: new Date() } } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true, data: (project as any).attachments });
@@ -37,7 +37,7 @@ export const DELETE = withTenant("DELETE /api/projects/[id]/attachments", async 
     const project = await Project.findByIdAndUpdate(
       id,
       { $pull: { attachments: { _id: attachmentId } } },
-      { new: true }
+      { returnDocument: "after" }
     ).lean();
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     return NextResponse.json({ success: true });

@@ -32,8 +32,8 @@ const customerSchema = new Schema<ICustomer>(
 );
 
 customerSchema.index({ name: "text", company: "text", email: "text" });
-customerSchema.index({ status: 1, createdAt: -1 });
-customerSchema.index({ phone_no: 1 });
+customerSchema.index({ org_id: 1, status: 1, createdAt: -1 });
+customerSchema.index({ org_id: 1, phone_no: 1 });
 
 customerSchema.plugin(tenantScope);
 

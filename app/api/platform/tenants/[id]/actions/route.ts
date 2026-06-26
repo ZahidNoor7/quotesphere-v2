@@ -30,6 +30,8 @@ const actionSchema = z.discriminatedUnion("action", [
     planId: z.string().optional(),
     note: z.string().max(500).optional(),
     providerRef: z.string().max(200).optional(),
+    /** Client-generated per-click token so a double-submit records the payment once. */
+    idempotencyKey: z.string().max(100).optional(),
   }),
   z.object({ action: z.literal("suspend"), reason: z.string().max(500).optional() }),
   z.object({ action: z.literal("reactivate") }),
@@ -55,8 +57,8 @@ function snapshotFromPlan(plan: any, currency: BillingCurrency) {
 export const POST = withPlatform(
   "POST /api/platform/tenants/[id]/actions",
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }, platform) => {
+    const { id } = await params; // hoisted so the catch can invalidate the cache
     try {
-      const { id } = await params;
       if (!isValidObjectId(id)) {
         return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
       }
@@ -113,6 +115,11 @@ export const POST = withPlatform(
             break;
           }
           case "mark_paid": {
+            // Idempotency: if this exact click already recorded a payment, do nothing.
+            if (action.idempotencyKey) {
+              const existing = await PaymentRecord.findOne({ idempotency_key: action.idempotencyKey }).select("_id").lean();
+              if (existing) return { idempotent: true as const };
+            }
             let interval: BillingInterval = sub.plan_snapshot?.billing_interval ?? "monthly";
             if (action.planId) {
               const plan = (await Plan.findById(action.planId).lean()) as any;
@@ -139,6 +146,7 @@ export const POST = withPlatform(
               method: "manual",
               provider: null,
               provider_ref: action.providerRef ?? null,
+              idempotency_key: action.idempotencyKey ?? null,
               description: action.note ?? "Manual payment",
               plan_slug: sub.plan_snapshot?.slug ?? "",
               recorded_by_type: "platform",
@@ -205,6 +213,12 @@ export const POST = withPlatform(
         return { sub, before, after: sub.toObject() };
       });
 
+      if ("idempotent" in outcome) {
+        // Payment already recorded for this click — succeed without a duplicate.
+        invalidateEntitlements(id); // ensure the gate reflects the prior change
+        return NextResponse.json({ success: true, data: { idempotent: true } });
+      }
+
       if ("error" in outcome) {
         const errMap: Record<string, [string, number]> = {
           no_subscription: ["This tenant has no subscription", 404],
@@ -234,6 +248,12 @@ export const POST = withPlatform(
     } catch (err) {
       if (err instanceof InvalidTransitionError) {
         return NextResponse.json({ success: false, error: err.message }, { status: 400 });
+      }
+      // Idempotency-key collision (concurrent double-submit beat the pre-check) —
+      // the payment is already recorded, so report success.
+      if ((err as { code?: number })?.code === 11000) {
+        invalidateEntitlements(id); // the winning request changed state — refresh the gate
+        return NextResponse.json({ success: true, data: { idempotent: true } });
       }
       console.error("[platform/tenants/[id]/actions POST]", err);
       return NextResponse.json({ success: false, error: "Action failed" }, { status: 500 });

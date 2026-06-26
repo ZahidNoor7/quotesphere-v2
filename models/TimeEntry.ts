@@ -31,7 +31,7 @@ const timeEntrySchema = new Schema<ITimeEntry>(
   { timestamps: true, versionKey: false }
 );
 
-timeEntrySchema.index({ project_id: 1, date: -1 });
+timeEntrySchema.index({ org_id: 1, project_id: 1, date: -1 });
 
 timeEntrySchema.plugin(tenantScope);
 

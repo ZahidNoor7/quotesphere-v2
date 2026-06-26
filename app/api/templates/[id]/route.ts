@@ -14,7 +14,7 @@ export const PUT = withTenant("PUT /api/templates/[id]", async (req: NextRequest
     const { id } = await params;
     if (!isValidObjectId(id)) return NextResponse.json({ success: false, error: "Invalid ID" }, { status: 400 });
     const body = await req.json();
-    const data = await Template.findByIdAndUpdate(id, body, { new: true });
+    const data = await Template.findByIdAndUpdate(id, body, { returnDocument: "after" });
     if (!data) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     void recordAudit({ req, session, action: "update", resource: "template", resource_id: id, resource_label: data.name });
     return NextResponse.json({ success: true, data });

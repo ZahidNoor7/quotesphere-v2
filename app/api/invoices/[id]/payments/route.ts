@@ -73,7 +73,7 @@ export const POST = withTenant("POST /api/invoices/[id]/payments", async (req: N
         },
       ],
       // Mongoose 9 requires updatePipeline:true to accept an aggregation-pipeline update.
-      { new: true, updatePipeline: true }
+      { returnDocument: "after", updatePipeline: true }
     );
 
     if (!updated) {
@@ -166,7 +166,7 @@ export const DELETE = withTenant("DELETE /api/invoices/[id]/payments", async (re
         },
       ],
       // Mongoose 9 requires updatePipeline:true to accept an aggregation-pipeline update.
-      { new: true, updatePipeline: true }
+      { returnDocument: "after", updatePipeline: true }
     );
 
     if (!updated) {

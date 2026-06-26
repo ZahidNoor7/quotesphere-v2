@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { withTenant } from "@/lib/with-tenant";
+import { recordAudit } from "@/lib/audit";
 import Subscription from "@/models/Subscription";
 import Plan from "@/models/Plan";
 
@@ -49,6 +50,11 @@ export const POST = withTenant("POST /api/billing/change-request", async (req: N
     };
     await sub.save();
 
+    void recordAudit({
+      req, session, action: "update", resource: "settings", resource_id: String(sub._id),
+      resource_label: `Plan change requested: ${plan.name} (${direction})`,
+      after: { plan_name: plan.name, direction },
+    });
     return NextResponse.json({ success: true, data: sub.pending_change });
   } catch (err) {
     console.error("[billing change-request POST]", err);
@@ -57,7 +63,7 @@ export const POST = withTenant("POST /api/billing/change-request", async (req: N
 });
 
 /** Tenant (admin) cancels their pending change request. */
-export const DELETE = withTenant("DELETE /api/billing/change-request", async (_req, _ctx, { session }) => {
+export const DELETE = withTenant("DELETE /api/billing/change-request", async (req, _ctx, { session }) => {
   try {
     if (session.user?.role !== "admin") {
       return NextResponse.json({ success: false, error: "Only an organization admin can change the plan." }, { status: 403 });
@@ -68,6 +74,7 @@ export const DELETE = withTenant("DELETE /api/billing/change-request", async (_r
     }
     sub.pending_change = null;
     await sub.save();
+    void recordAudit({ req, session, action: "update", resource: "settings", resource_id: String(sub._id), resource_label: "Plan change request cancelled" });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[billing change-request DELETE]", err);

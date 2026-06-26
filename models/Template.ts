@@ -53,7 +53,7 @@ const templateSchema = new Schema<ITemplate>(
 );
 
 templateSchema.index({ name: "text" });
-templateSchema.index({ type: 1, createdAt: -1 });
+templateSchema.index({ org_id: 1, type: 1, createdAt: -1 });
 
 templateSchema.plugin(tenantScope);
 

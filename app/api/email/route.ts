@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { withTenant } from "@/lib/with-tenant";
 import { requireRole } from "@/lib/rbac";
+import { rateLimit } from "@/lib/rate-limit";
 import { sendInvoiceEmail, sendQuotationEmail, sendPaymentReminderEmail } from "@/lib/email";
 
 const sendSchema = z.discriminatedUnion("type", [
@@ -46,12 +47,15 @@ const sendSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-export const POST = withTenant("POST /api/email", async (req: NextRequest) => {
+export const POST = withTenant("POST /api/email", async (req: NextRequest, _ctx, { orgId }) => {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     const denied = requireRole(session, req.method);
     if (denied) return denied;
+    // Abuse / cost control on outbound email.
+    const rl = await rateLimit(`email:send:${orgId}`, 60, 60_000);
+    if (!rl.success) return NextResponse.json({ success: false, error: "Too many emails — please wait a moment." }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
     const body = await req.json();
     const parsed = sendSchema.safeParse(body);

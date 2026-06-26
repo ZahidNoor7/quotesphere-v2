@@ -1,23 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import { testWhatsAppConnection } from "@/lib/whatsapp";
-import { enterOrg } from "@/lib/tenant-context";
+import { guardWhatsApp } from "@/lib/whatsapp-route-guard";
 import type { WhatsAppConfig } from "@/types";
 
 export async function POST() {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+  const g = await guardWhatsApp("POST", { write: true });
+  if (g instanceof NextResponse) return g;
 
   await connectDB();
   const settings = await Settings.findOne({});

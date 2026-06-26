@@ -62,7 +62,12 @@ async function resolveEmailConfig(): Promise<ResolvedEmail> {
   } catch {
     /* fall through to env */
   }
-  if (process.env.RESEND_API_KEY) return { provider: "resend", from: ENV_FROM, apiKey: process.env.RESEND_API_KEY };
+  if (process.env.RESEND_API_KEY) {
+    // Platform-default fallback: this tenant has no own email config, so it sends
+    // via the platform's Resend key (and From address). Metered so this is visible.
+    console.warn("[email] tenant has no email integration — falling back to platform RESEND_API_KEY");
+    return { provider: "resend", from: ENV_FROM, apiKey: process.env.RESEND_API_KEY };
+  }
   return null;
 }
 
@@ -101,6 +106,10 @@ async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: s
         port: cfg.smtp.port,
         secure: cfg.smtp.secure,
         auth: { user: cfg.smtp.user, pass: cfg.smtp.pass },
+        // Bound the connect/handshake/send so a hung SMTP server can't stall the request.
+        connectionTimeout: 15_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
       });
       const info = await transport.sendMail({
         from: cfg.from, to, subject: opts.subject, html: opts.html,
@@ -124,10 +133,12 @@ async function dispatch(cfg: ResolvedEmail, opts: SendOptions): Promise<{ id?: s
         ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
         ...(opts.attachments?.length ? { attachments: opts.attachments.map(a => ({ filename: a.filename, content: a.content })) } : {}),
       }),
+      signal: AbortSignal.timeout(15_000),
     });
     const data = await res.json();
     if (!res.ok) {
-      console.error("[email] Resend error:", data);
+      // Log status + message only (full body can echo recipient PII / headers).
+      console.error("[email] Resend error:", res.status, data?.message ?? "");
       return { error: data.message ?? "Email send failed" };
     }
     return { id: data.id };

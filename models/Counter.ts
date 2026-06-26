@@ -28,7 +28,7 @@ export async function getNextNumber(
   const counter = await Counter.findOneAndUpdate(
     { org_id: orgId, name },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   );
   return `${prefix}-${String(counter.seq).padStart(digits, "0")}`;
 }
@@ -54,7 +54,7 @@ export async function getNextNumberWithPattern(
   const counter = await Counter.findOneAndUpdate(
     { org_id: orgId, name },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   );
 
   const resolvedPattern = pattern?.trim() || "{prefix}-{seq:5}";

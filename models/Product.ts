@@ -33,8 +33,10 @@ const productSchema = new Schema<IProduct>(
   { timestamps: true, versionKey: false }
 );
 
-productSchema.index({ category: 1, is_active: 1 });
-productSchema.index({ sku: 1 }, { sparse: true });
+// org_id-leading so tenant-scoped catalog queries can use it. (sku is already
+// indexed sparsely via the field option above — no separate sku index here to
+// avoid a duplicate-index definition.)
+productSchema.index({ org_id: 1, category: 1, is_active: 1 });
 productSchema.index({ name: "text", description: "text", sku: "text" });
 
 productSchema.plugin(tenantScope);

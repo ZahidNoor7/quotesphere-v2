@@ -1,12 +1,17 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Wand2, Save, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useSettings } from "@/hooks/use-settings";
 import { ASSISTANT_FEATURES, isFeatureEnabled } from "@/lib/assistant/features";
 import { T1, T3, GLASS_BORDER, AC } from "@/lib/ds";
@@ -37,15 +42,34 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
   const [language, setLanguage] = useState("auto");
   const [saving, setSaving] = useState(false);
   const [rewriting, setRewriting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Snapshot of the values when the sheet opened — drives the unsaved-changes guard.
+  const initialRef = useRef<string>("");
 
   useEffect(() => {
     if (!open) return;
     const f: Record<string, boolean> = {};
     for (const feat of ASSISTANT_FEATURES) f[feat.key] = isFeatureEnabled(cfg?.features, feat.key);
+    const instr = cfg?.customInstructions ?? "";
+    const lang = cfg?.responseLanguage ?? "auto";
     setFeatures(f);
-    setInstructions(cfg?.customInstructions ?? "");
-    setLanguage(cfg?.responseLanguage ?? "auto");
+    setInstructions(instr);
+    setLanguage(lang);
+    initialRef.current = JSON.stringify({ features: f, instructions: instr, language: lang });
   }, [open, cfg]);
+
+  const dirty = JSON.stringify({ features, instructions, language }) !== initialRef.current;
+  useUnsavedChanges(open && dirty && !saving, () => setConfirmOpen(true));
+
+  function requestClose(next: boolean) {
+    if (!next && dirty && !saving) { setConfirmOpen(true); return; }
+    onOpenChange(next);
+  }
+  function discardAndClose() {
+    setConfirmOpen(false);
+    initialRef.current = JSON.stringify({ features, instructions, language }); // clear dirty
+    onOpenChange(false);
+  }
 
   async function save() {
     setSaving(true);
@@ -58,6 +82,7 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
       const data = await res.json();
       if (!data.success) throw new Error(typeof data.error === "string" ? data.error : "Save failed");
       toast.success("Assistant settings saved.");
+      initialRef.current = JSON.stringify({ features, instructions, language }); // no longer dirty
       mutate();
       onOpenChange(false);
     } catch (err: unknown) {
@@ -90,8 +115,13 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
   const canRewrite = !rewriting && !!instructions.trim();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+    <Sheet open={open} onOpenChange={requestClose}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-md overflow-y-auto"
+        onInteractOutside={(e) => { if (dirty && !saving) e.preventDefault(); }}
+        onEscapeKeyDown={(e) => { if (dirty && !saving) { e.preventDefault(); setConfirmOpen(true); } }}
+      >
         <SheetHeader>
           <SheetTitle>Assistant settings</SheetTitle>
         </SheetHeader>
@@ -168,6 +198,21 @@ export function AssistantSettingsSheet({ open, onOpenChange }: { open: boolean; 
           </Button>
         </div>
       </SheetContent>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your assistant settings have unsaved changes. Discard them and close?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction onClick={discardAndClose}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }

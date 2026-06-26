@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import Settings from "@/models/Settings";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import { sendWhatsAppMessage, uploadWhatsAppMedia, sendWhatsAppDocument, normalizePhone } from "@/lib/whatsapp";
-import { enterOrg } from "@/lib/tenant-context";
+import { guardWhatsApp } from "@/lib/whatsapp-route-guard";
 import type { WhatsAppConfig } from "@/types";
 import mongoose from "mongoose";
 
@@ -13,13 +12,9 @@ import mongoose from "mongoose";
 // If pdfBase64 is provided (production mode only): uploads PDF to 360dialog, sends document + text.
 // In sandbox mode: skips PDF (not supported), sends text only.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+  const g = await guardWhatsApp(req.method, { write: true, rate: { key: "wa:send-doc", limit: 60 } });
+  if (g instanceof NextResponse) return g;
+  const { userId } = g;
 
   const { phone, message, pdfBase64, filename } = await req.json() as {
     phone: string;

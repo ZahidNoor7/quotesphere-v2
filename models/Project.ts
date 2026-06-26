@@ -109,8 +109,8 @@ const projectSchema = new Schema<IProject>(
   { timestamps: true, versionKey: false }
 );
 
-projectSchema.index({ customer_id: 1, status: 1 });
-projectSchema.index({ status: 1, due_date: 1 });
+projectSchema.index({ org_id: 1, customer_id: 1, status: 1 });
+projectSchema.index({ org_id: 1, status: 1, due_date: 1 });
 projectSchema.index({ name: "text", customer_name: "text" });
 
 projectSchema.plugin(tenantScope);

@@ -15,7 +15,7 @@ import { recordAudit } from "@/lib/audit";
 const VALID_TYPES = ["invoices", "quotations", "expenses", "projects", "customers", "services", "all"] as const;
 type DeleteType = (typeof VALID_TYPES)[number];
 
-export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req: NextRequest) => {
+export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req: NextRequest, _ctx, { orgId }) => {
   try {
     const session = await auth();
     if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -29,6 +29,16 @@ export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req:
         success: false,
         error: "Invalid type. Use: invoices, quotations, expenses, projects, customers, services, or all",
       }, { status: 400 });
+    }
+
+    // Explicit confirmation guard — this is a destructive, irreversible bulk wipe.
+    // The caller must echo the type in `?confirm=<type>` so a stray/accidental
+    // (or CSRF-style) request can't blow away the org's data.
+    if (searchParams.get("confirm") !== type) {
+      return NextResponse.json(
+        { success: false, error: "Confirmation required: pass ?confirm=<type> to proceed." },
+        { status: 400 },
+      );
     }
 
     await connectDB();
@@ -54,7 +64,10 @@ export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req:
       results.services = (await Service.deleteMany({})).deletedCount;
     }
     if (type === "all") {
-      await Counter.deleteMany({});
+      // Counter is intentionally NOT tenant-plugin'd (it is keyed by an explicit
+      // org id), so scope the wipe to THIS org — an unscoped deleteMany({}) would
+      // reset every tenant's document-numbering sequences.
+      await Counter.deleteMany({ org_id: orgId });
       await Settings.findOneAndUpdate(
         {},
         {
@@ -82,4 +95,4 @@ export const DELETE = withTenant("DELETE /api/settings/bulk-delete", async (req:
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
-});
+}, { writeRole: "settings" }); // admin-only: destructive org-wide data wipe

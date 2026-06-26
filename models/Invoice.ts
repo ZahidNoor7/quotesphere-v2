@@ -158,14 +158,24 @@ const invoiceSchema = new Schema<IInvoice>(
   { timestamps: true, versionKey: false }
 );
 
-invoiceSchema.index({ customer_id: 1, createdAt: -1 });
-invoiceSchema.index({ payment_status: 1, due_date: 1 });
-invoiceSchema.index({ status: 1, issue_date: -1 });
+// Hot tenant-scoped queries — compound indexes lead with org_id so the planner
+// can use them (every query is org-filtered by the tenant plugin).
+invoiceSchema.index({ org_id: 1, customer_id: 1, createdAt: -1 });
+invoiceSchema.index({ org_id: 1, payment_status: 1, due_date: 1 });
+invoiceSchema.index({ org_id: 1, status: 1, issue_date: -1 });
 invoiceSchema.index({ invoice_no: "text", customer_name: "text" });
 
 invoiceSchema.plugin(tenantScope);
 // Document numbers are unique per organization, not globally.
 invoiceSchema.index({ org_id: 1, invoice_no: 1 }, { unique: true });
+// At most one invoice per source quotation per org — the DB-level guarantee that
+// backs the quotation→invoice convert flow against double-conversion (TOCTOU /
+// concurrent requests). Partial so directly-created invoices (no converted_from)
+// are exempt.
+invoiceSchema.index(
+  { org_id: 1, converted_from: 1 },
+  { unique: true, partialFilterExpression: { converted_from: { $exists: true } } }
+);
 
 invoiceSchema.pre("save", async function () {
   if (this.isNew && !this.invoice_no) {

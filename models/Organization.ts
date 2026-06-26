@@ -15,7 +15,10 @@ export interface IOrganization extends Document {
 const organizationSchema = new Schema<IOrganization>(
   {
     name: { type: String, required: true, trim: true },
-    owner_user_id: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    // Unique so a concurrent first-login (OAuth) can't bootstrap two orgs for the
+    // same owner — the second create fails E11000 and reuses the first (see
+    // lib/provisioning.ts::createOrgForUser).
+    owner_user_id: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
   },
   { timestamps: true, versionKey: false },
 );

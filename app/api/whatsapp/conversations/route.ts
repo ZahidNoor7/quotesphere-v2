@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { connectDB } from "@/lib/mongoose";
 import WhatsAppMessage from "@/models/WhatsAppMessage";
 import Customer from "@/models/Customer";
 import { normalizePhone } from "@/lib/whatsapp";
-import { enterOrg } from "@/lib/tenant-context";
+import { guardWhatsApp } from "@/lib/whatsapp-route-guard";
 
 type ConversationRow = {
   phone: string;
@@ -34,11 +33,8 @@ function previewLabel(type: string | undefined, body: string, filename?: string)
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+  const g = await guardWhatsApp("GET");
+  if (g instanceof NextResponse) return g;
 
   await connectDB();
 
@@ -115,11 +111,8 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const orgId = (session.user as { org_id?: string }).org_id;
-  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  enterOrg(orgId);
+  const g = await guardWhatsApp(req.method, { write: true });
+  if (g instanceof NextResponse) return g;
 
   const { searchParams } = new URL(req.url);
   const phone = searchParams.get("phone");

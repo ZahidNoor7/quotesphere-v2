@@ -39,7 +39,7 @@ export const PUT = withTenant("PUT /api/projects/[id]/milestones/[milestoneId]",
     const project = await Project.findOneAndUpdate(
       { _id: id, "milestones._id": milestoneId },
       { $set: setFields },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
@@ -69,7 +69,7 @@ export const DELETE = withTenant("DELETE /api/projects/[id]/milestones/[mileston
     const project = await Project.findByIdAndUpdate(
       id,
       { $pull: { milestones: { _id: milestoneId } } },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (!project) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     void recordAudit({ req, session, action: "update", resource: "project", resource_id: id, resource_label: `Milestone deleted: ${milestoneId}` });

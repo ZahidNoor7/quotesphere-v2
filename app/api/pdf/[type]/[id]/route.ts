@@ -6,6 +6,7 @@ import Invoice from "@/models/Invoice";
 import Quotation from "@/models/Quotation";
 import Payslip from "@/models/Payslip";
 import { requireRole } from "@/lib/rbac";
+import { rateLimit } from "@/lib/rate-limit";
 import { withTenant } from "@/lib/with-tenant";
 import { mintPrintToken, type PrintDocType } from "@/lib/print-token";
 import { getBrowser } from "@/lib/pdf/browser";
@@ -44,6 +45,10 @@ export const GET = withTenant(
       if (!session) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
       const denied = requireRole(session, "GET");
       if (denied) return denied;
+      // PDF rendering spins up headless Chrome — cap it per user.
+      const uidForRl = String((session.user as { id?: string } | undefined)?.id ?? "anon");
+      const rl = await rateLimit(`pdf:${uidForRl}`, 30, 60_000);
+      if (!rl.success) return NextResponse.json({ success: false, error: "Too many PDF requests — please wait a moment." }, { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } });
 
       const { type, id } = await params;
       if (type !== "invoice" && type !== "quotation" && type !== "payslip") {

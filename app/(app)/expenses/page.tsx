@@ -31,6 +31,7 @@ import { TableSkeleton } from "@/components/loaders";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsAdmin } from "@/hooks/use-role";
 import type { Expense } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -57,6 +58,7 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortableCol; sortCol: Sortab
 }
 
 export default function ExpensesPage() {
+  const isAdmin = useIsAdmin(); // gate the admin-only export tool
   const [searchInput, setSearchInput] = useState("");
   const [search,      setSearch]      = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,6 +186,7 @@ export default function ExpensesPage() {
       <div style={TOPBAR_STYLE}>
         <span style={{ fontSize: 15, fontWeight: 600, color: T1, letterSpacing: "-0.01em" }}>Expenses</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          {isAdmin && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -203,6 +206,7 @@ export default function ExpensesPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
           <Button asChild size="sm">
             <Link href="/expenses/new">+ Add expense</Link>
           </Button>

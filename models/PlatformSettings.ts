@@ -37,7 +37,7 @@ export async function getPlatformSettings(): Promise<IPlatformSettings> {
   const doc = await PlatformSettings.findOneAndUpdate(
     { key: "global" },
     { $setOnInsert: { key: "global" } },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
+    { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
   );
   return doc as IPlatformSettings;
 }

@@ -37,13 +37,23 @@ export const POST = withTenant("POST /api/payroll/runs/[id]/mark-paid", async (r
 
       await Payslip.updateMany({ payrollRunId: id }, { $set: { paymentStatus: "paid", paidAt } }, { session: dbSession });
 
-      // Decrement loan balances by what each payslip actually deducted.
+      // Decrement loan balances by what each payslip actually deducted. Aggregate
+      // the applied amounts per loan, then batch-load the loans (one query instead
+      // of one findById per payslip line) and apply each decrement.
       const slips = await Payslip.find({ payrollRunId: id }).select("appliedLoans").session(dbSession).lean();
+      const appliedByLoan = new Map<string, number>();
       for (const s of slips) {
         for (const al of s.appliedLoans ?? []) {
-          const loan = await LoanAdvance.findById(al.loanId).session(dbSession);
-          if (!loan) continue;
-          loan.remainingBalance = Math.max(0, loan.remainingBalance - al.amount);
+          const k = String(al.loanId);
+          appliedByLoan.set(k, (appliedByLoan.get(k) ?? 0) + al.amount);
+        }
+      }
+      if (appliedByLoan.size) {
+        // find() is tenant-scoped by the plugin, so only this org's loans load.
+        const loans = await LoanAdvance.find({ _id: { $in: [...appliedByLoan.keys()] } }).session(dbSession);
+        for (const loan of loans) {
+          const amount = appliedByLoan.get(String(loan._id)) ?? 0;
+          loan.remainingBalance = Math.max(0, loan.remainingBalance - amount);
           if (loan.remainingBalance <= 0) loan.status = "closed";
           await loan.save({ session: dbSession });
         }
